@@ -3,6 +3,7 @@ import { appConfigs } from "./app-configs";
 import { Configuration } from "./configuration";
 import { setupRoutes } from "./routes";
 import { ContainerRegistry } from "./container-registry";
+import cors from "cors";
 
 const run = async () => {
   const configuration = new Configuration();
@@ -12,6 +13,7 @@ const run = async () => {
   await videoService.start();
   const app = express();
   app.use(express.json());
+  app.use(cors());
   app.set("port", appConfigs.hostingPort);
 
   app.use(setupRoutes(container));
