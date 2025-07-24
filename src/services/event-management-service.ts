@@ -69,15 +69,30 @@ export class EventManagementService {
     }
 
     const gameId = idHelper.extractGameId(eventID).toString();
-    this.eventState.currentEvents[gameId] = updateEvent;
-    this.eventState.currentEvents[gameId].currentEventDetailIndex = 0;
+    this.eventState.currentEvents[gameId] = {
+      ...updateEvent,
+      currentEventDetailIndex: 0,
+      liveScore: "0:0",
+      currentPhase: JobName.ScheduleEvent,
+    };
+
+    const now = Date.now();
 
     updateEvent.eventDetails.forEach((eventDetail, index) => {
       this.handleOddsAvailableForEventDetail(eventDetail, index, gameId);
       this.handleVideoInfoAvailableForEventDetail(eventDetail, index, gameId);
       this.handleResultAvailableForEventDetail(eventDetail, index, gameId);
 
-      if (Date.now() > new Date(eventDetail.resultsAvailableTs).getTime()) {
+      if (now > new Date(eventDetail.oddsAvailableTs).getTime() && index > 0) {
+        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateOdds;
+      }
+
+      if (now > new Date(eventDetail.scheduleStartTs).getTime()) {
+        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateVideoInfo;
+      }
+
+      if (now > new Date(eventDetail.resultsAvailableTs).getTime()) {
+        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateResult;
         this.incrementCurrentEventDetailIndex(gameId);
       }
     });
@@ -99,8 +114,12 @@ export class EventManagementService {
     const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      this.eventState.currentEvents[gameId] = updateEvent;
-      this.eventState.currentEvents[gameId].currentEventDetailIndex = 0;
+      this.eventState.currentEvents[gameId] = {
+        ...updateEvent,
+        currentEventDetailIndex: 0,
+        liveScore: "0:0",
+        currentPhase: JobName.ScheduleEvent,
+      };
 
       updateEvent.eventDetails.forEach((eventDetail, index) => {
         this.handleOddsAvailableForEventDetail(eventDetail, index, gameId);
@@ -117,7 +136,7 @@ export class EventManagementService {
     const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateOdds);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      await this.handleUpdateEventDetail(eventDetail.eventID, gameId);
+      await this.handleUpdateEventDetail(eventDetail.eventID, gameId, JobName.UpdateOdds);
 
       this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateOdds, index);
     });
@@ -128,7 +147,7 @@ export class EventManagementService {
     const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateVideoInfo);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      await this.handleUpdateEventDetail(eventDetail.eventID, gameId);
+      await this.handleUpdateEventDetail(eventDetail.eventID, gameId, JobName.UpdateVideoInfo);
 
       this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
     });
@@ -139,7 +158,7 @@ export class EventManagementService {
     const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateResult);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      await this.handleUpdateEventDetail(eventDetail.eventID, gameId);
+      await this.handleUpdateEventDetail(eventDetail.eventID, gameId, JobName.UpdateResult);
 
       this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateResult, index);
 
@@ -147,14 +166,19 @@ export class EventManagementService {
     });
   }
 
-  async handleUpdateEventDetail(eventID: number, gameId: string) {
+  async handleUpdateEventDetail(eventID: number, gameId: string, phase: JobName) {
     const updateEvent = await this.oddsFeedService.getEventDetailsWithRetry(eventID);
 
     if (!updateEvent) {
       return;
     }
 
-    this.eventState.currentEvents[gameId] = updateEvent;
+    const currentEvent = this.eventState.currentEvents[gameId];
+    this.eventState.currentEvents[gameId] = {
+      ...currentEvent,
+      ...updateEvent,
+      currentPhase: phase,
+    };
   }
 
   incrementCurrentEventDetailIndex(gameId: string) {

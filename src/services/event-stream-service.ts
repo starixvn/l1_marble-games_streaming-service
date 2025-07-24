@@ -1,5 +1,4 @@
-import dayjs from "dayjs";
-import { AppContainer, Event, JobName, StreamingClient, EventStreamPayload } from "../types";
+import { AppContainer, JobName, StreamingClient, EventStreamPayload } from "../types";
 import { EventState } from "../stores/event-state";
 import { Response } from "express";
 import { appSettings } from "../app-settings";
@@ -20,32 +19,40 @@ export class EventStreamService {
   }
 
   broadcastEventDataToClients(gameId: string, eventJobName: JobName, eventDetailIndex: number): void {
-    const currentEvent = this.eventState.currentEvents[gameId].eventDetails[eventDetailIndex];
+    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEventDetail = currentEvent.eventDetails[eventDetailIndex];
     const clientsToBroadcast = this.clients[gameId];
+    const liveTimeMs = new Date().getTime() - new Date(currentEventDetail.scheduleStartTs).getTime();
+
+    if (eventJobName === JobName.UpdateVideoInfo && currentEventDetail.playlist === "") {
+      console.log(`No playlist for event ${currentEventDetail.eventID} index: ${eventDetailIndex}`);
+    }
 
     clientsToBroadcast.forEach((client) => {
       const payload: EventStreamPayload = {
         gameId: gameId,
-        eventId: currentEvent.eventID,
+        eventId: currentEventDetail.eventID,
         eventDetailIndex: eventDetailIndex,
-        playlist: currentEvent.playlist,
-        liveTimeMs: 0,
-        liveScore: "",
+        playlist: currentEventDetail.playlist,
+        liveTimeMs: liveTimeMs,
+        liveScore: currentEvent.liveScore,
         videoLength: 0,
         currentPhase: eventJobName,
         message: "Broadcasted updated data",
-        result: currentEvent.result,
+        result: currentEventDetail.result,
       };
 
       client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
     });
 
     console.log(
-      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} index: ${eventDetailIndex} and phase: ${eventJobName}`
+      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEventDetail.eventID} index: ${eventDetailIndex} and phase: ${eventJobName}`
     );
   }
 
   public async addClient(res: Response, gameId: string): Promise<void> {
+    console.log(`First connection for game ${gameId}`);
+
     if (!appSettings.gameIds.includes(gameId)) {
       console.error(`Game ${gameId} not supported`);
       res.write(`data: ${JSON.stringify({ message: "Game not supported" })}\n\n`);
@@ -71,15 +78,16 @@ export class EventStreamService {
         eventDetailIndex: currentEvent.currentEventDetailIndex,
         playlist: currentEventDetail.playlist,
         liveTimeMs: liveTimeMs,
-        liveScore: "",
+        liveScore: currentEvent.liveScore,
         videoLength: 0,
-        currentPhase: JobName.ScheduleEvent,
+        currentPhase: currentEvent.currentPhase,
         result: currentEventDetail.result,
         message: "First connection",
       };
 
-      console.log(`First connection for game ${gameId}`);
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } else {
+      console.log(`No current event detail for game ${gameId} index: ${currentEvent.currentEventDetailIndex}`);
     }
   }
 

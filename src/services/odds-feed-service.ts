@@ -1,13 +1,13 @@
 import { appConfigs } from "../app-configs";
 import { retry } from "../helpers/retry-helper";
-import { Event } from "../types";
+import { AppContainer, Event, EventValidator } from "../types";
 import { logger } from "sc-common";
 
 export class OddsFeedService {
   private readonly logService: typeof logger;
 
-  constructor(logService: typeof logger) {
-    this.logService = logService;
+  constructor(container: AppContainer) {
+    this.logService = container.logService;
   }
 
   private token = "";
@@ -29,7 +29,7 @@ export class OddsFeedService {
     return this.token;
   }
 
-  private async getSchedule() {
+  private async getSchedule(): Promise<Event[]> {
     const token = this.token || (await this.getOddsFeedToken());
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/schedule`, {
       method: "GET",
@@ -56,7 +56,7 @@ export class OddsFeedService {
     }
   }
 
-  private async getEventDetails(eventId: number): Promise<Event | null> {
+  private async getEventDetails(eventId: number, validator: EventValidator): Promise<Event | null> {
     const token = this.token || (await this.getOddsFeedToken());
 
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`, {
@@ -71,13 +71,19 @@ export class OddsFeedService {
     }
 
     const data = await response.json();
+
+    if (!validator(data)) {
+      throw new Error(`Invalid event details: ${data}`);
+    }
+
     return data;
   }
 
-  async getEventDetailsWithRetry(eventId: number): Promise<Event | null> {
+  async getEventDetailsWithRetry(eventId: number, validator: EventValidator = () => true): Promise<Event | null> {
     try {
-      return await retry(() => this.getEventDetails(eventId));
+      return await retry(() => this.getEventDetails(eventId, validator));
     } catch (error) {
+      console.error(`Failed to get event details: ${error}`);
       this.logService.logError(`Failed to get event details: ${error}`);
       return null;
     }

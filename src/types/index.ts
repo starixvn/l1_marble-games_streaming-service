@@ -32,7 +32,6 @@ export type Event = {
   productCode: string;
   productTypeKey: string;
   eventDetails: EventDetail[];
-  currentEventDetailIndex: number;
 };
 
 export type EventDetail = {
@@ -45,6 +44,12 @@ export type EventDetail = {
   playlist: string;
   result: string;
   selections: any;
+};
+
+export type EventStreamState = Event & {
+  currentEventDetailIndex: number;
+  liveScore: string;
+  currentPhase: JobName;
 };
 
 export interface Video {
@@ -75,3 +80,5 @@ export enum JobName {
 }
 
 export type StreamingClient = { res: Response; gameId: string };
+
+export type EventValidator = (data: Event) => boolean;

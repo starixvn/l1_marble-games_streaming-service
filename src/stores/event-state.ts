@@ -1,5 +1,5 @@
-import { Event } from "../types";
+import { EventStreamState } from "../types";
 
 export class EventState {
-  currentEvents: Record<string, Event> = {};
+  currentEvents: Record<string, EventStreamState> = {};
 }
