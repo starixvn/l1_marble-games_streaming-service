@@ -13,9 +13,7 @@ export function setupRoutes(container: AwilixContainer<AppContainer>): Router {
 
   router.post("/api/token", (req, res) => authController.login(req, res));
 
-  router.get("/live/:gameId", (req, res) =>
-    eventStreamController.handleEventStreamConnection(req, res)
-  );
+  router.get("/live/:gameId", (req, res) => eventStreamController.handleEventStreamConnection(req, res));
 
   return router;
 }

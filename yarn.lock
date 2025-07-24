@@ -4695,6 +4695,11 @@ posix-character-classes@^0.1.0:
   resolved "http://npm.lumigame.com/posix-character-classes/-/posix-character-classes-0.1.1.tgz#01eac0fe3b5af71a2a6c02feabb8c1fef7e00eab"
   integrity sha1-AerA/jta9xoqbAL+q7jB/vfgDqs=
 
+prettier@^3.6.2:
+  version "3.6.2"
+  resolved "http://npm.lumigame.com/prettier/-/prettier-3.6.2.tgz#ccda02a1003ebbb2bfda6f83a074978f608b9393"
+  integrity sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ==
+
 pretty-format@^26.0.0, pretty-format@^26.6.2:
   version "26.6.2"
   resolved "http://npm.lumigame.com/pretty-format/-/pretty-format-26.6.2.tgz#e35c2705f14cb7fe2fe94fa078345b444120fc93"

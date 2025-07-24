@@ -19,9 +19,7 @@ const run = async () => {
   app.use(setupRoutes(container));
 
   const server = app.listen(appConfigs.hostingPort, () => {
-    console.log(
-      `SSE server running at http://localhost:${appConfigs.hostingPort}`
-    );
+    console.log(`SSE server running at http://localhost:${appConfigs.hostingPort}`);
   });
 
   // Graceful shutdown
@@ -38,9 +36,7 @@ const run = async () => {
 
     // Force exit after 10 seconds
     setTimeout(() => {
-      console.error(
-        "Could not close connections in time, forcefully shutting down"
-      );
+      console.error("Could not close connections in time, forcefully shutting down");
       process.exit(1);
     }, 10000);
   };

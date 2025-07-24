@@ -1,5 +1,5 @@
 import { appConfigs } from "../app-configs";
-import { retry } from "../helpers/retry";
+import { retry } from "../helpers/retry-helper";
 import { Event } from "../types";
 import { logger } from "sc-common";
 
@@ -59,15 +59,12 @@ export class OddsFeedService {
   private async getEventDetails(eventId: number): Promise<Event | null> {
     const token = this.token || (await this.getOddsFeedToken());
 
-    const response = await fetch(
-      `${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (response.status !== 200) {
       throw new Error(`Failed to get event details: ${response.status}`);

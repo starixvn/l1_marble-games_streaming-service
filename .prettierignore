@@ -1,0 +1,47 @@
+# Build outputs
+build/
+dist/
+*.min.js
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+
+# CI/CD files
+.gitlab-ci.yml
+*.yaml
+*.yml
+
+# Package files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Test coverage
+coverage/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp

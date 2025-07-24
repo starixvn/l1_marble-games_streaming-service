@@ -17,7 +17,10 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest --testPathPattern=tests/unit-tests/",
-    "test-coverage": "jest --collect-coverage --testPathPattern=tests/unit-tests/"
+    "test-coverage": "jest --collect-coverage --testPathPattern=tests/unit-tests/",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "lint": "npm run format:check"
   },
   "jestSonar": {
     "reportPath": "reports",
@@ -52,6 +55,7 @@
     "jest-junit": "^16.0.0",
     "jest-micro-auto-stub": "^1.0.9",
     "jest-sonar-reporter": "^2.0.0",
+    "prettier": "^3.6.2",
     "ts-jest": "^29.3.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",

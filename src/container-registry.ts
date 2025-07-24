@@ -1,10 +1,4 @@
-import {
-  asClass,
-  asValue,
-  AwilixContainer,
-  createContainer,
-  InjectionMode,
-} from "awilix";
+import { asClass, asValue, AwilixContainer, createContainer, InjectionMode } from "awilix";
 import { EventStreamService } from "./services/event-stream-service";
 import { AppContainer } from "./types";
 import { AuthenticateService } from "./services/authenticate-service";

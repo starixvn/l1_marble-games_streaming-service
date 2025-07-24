@@ -1,28 +1,7 @@
-import { Response } from "express";
 import dayjs from "dayjs";
-import { AppContainer, Event } from "../types";
+import { AppContainer, Event, StreamingClient, VideoPayload } from "../types";
 import { EventState } from "../stores/event-state";
-
-export type StreamingClient = { res: Response; gameId: string };
-
-export interface Video {
-  url: string;
-  length: number;
-  startTime: Date;
-  gameId: string;
-}
-
-export interface VideoPayload {
-  eventId: number;
-  eventDetailIndex: number;
-  videoUrl: string;
-  videoStartTime: string;
-  videoPlayingTime: number;
-  videoLength: number;
-  result: any;
-  message?: string;
-  gameId?: string;
-}
+import { Response } from "express";
 
 export class EventStreamService {
   private clients: StreamingClient[] = [];
@@ -35,9 +14,7 @@ export class EventStreamService {
 
   broadcastVideo(productCode: string, event: Event, message: string): void {
     const currentEvent = event.eventDetails[event.currentEventDetailIndex];
-    const clientsForProduct = this.clients.filter(
-      (client) => client.gameId === productCode
-    );
+    const clientsForProduct = this.clients.filter((client) => client.gameId === productCode);
     console.log(
       `Sent video to ${clientsForProduct.length} client(s) for product: ${productCode} with eventID: ${currentEvent.eventID} index: ${event.currentEventDetailIndex} and message: ${message}`
     );
@@ -62,15 +39,11 @@ export class EventStreamService {
     this.clients.push({ res, gameId });
 
     const currentEvent = this.eventState.currentEvents[gameId];
-    const currentEventDetail =
-      currentEvent.eventDetails[currentEvent.currentEventDetailIndex];
+    const currentEventDetail = currentEvent.eventDetails[currentEvent.currentEventDetailIndex];
 
     if (currentEventDetail) {
       const now = dayjs();
-      const secondsPassed = now.diff(
-        currentEventDetail.scheduleStartTs,
-        "second"
-      );
+      const secondsPassed = now.diff(currentEventDetail.scheduleStartTs, "second");
 
       const payload: VideoPayload = {
         message: "Broadcasted video on first connection",
@@ -89,9 +62,7 @@ export class EventStreamService {
     }
 
     if (!currentEvent) {
-      res.write(
-        `data: ${JSON.stringify({ message: "No video found for game" })}\n\n`
-      );
+      res.write(`data: ${JSON.stringify({ message: "No video found for game" })}\n\n`);
       res.end();
     }
   }

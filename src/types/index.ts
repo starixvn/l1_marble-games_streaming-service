@@ -8,6 +8,7 @@ import { logger } from "sc-common";
 import { EventManagementService } from "../services/event-management-service";
 import { EventState } from "../stores/event-state";
 import { JobScheduler } from "../services/job-scheduler";
+import { Response } from "express";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
@@ -45,3 +46,24 @@ export type EventDetail = {
   result: any;
   selections: any;
 };
+
+export interface Video {
+  url: string;
+  length: number;
+  startTime: Date;
+  gameId: string;
+}
+
+export interface VideoPayload {
+  eventId: number;
+  eventDetailIndex: number;
+  videoUrl: string;
+  videoStartTime: string;
+  videoPlayingTime: number;
+  videoLength: number;
+  result: any;
+  message?: string;
+  gameId?: string;
+}
+
+export type StreamingClient = { res: Response; gameId: string };
