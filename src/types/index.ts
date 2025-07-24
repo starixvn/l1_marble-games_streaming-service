@@ -43,7 +43,7 @@ export type EventDetail = {
   hasResults: boolean;
   goalInfo: string;
   playlist: string;
-  result: any;
+  result: string;
   selections: any;
 };
 
@@ -54,16 +54,24 @@ export interface Video {
   gameId: string;
 }
 
-export interface VideoPayload {
+export interface EventStreamPayload {
+  gameId: string;
   eventId: number;
   eventDetailIndex: number;
-  videoUrl: string;
-  videoStartTime: string;
-  videoPlayingTime: number;
+  playlist: string;
+  liveTimeMs: number;
+  liveScore: string;
   videoLength: number;
-  result: any;
-  message?: string;
-  gameId?: string;
+  currentPhase: JobName;
+  result: string;
+  message: string;
+}
+
+export enum JobName {
+  ScheduleEvent = "ScheduleEvent",
+  UpdateOdds = "UpdateOdds",
+  UpdateVideoInfo = "UpdateVideoInfo",
+  UpdateResult = "UpdateResult",
 }
 
 export type StreamingClient = { res: Response; gameId: string };

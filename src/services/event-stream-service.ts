@@ -1,88 +1,101 @@
 import dayjs from "dayjs";
-import { AppContainer, Event, StreamingClient, VideoPayload } from "../types";
+import { AppContainer, Event, JobName, StreamingClient, EventStreamPayload } from "../types";
 import { EventState } from "../stores/event-state";
 import { Response } from "express";
+import { appSettings } from "../app-settings";
+import { logger } from "sc-common";
 
 export class EventStreamService {
-  private clients: StreamingClient[] = [];
-  private intervalId: NodeJS.Timeout | null = null;
+  private clients: Record<string, StreamingClient[]> = {};
   private readonly eventState: EventState;
+  private readonly logService: typeof logger;
 
   constructor(container: AppContainer) {
     this.eventState = container.eventState;
+    this.logService = container.logService;
+
+    appSettings.gameIds.forEach((gameId) => {
+      this.clients[gameId] = [];
+    });
   }
 
-  broadcastVideo(productCode: string, event: Event, message: string): void {
+  broadcastEventDataToClients(gameId: string, event: Event, eventJobName: JobName): void {
     const currentEvent = event.eventDetails[event.currentEventDetailIndex];
-    const clientsForProduct = this.clients.filter((client) => client.gameId === productCode);
-    console.log(
-      `Sent video to ${clientsForProduct.length} client(s) for product: ${productCode} with eventID: ${currentEvent.eventID} index: ${event.currentEventDetailIndex} and message: ${message}`
-    );
+    const clientsToBroadcast = this.clients[gameId];
 
-    clientsForProduct.forEach((client) => {
-      const payload: VideoPayload = {
+    clientsToBroadcast.forEach((client) => {
+      const payload: EventStreamPayload = {
+        gameId: gameId,
         eventId: currentEvent.eventID,
         eventDetailIndex: event.currentEventDetailIndex,
-        videoUrl: currentEvent.playlist,
-        videoStartTime: currentEvent.scheduleStartTs,
-        videoPlayingTime: 0,
+        playlist: currentEvent.playlist,
+        liveTimeMs: 0,
+        liveScore: "",
         videoLength: 0,
-        message: message,
+        currentPhase: eventJobName,
+        message: "Broadcasted updated data",
         result: currentEvent.result,
       };
 
       client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
     });
+
+    console.log(
+      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} index: ${event.currentEventDetailIndex} and phase: ${eventJobName}`
+    );
   }
 
   public async addClient(res: Response, gameId: string): Promise<void> {
-    this.clients.push({ res, gameId });
-
-    const currentEvent = this.eventState.currentEvents[gameId];
-    const currentEventDetail = currentEvent.eventDetails[currentEvent.currentEventDetailIndex];
-
-    if (currentEventDetail) {
-      const now = dayjs();
-      const secondsPassed = now.diff(currentEventDetail.scheduleStartTs, "second");
-
-      const payload: VideoPayload = {
-        message: "Broadcasted video on first connection",
-        eventId: currentEventDetail.eventID,
-        eventDetailIndex: currentEvent.currentEventDetailIndex,
-        videoUrl: currentEventDetail.playlist,
-        videoStartTime: currentEventDetail.scheduleStartTs,
-        videoLength: 0,
-        videoPlayingTime: secondsPassed,
-        gameId: gameId,
-        result: currentEventDetail.result,
-      };
-
-      console.log(`Broadcasted video on first connection for game ${gameId}`);
-      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    if (!appSettings.gameIds.includes(gameId)) {
+      console.error(`Game ${gameId} not supported`);
+      res.write(`data: ${JSON.stringify({ message: "Game not supported" })}\n\n`);
+      res.end();
+      return;
     }
 
-    if (!currentEvent) {
-      res.write(`data: ${JSON.stringify({ message: "No video found for game" })}\n\n`);
-      res.end();
+    if (!this.clients[gameId]) {
+      this.clients[gameId] = [];
+    }
+
+    this.clients[gameId].push({ res, gameId });
+
+    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEventDetail = currentEvent?.eventDetails[currentEvent?.currentEventDetailIndex];
+
+    if (currentEventDetail) {
+      const liveTimeMs = new Date().getTime() - new Date(currentEventDetail.scheduleStartTs).getTime();
+
+      const payload: EventStreamPayload = {
+        gameId: gameId,
+        eventId: currentEventDetail.eventID,
+        eventDetailIndex: currentEvent.currentEventDetailIndex,
+        playlist: currentEventDetail.playlist,
+        liveTimeMs: liveTimeMs,
+        liveScore: "",
+        videoLength: 0,
+        currentPhase: JobName.ScheduleEvent,
+        result: currentEventDetail.result,
+        message: "First connection",
+      };
+
+      console.log(`First connection for game ${gameId}`);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
     }
   }
 
-  public removeClient(res: Response): void {
-    this.clients = this.clients.filter((client) => client.res !== res);
+  public removeClient(res: Response, gameId: string): void {
+    if (!this.clients[gameId]) {
+      return;
+    }
+
+    this.clients[gameId] = this.clients[gameId].filter((client) => client.res !== res);
   }
 
   public getClientCount(): number {
-    return this.clients.length;
+    return Object.values(this.clients).reduce((acc, clients) => acc + clients.length, 0);
   }
 
   public getClientCountForGame(gameId: string): number {
-    return this.clients.filter((client) => client.gameId === gameId).length;
-  }
-
-  public cleanup(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
+    return this.clients[gameId]?.length || 0;
   }
 }

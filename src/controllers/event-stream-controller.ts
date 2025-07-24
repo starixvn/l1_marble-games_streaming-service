@@ -26,7 +26,7 @@ export class EventStreamController {
     this.eventStreamService.addClient(res, gameId);
 
     req.on("close", () => {
-      this.eventStreamService.removeClient(res);
+      this.eventStreamService.removeClient(res, gameId);
     });
   }
 }
