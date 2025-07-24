@@ -43,7 +43,7 @@ export type EventDetail = {
   goalInfo: string;
   playlist: string;
   result: string;
-  selections: any;
+  markets: any;
 };
 
 export type EventStreamState = Event & {

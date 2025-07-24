@@ -73,7 +73,8 @@ export class OddsFeedService {
     const data = await response.json();
 
     if (!validator(data)) {
-      throw new Error(`Invalid event details: ${data}`);
+      this.logService.logError(`Error missing data for event ${eventId}, attempt retry...`);
+      throw new Error(`Invalid event details: ${eventId}`);
     }
 
     return data;
@@ -83,8 +84,7 @@ export class OddsFeedService {
     try {
       return await retry(() => this.getEventDetails(eventId, validator));
     } catch (error) {
-      console.error(`Failed to get event details: ${error}`);
-      this.logService.logError(`Failed to get event details: ${error}`);
+      this.logService.logError(`Failed to get event details of event ${eventId} with error: ${error}`);
       return null;
     }
   }
