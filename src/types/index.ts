@@ -1,25 +1,25 @@
 import { AuthController } from "../controllers/auth-controller";
 import { HealthController } from "../controllers/health-controller";
-import { SSEController } from "../controllers/sse-controller";
+import { EventStreamController } from "../controllers/event-stream-controller";
 import { AuthenticateService } from "../services/authenticate-service";
-import { ScheduleService } from "../services/schedule-service";
-import { SSEService } from "../services/sse-service";
+import { OddsFeedService } from "../services/odds-feed-service";
+import { EventStreamService } from "../services/event-stream-service";
 import { logger } from "sc-common";
-import { VideoService } from "../services/video-service";
-import { StreamingData } from "../services/streaming-data";
-import { BroadcastScheduler } from "../services/broadcast-scheduler";
+import { EventManagementService } from "../services/event-management-service";
+import { EventState } from "../stores/event-state";
+import { JobScheduler } from "../services/job-scheduler";
 
 export interface AppContainer {
-  sseService: SSEService;
+  eventStreamService: EventStreamService;
   authenticateService: AuthenticateService;
-  scheduleService: ScheduleService;
+  oddsFeedService: OddsFeedService;
   logService: typeof logger;
   authController: AuthController;
-  sseController: SSEController;
+  eventStreamController: EventStreamController;
   healthController: HealthController;
-  videoService: VideoService;
-  streamingData: StreamingData;
-  broadcastScheduler: BroadcastScheduler;
+  eventManagementService: EventManagementService;
+  eventState: EventState;
+  jobScheduler: JobScheduler;
 }
 
 export type Event = {

@@ -5,7 +5,7 @@ import { AwilixContainer } from "awilix";
 
 export function setupRoutes(container: AwilixContainer<AppContainer>): Router {
   const router = Router();
-  const sseController = container.resolve("sseController");
+  const eventStreamController = container.resolve("eventStreamController");
   const healthController = container.resolve("healthController");
   const authController = container.resolve("authController");
 
@@ -13,7 +13,9 @@ export function setupRoutes(container: AwilixContainer<AppContainer>): Router {
 
   router.post("/api/token", (req, res) => authController.login(req, res));
 
-  router.get("/live/:gameId", (req, res) => sseController.handleSSEConnection(req, res));
+  router.get("/live/:gameId", (req, res) =>
+    eventStreamController.handleEventStreamConnection(req, res)
+  );
 
   return router;
 }

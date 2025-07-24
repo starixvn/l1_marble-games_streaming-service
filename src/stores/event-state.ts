@@ -1,5 +1,5 @@
 import { Event } from "../types";
 
-export class StreamingData {
+export class EventState {
   currentEvents: Record<string, Event> = {};
 }

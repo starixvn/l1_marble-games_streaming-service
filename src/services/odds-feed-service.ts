@@ -3,7 +3,7 @@ import { retry } from "../helpers/retry";
 import { Event } from "../types";
 import { logger } from "sc-common";
 
-export class ScheduleService {
+export class OddsFeedService {
   private readonly logService: typeof logger;
 
   constructor(logService: typeof logger) {
@@ -59,12 +59,15 @@ export class ScheduleService {
   private async getEventDetails(eventId: number): Promise<Event | null> {
     const token = this.token || (await this.getOddsFeedToken());
 
-    const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(
+      `${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (response.status !== 200) {
       throw new Error(`Failed to get event details: ${response.status}`);

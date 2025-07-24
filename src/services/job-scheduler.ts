@@ -5,7 +5,7 @@ export type JobHandle = {
   name: string;
 };
 
-export class BroadcastScheduler {
+export class JobScheduler {
   private jobs: Map<string, JobHandle> = new Map();
   private readonly logService: typeof logger;
 

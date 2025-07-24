@@ -1,15 +1,21 @@
-import { asClass, asValue, AwilixContainer, createContainer, InjectionMode } from "awilix";
-import { SSEService } from "./services/sse-service";
+import {
+  asClass,
+  asValue,
+  AwilixContainer,
+  createContainer,
+  InjectionMode,
+} from "awilix";
+import { EventStreamService } from "./services/event-stream-service";
 import { AppContainer } from "./types";
 import { AuthenticateService } from "./services/authenticate-service";
-import { ScheduleService } from "./services/schedule-service";
+import { OddsFeedService } from "./services/odds-feed-service";
 import { AuthController } from "./controllers/auth-controller";
-import { SSEController } from "./controllers/sse-controller";
+import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
 import { logger } from "sc-common";
-import { VideoService } from "./services/video-service";
-import { StreamingData } from "./services/streaming-data";
-import { BroadcastScheduler } from "./services/broadcast-scheduler";
+import { EventManagementService } from "./services/event-management-service";
+import { EventState } from "./stores/event-state";
+import { JobScheduler } from "./services/job-scheduler";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -22,18 +28,21 @@ export class ContainerRegistry {
 
   register() {
     this.container.register({
-      sseService: asClass(SSEService).singleton(),
+      eventState: asClass(EventState).singleton(),
+    });
+
+    this.container.register({
+      eventStreamService: asClass(EventStreamService).singleton(),
       authenticateService: asClass(AuthenticateService).singleton(),
-      scheduleService: asClass(ScheduleService).singleton(),
+      oddsFeedService: asClass(OddsFeedService).singleton(),
       logService: asValue(logger),
-      videoService: asClass(VideoService).singleton(),
-      streamingData: asClass(StreamingData).singleton(),
-      broadcastScheduler: asClass(BroadcastScheduler).singleton(),
+      eventManagementService: asClass(EventManagementService).singleton(),
+      jobScheduler: asClass(JobScheduler).singleton(),
     });
 
     this.container.register({
       authController: asClass(AuthController).singleton(),
-      sseController: asClass(SSEController).singleton(),
+      eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
     });
 

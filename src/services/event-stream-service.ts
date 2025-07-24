@@ -1,9 +1,9 @@
 import { Response } from "express";
 import dayjs from "dayjs";
 import { AppContainer, Event } from "../types";
-import { StreamingData } from "./streaming-data";
+import { EventState } from "../stores/event-state";
 
-export type SSEClient = { res: Response; gameId: string };
+export type StreamingClient = { res: Response; gameId: string };
 
 export interface Video {
   url: string;
@@ -24,18 +24,20 @@ export interface VideoPayload {
   gameId?: string;
 }
 
-export class SSEService {
-  private clients: SSEClient[] = [];
+export class EventStreamService {
+  private clients: StreamingClient[] = [];
   private intervalId: NodeJS.Timeout | null = null;
-  private readonly streamingData: StreamingData;
+  private readonly eventState: EventState;
 
   constructor(container: AppContainer) {
-    this.streamingData = container.streamingData;
+    this.eventState = container.eventState;
   }
 
   broadcastVideo(productCode: string, event: Event, message: string): void {
     const currentEvent = event.eventDetails[event.currentEventDetailIndex];
-    const clientsForProduct = this.clients.filter((client) => client.gameId === productCode);
+    const clientsForProduct = this.clients.filter(
+      (client) => client.gameId === productCode
+    );
     console.log(
       `Sent video to ${clientsForProduct.length} client(s) for product: ${productCode} with eventID: ${currentEvent.eventID} index: ${event.currentEventDetailIndex} and message: ${message}`
     );
@@ -59,12 +61,16 @@ export class SSEService {
   public async addClient(res: Response, gameId: string): Promise<void> {
     this.clients.push({ res, gameId });
 
-    const currentEvent = this.streamingData.currentEvents[gameId];
-    const currentEventDetail = currentEvent.eventDetails[currentEvent.currentEventDetailIndex];
+    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEventDetail =
+      currentEvent.eventDetails[currentEvent.currentEventDetailIndex];
 
     if (currentEventDetail) {
       const now = dayjs();
-      const secondsPassed = now.diff(currentEventDetail.scheduleStartTs, "second");
+      const secondsPassed = now.diff(
+        currentEventDetail.scheduleStartTs,
+        "second"
+      );
 
       const payload: VideoPayload = {
         message: "Broadcasted video on first connection",
@@ -83,7 +89,9 @@ export class SSEService {
     }
 
     if (!currentEvent) {
-      res.write(`data: ${JSON.stringify({ message: "No video found for game" })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ message: "No video found for game" })}\n\n`
+      );
       res.end();
     }
   }

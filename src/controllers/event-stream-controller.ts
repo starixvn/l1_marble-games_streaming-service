@@ -1,15 +1,15 @@
 import { Request, Response } from "express";
-import { SSEService } from "../services/sse-service";
+import { EventStreamService } from "../services/event-stream-service";
 import { AppContainer } from "../types";
 
-export class SSEController {
-  private readonly sseService: SSEService;
+export class EventStreamController {
+  private readonly eventStreamService: EventStreamService;
 
   constructor(container: AppContainer) {
-    this.sseService = container.sseService;
+    this.eventStreamService = container.eventStreamService;
   }
 
-  public handleSSEConnection(req: Request, res: Response): void {
+  public handleEventStreamConnection(req: Request, res: Response): void {
     const gameId = req.params.gameId;
 
     if (!gameId) {
@@ -23,10 +23,10 @@ export class SSEController {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.flushHeaders();
 
-    this.sseService.addClient(res, gameId);
+    this.eventStreamService.addClient(res, gameId);
 
     req.on("close", () => {
-      this.sseService.removeClient(res);
+      this.eventStreamService.removeClient(res);
     });
   }
 }

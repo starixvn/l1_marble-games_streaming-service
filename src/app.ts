@@ -9,8 +9,8 @@ const run = async () => {
   const configuration = new Configuration();
   await configuration.configureDatabaseAndSentry(appConfigs);
   const container = new ContainerRegistry().register();
-  const videoService = container.resolve("videoService");
-  await videoService.start();
+  const eventManagementService = container.resolve("eventManagementService");
+  await eventManagementService.start();
   const app = express();
   app.use(express.json());
   app.use(cors());
@@ -19,7 +19,9 @@ const run = async () => {
   app.use(setupRoutes(container));
 
   const server = app.listen(appConfigs.hostingPort, () => {
-    console.log(`SSE server running at http://localhost:${appConfigs.hostingPort}`);
+    console.log(
+      `SSE server running at http://localhost:${appConfigs.hostingPort}`
+    );
   });
 
   // Graceful shutdown
@@ -27,7 +29,7 @@ const run = async () => {
     console.log(`Received ${signal}. Starting graceful shutdown...`);
 
     // Clean up broadcast jobs
-    videoService.cleanup();
+    eventManagementService.cleanup();
 
     server.close(() => {
       console.log("HTTP server closed");
@@ -36,7 +38,9 @@ const run = async () => {
 
     // Force exit after 10 seconds
     setTimeout(() => {
-      console.error("Could not close connections in time, forcefully shutting down");
+      console.error(
+        "Could not close connections in time, forcefully shutting down"
+      );
       process.exit(1);
     }, 10000);
   };
