@@ -19,15 +19,15 @@ export class EventStreamService {
     });
   }
 
-  broadcastEventDataToClients(gameId: string, event: Event, eventJobName: JobName): void {
-    const currentEvent = event.eventDetails[event.currentEventDetailIndex];
+  broadcastEventDataToClients(gameId: string, eventJobName: JobName, eventDetailIndex: number): void {
+    const currentEvent = this.eventState.currentEvents[gameId].eventDetails[eventDetailIndex];
     const clientsToBroadcast = this.clients[gameId];
 
     clientsToBroadcast.forEach((client) => {
       const payload: EventStreamPayload = {
         gameId: gameId,
         eventId: currentEvent.eventID,
-        eventDetailIndex: event.currentEventDetailIndex,
+        eventDetailIndex: eventDetailIndex,
         playlist: currentEvent.playlist,
         liveTimeMs: 0,
         liveScore: "",
@@ -41,7 +41,7 @@ export class EventStreamService {
     });
 
     console.log(
-      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} index: ${event.currentEventDetailIndex} and phase: ${eventJobName}`
+      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} index: ${eventDetailIndex} and phase: ${eventJobName}`
     );
   }
 

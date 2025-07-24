@@ -16,7 +16,7 @@ export class JobScheduler {
   scheduleJob(name: string, time: Date, callback: () => Promise<void>) {
     const delay = time.getTime() - Date.now();
 
-    if (delay <= 0) {
+    if (delay < 0) {
       console.log(`Scheduled time is in the past for job ${name}`);
       return;
     }
