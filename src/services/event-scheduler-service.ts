@@ -5,20 +5,20 @@ import { OddsFeedService } from "./odds-feed-service";
 import { appSettings } from "../app-settings";
 import { EventStreamService } from "./event-stream-service";
 import { idHelper } from "../helpers";
-import { EventStateManager } from "../stores/event-state-manager";
+import { EventManager } from "../stores/event-manager";
 
 export class EventSchedulerService {
   private readonly jobScheduler: JobScheduler;
   private readonly oddsFeedService: OddsFeedService;
   private readonly eventStreamService: EventStreamService;
-  private readonly eventStateManager: EventStateManager;
+  private readonly eventManager: EventManager;
   private readonly logService: typeof logger;
 
   constructor(container: AppContainer) {
     this.jobScheduler = container.jobScheduler;
     this.oddsFeedService = container.oddsFeedService;
     this.eventStreamService = container.eventStreamService;
-    this.eventStateManager = container.eventStateManager;
+    this.eventManager = container.eventManager;
     this.logService = container.logService;
   }
 
@@ -44,7 +44,7 @@ export class EventSchedulerService {
     const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      this.eventStateManager.initializeCurrentEvent(updateEvent);
+      this.eventManager.initializeCurrentEvent(updateEvent);
 
       this.scheduleEventDetails(updateEvent);
 
@@ -93,7 +93,7 @@ export class EventSchedulerService {
 
       this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateResult, index);
 
-      this.eventStateManager.incrementCurrentEventDetailIndex(gameId);
+      this.eventManager.incrementCurrentEventDetailIndex(gameId);
     });
   }
 
@@ -106,7 +106,7 @@ export class EventSchedulerService {
       return;
     }
 
-    this.eventStateManager.updateCurrentEventDetail(updateEvent, phase, eventDetailIndex);
+    this.eventManager.updateCurrentEventDetail(updateEvent, phase, eventDetailIndex);
   }
 
   generateJobId(gameId: string, eventId: number, index: number, jobName: JobName) {

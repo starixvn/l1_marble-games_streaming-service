@@ -1,41 +1,41 @@
 import { AppContainer, Event, JobName, EventStreamState } from "../types";
-import { EventState } from "../stores/event-state";
+import { EventStore } from "./event-store";
 import { idHelper } from "../helpers";
 
-export class EventStateManager {
-  private readonly eventState: EventState;
+export class EventManager {
+  private readonly eventStore: EventStore;
 
   constructor(container: AppContainer) {
-    this.eventState = container.eventState;
+    this.eventStore = container.eventStore;
   }
 
   async initializeCurrentEvent(event: Event): Promise<void> {
     const gameId = idHelper.extractGameId(event.eventID);
 
-    this.eventState.currentEvents[gameId] = {
+    this.eventStore.setCurrentEventForGame(gameId, {
       ...event,
       currentEventDetailIndex: 0,
       liveScore: "0:0",
       currentPhase: JobName.ScheduleEvent,
-    };
+    });
   }
 
   async initializePhaseForCurrentEvent(eventID: number) {
     const gameId = idHelper.extractGameId(eventID);
-    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
     const now = Date.now();
 
     currentEvent.eventDetails.forEach((eventDetail, index) => {
       if (now > new Date(eventDetail.oddsAvailableTs).getTime() && index > 0) {
-        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateOdds;
+        this.eventStore.setCurrentEventPhaseForGame(gameId, JobName.UpdateOdds);
       }
 
       if (now > new Date(eventDetail.scheduleStartTs).getTime()) {
-        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateVideoInfo;
+        this.eventStore.setCurrentEventPhaseForGame(gameId, JobName.UpdateVideoInfo);
       }
 
       if (now > new Date(eventDetail.resultsAvailableTs).getTime()) {
-        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateResult;
+        this.eventStore.setCurrentEventPhaseForGame(gameId, JobName.UpdateResult);
         this.incrementCurrentEventDetailIndex(gameId);
       }
     });
@@ -44,7 +44,7 @@ export class EventStateManager {
   async updateCurrentEventDetail(updateEvent: Event, phase: JobName, eventDetailIndex: number): Promise<void> {
     const gameId = idHelper.extractGameId(updateEvent.eventID);
 
-    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
 
     currentEvent.eventDetails[eventDetailIndex] = updateEvent.eventDetails[eventDetailIndex];
 
@@ -52,19 +52,11 @@ export class EventStateManager {
   }
 
   incrementCurrentEventDetailIndex(gameId: string): void {
-    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
 
     currentEvent.currentEventDetailIndex = Math.min(
       currentEvent.currentEventDetailIndex + 1,
       currentEvent.eventDetails.length - 1
     );
-  }
-
-  getCurrentEvent(gameId: string): EventStreamState {
-    return this.eventState.currentEvents[gameId];
-  }
-
-  getAllCurrentEvents(): Record<string, Event> {
-    return this.eventState.currentEvents;
   }
 }

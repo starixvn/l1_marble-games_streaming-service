@@ -1,16 +1,16 @@
 import { AppContainer, JobName, StreamingClient, EventStreamPayload } from "../types";
-import { EventState } from "../stores/event-state";
+import { EventStore } from "../stores/event-store";
 import { Response } from "express";
 import { appSettings } from "../app-settings";
 import { logger } from "sc-common";
 
 export class EventStreamService {
   private clients: Record<string, StreamingClient[]> = {};
-  private readonly eventState: EventState;
+  private readonly eventStore: EventStore;
   private readonly logService: typeof logger;
 
   constructor(container: AppContainer) {
-    this.eventState = container.eventState;
+    this.eventStore = container.eventStore;
     this.logService = container.logService;
 
     appSettings.gameIds.forEach((gameId) => {
@@ -19,7 +19,7 @@ export class EventStreamService {
   }
 
   broadcastEventDataToClients(gameId: string, eventJobName: JobName, eventDetailIndex: number): void {
-    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
     const currentEventDetail = currentEvent.eventDetails[eventDetailIndex];
     const clientsToBroadcast = this.clients[gameId];
     const liveTimeMs = new Date().getTime() - new Date(currentEventDetail.scheduleStartTs).getTime();
@@ -66,7 +66,7 @@ export class EventStreamService {
 
     this.clients[gameId].push({ res, gameId });
 
-    const currentEvent = this.eventState.currentEvents[gameId];
+    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
     const currentEventDetail = currentEvent?.eventDetails[currentEvent?.currentEventDetailIndex];
 
     if (currentEventDetail) {

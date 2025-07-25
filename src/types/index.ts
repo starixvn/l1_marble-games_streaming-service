@@ -6,11 +6,11 @@ import { OddsFeedService } from "../services/odds-feed-service";
 import { EventStreamService } from "../services/event-stream-service";
 import { logger } from "sc-common";
 import { EventManagementService } from "../services/event-management-service";
-import { EventState } from "../stores/event-state";
+import { EventStore } from "../stores/event-store";
 import { JobScheduler } from "../services/job-scheduler";
 import { Response } from "express";
 import { EventSchedulerService } from "../services/event-scheduler-service";
-import { EventStateManager } from "../stores/event-state-manager";
+import { EventManager } from "../stores/event-manager";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
@@ -21,10 +21,10 @@ export interface AppContainer {
   eventStreamController: EventStreamController;
   healthController: HealthController;
   eventManagementService: EventManagementService;
-  eventState: EventState;
+  eventStore: EventStore;
   jobScheduler: JobScheduler;
   eventSchedulerService: EventSchedulerService;
-  eventStateManager: EventStateManager;
+  eventManager: EventManager;
 }
 
 export type Event = {

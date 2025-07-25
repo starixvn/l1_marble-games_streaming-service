@@ -5,21 +5,21 @@ import cron from "cron";
 import { JobScheduler } from "./job-scheduler";
 import { idHelper } from "../helpers";
 import { EventSchedulerService } from "./event-scheduler-service";
-import { EventStateManager } from "../stores/event-state-manager";
+import { EventManager } from "../stores/event-manager";
 
 export class EventManagementService {
   private readonly oddsFeedService: OddsFeedService;
   private readonly logService: typeof logger;
   private readonly jobScheduler: JobScheduler;
   private readonly eventSchedulerService: EventSchedulerService;
-  private readonly eventStateManager: EventStateManager;
+  private readonly eventManager: EventManager;
 
   constructor(container: AppContainer) {
     this.oddsFeedService = container.oddsFeedService;
     this.logService = container.logService;
     this.jobScheduler = container.jobScheduler;
     this.eventSchedulerService = container.eventSchedulerService;
-    this.eventStateManager = container.eventStateManager;
+    this.eventManager = container.eventManager;
   }
 
   async start() {
@@ -70,9 +70,9 @@ export class EventManagementService {
       return;
     }
 
-    this.eventStateManager.initializeCurrentEvent(updateEvent);
+    this.eventManager.initializeCurrentEvent(updateEvent);
 
-    this.eventStateManager.initializePhaseForCurrentEvent(eventID);
+    this.eventManager.initializePhaseForCurrentEvent(eventID);
 
     this.eventSchedulerService.scheduleEventDetails(updateEvent);
   }

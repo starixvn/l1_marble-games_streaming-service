@@ -20,15 +20,15 @@ The service follows a clean, layered architecture with clear separation of conce
 
 - **EventManagementService**: Orchestrates the overall event management flow
 - **EventSchedulerService**: Handles job scheduling and timing for event updates
-- **EventStateManager**: Manages business logic for event state transitions
+- **EventManager**: Manages business logic for event state transitions
 - **EventStreamService**: Handles client connections and real-time broadcasting
 - **OddsFeedService**: External API integration for event data
 - **JobScheduler**: Manages scheduled tasks and timeouts
 
 ### Data Layer
 
-- **EventState**: Pure data store for current events
-- **EventStateManager**: Business logic layer for state management
+- **EventStore**: Pure data store for current events
+- **EventManager**: Business logic layer for state management
 
 ### Communication
 
@@ -211,8 +211,8 @@ src/
 │   ├── job-scheduler.ts
 │   └── odds-feed-service.ts
 ├── stores/               # Data storage
-│   ├── event-state.ts
-│   └── event-state-manager.ts
+│   ├── event-store.ts
+│   └── event-manager.ts
 └── types/                # TypeScript type definitions
     └── index.ts
 ```
@@ -228,7 +228,7 @@ The service manages events through different phases:
 
 Each phase triggers:
 
-- State updates in EventStateManager
+- State updates in EventManager
 - Broadcasting to connected clients
 - Scheduling of next phase transitions
 

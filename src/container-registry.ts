@@ -8,10 +8,10 @@ import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
 import { logger } from "sc-common";
 import { EventManagementService } from "./services/event-management-service";
-import { EventState } from "./stores/event-state";
+import { EventStore } from "./stores/event-store";
 import { JobScheduler } from "./services/job-scheduler";
 import { EventSchedulerService } from "./services/event-scheduler-service";
-import { EventStateManager } from "./stores/event-state-manager";
+import { EventManager } from "./stores/event-manager";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -24,8 +24,8 @@ export class ContainerRegistry {
 
   register() {
     this.container.register({
-      eventState: asClass(EventState).singleton(),
-      eventStateManager: asClass(EventStateManager).singleton(),
+      eventStore: asClass(EventStore).singleton(),
+      eventManager: asClass(EventManager).singleton(),
     });
 
     this.container.register({
