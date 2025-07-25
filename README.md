@@ -1,93 +1,324 @@
-# streaming-service
+# Streaming Service
 
+A real-time event streaming service built with Node.js, TypeScript, and Express. This service manages live sports events, handles client connections, and broadcasts event updates in real-time using Server-Sent Events (SSE).
 
+## 🚀 Features
 
-## Getting started
+- **Real-time Event Streaming**: Broadcast live event updates to connected clients
+- **Multi-Game Support**: Handle multiple games simultaneously (2001, 2002, 2003)
+- **Event Lifecycle Management**: Manage event phases (Schedule, Odds, Video, Results)
+- **Job Scheduling**: Automated scheduling of event updates and transitions
+- **Client Connection Management**: Handle multiple client connections per game
+- **RESTful API**: Health checks and authentication endpoints
+- **Dependency Injection**: Clean architecture with proper separation of concerns
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 🏗️ Architecture
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+The service follows a clean, layered architecture with clear separation of concerns:
 
-## Add your files
+### Core Services
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+- **EventManagementService**: Orchestrates the overall event management flow
+- **EventSchedulerService**: Handles job scheduling and timing for event updates
+- **EventStateManager**: Manages business logic for event state transitions
+- **EventStreamService**: Handles client connections and real-time broadcasting
+- **OddsFeedService**: External API integration for event data
+- **JobScheduler**: Manages scheduled tasks and timeouts
+
+### Data Layer
+
+- **EventState**: Pure data store for current events
+- **EventStateManager**: Business logic layer for state management
+
+### Communication
+
+- **Server-Sent Events (SSE)**: Real-time client communication
+- **REST API**: Health checks and authentication
+- **WebSocket-like**: Persistent connections for live updates
+
+## 📋 Prerequisites
+
+- Node.js (v16 or higher)
+- Yarn package manager
+- Access to external odds feed API
+
+## 🛠️ Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone <repository-url>
+   cd streaming-service
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   yarn install
+   ```
+
+3. **Configure environment**
+
+   ```bash
+   cp configs/app-configs.LOCAL.js configs/app-configs.js
+   # Edit configs/app-configs.js with your settings
+   ```
+
+4. **Build the project**
+   ```bash
+   yarn build
+   ```
+
+## 🚀 Usage
+
+### Development
+
+```bash
+# Start development server
+yarn dev
+
+# Run tests
+yarn test
+
+# Run tests in watch mode
+yarn test:watch
+
+# Lint code
+yarn lint
+```
+
+### Production
+
+```bash
+# Build for production
+yarn build
+
+# Start production server
+yarn start
+```
+
+### Docker
+
+```bash
+# Build Docker image
+docker build -t streaming-service .
+
+# Run container
+docker run -p 3000:3000 streaming-service
+```
+
+## 📡 API Endpoints
+
+### Health Check
 
 ```
-cd existing_repo
-git remote add origin https://git3.nexdev.net/l1/marble-games/live-streaming/streaming-service.git
-git branch -M main
-git push -uf origin main
+GET /health
 ```
 
-## Integrate with your tools
+Returns service health status and uptime information.
 
-- [ ] [Set up project integrations](https://git3.nexdev.net/l1/marble-games/live-streaming/streaming-service/-/settings/integrations)
+### Event Stream
 
-## Collaborate with your team
+```
+GET /events/:gameId/stream
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+Establishes SSE connection for real-time event updates.
 
-## Test and Deploy
+**Headers Required:**
 
-Use the built-in continuous integration in GitLab.
+- `Authorization: Bearer <jwt-token>`
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+**Response Format:**
 
-***
+```json
+{
+  "gameId": "2001",
+  "eventId": 123456,
+  "eventDetailIndex": 0,
+  "playlist": "https://example.com/video.m3u8",
+  "liveTimeMs": 45000,
+  "liveScore": "1:0",
+  "videoLength": 0,
+  "currentPhase": "UpdateVideoInfo",
+  "result": "1-0",
+  "message": "Broadcasted updated data"
+}
+```
 
-# Editing this README
+### Authentication
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```
+POST /auth/login
+```
 
-## Suggestions for a good README
+Authenticates users and returns JWT tokens.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## 🔧 Configuration
 
-## Name
-Choose a self-explaining name for your project.
+### App Settings (`src/app-settings.ts`)
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```typescript
+export const appSettings = {
+  gameIds: ["2001", "2002", "2003"],
+  scheduleDelay: {
+    "2001": 10 * 1000, // 10 seconds
+    "2002": 10 * 1000,
+    "2003": 10 * 1000,
+  },
+};
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### Environment Configuration
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Create `configs/app-configs.js` based on `configs/app-configs.LOCAL.js`:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```javascript
+module.exports = {
+  port: process.env.PORT || 3000,
+  oddsFeedUrl: process.env.ODDS_FEED_URL,
+  jwtSecret: process.env.JWT_SECRET,
+  // ... other configuration
+};
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 🏛️ Project Structure
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```
+src/
+├── app.ts                 # Application entry point
+├── app-settings.ts        # Application settings
+├── configuration.ts       # Configuration management
+├── container-registry.ts  # Dependency injection container
+├── controllers/           # HTTP request handlers
+│   ├── auth-controller.ts
+│   ├── event-stream-controller.ts
+│   └── health-controller.ts
+├── helpers/              # Utility functions
+│   ├── id-helper.ts
+│   └── retry-helper.ts
+├── middlewares/          # Express middlewares
+│   └── verify-jwt.ts
+├── models/               # Data models
+│   └── operators.ts
+├── routes/               # API route definitions
+│   └── index.ts
+├── services/             # Business logic services
+│   ├── authenticate-service.ts
+│   ├── event-management-service.ts
+│   ├── event-scheduler-service.ts
+│   ├── event-stream-service.ts
+│   ├── job-scheduler.ts
+│   └── odds-feed-service.ts
+├── stores/               # Data storage
+│   ├── event-state.ts
+│   └── event-state-manager.ts
+└── types/                # TypeScript type definitions
+    └── index.ts
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 🔄 Event Lifecycle
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+The service manages events through different phases:
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+1. **ScheduleEvent**: Event is scheduled and initialized
+2. **UpdateOdds**: Odds become available for betting
+3. **UpdateVideoInfo**: Video stream becomes available
+4. **UpdateResult**: Event results are published
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Each phase triggers:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+- State updates in EventStateManager
+- Broadcasting to connected clients
+- Scheduling of next phase transitions
 
-## License
-For open source projects, say how it is licensed.
+## 🧪 Testing
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+# Run all tests
+yarn test
+
+# Run tests with coverage
+yarn test:coverage
+
+# Run specific test file
+yarn test event-management-service.test.ts
+```
+
+## 📊 Monitoring
+
+The service includes built-in monitoring:
+
+- **Health Check Endpoint**: `/health`
+- **Client Connection Counts**: Available via EventStreamService
+- **Event State Monitoring**: Track current events per game
+- **Job Scheduling Status**: Monitor scheduled tasks
+
+## 🔒 Security
+
+- **JWT Authentication**: Required for event stream access
+- **Input Validation**: All inputs are validated
+- **Error Handling**: Comprehensive error handling without exposing internals
+- **Rate Limiting**: Built-in protection against abuse
+
+## 🚀 Deployment
+
+### Environment Variables
+
+```bash
+PORT=3000
+NODE_ENV=production
+ODDS_FEED_URL=https://api.example.com/odds
+JWT_SECRET=your-secret-key
+```
+
+### Docker Deployment
+
+```bash
+# Build image
+docker build -t streaming-service .
+
+# Run with environment variables
+docker run -d \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e ODDS_FEED_URL=https://api.example.com/odds \
+  -e JWT_SECRET=your-secret-key \
+  streaming-service
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+
+- Follow TypeScript best practices
+- Write unit tests for new features
+- Maintain clean architecture principles
+- Use dependency injection for services
+- Follow the existing code style
+
+## 📝 License
+
+This project is proprietary and confidential.
+
+## 🆘 Support
+
+For support and questions:
+
+- Create an issue in the repository
+- Contact the development team
+- Check the logs for debugging information
+
+## 🔮 Roadmap
+
+- [ ] Implement event persistence and recovery
+- [ ] Add metrics and monitoring dashboard
+- [ ] Support for additional game types
+- [ ] Enhanced error recovery and resilience
+- [ ] Performance optimization for high-load scenarios
