@@ -48,7 +48,7 @@ export class EventSchedulerService {
 
       this.scheduleEventDetails(updateEvent);
 
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.ScheduleEvent, 0);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.ScheduleEvent, 0);
     });
   }
 
@@ -69,7 +69,7 @@ export class EventSchedulerService {
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdateOdds, index);
 
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateOdds, index);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateOdds, index);
     });
   }
 
@@ -80,7 +80,7 @@ export class EventSchedulerService {
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdateVideoInfo, index);
 
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
     });
   }
 
@@ -91,9 +91,9 @@ export class EventSchedulerService {
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdateResult, index);
 
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateResult, index);
-
       this.eventManager.incrementCurrentEventDetailIndex(gameId);
+
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateResult, index);
     });
   }
 

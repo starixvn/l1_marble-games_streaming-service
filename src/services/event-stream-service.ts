@@ -1,4 +1,4 @@
-import { AppContainer, JobName, StreamingClient, EventStreamPayload } from "../types";
+import { AppContainer, JobName, StreamingClient, EventStreamPayload, EventDetailStreamPayload } from "../types";
 import { EventStore } from "../stores/event-store";
 import { Response } from "express";
 import { appSettings } from "../app-settings";
@@ -18,36 +18,72 @@ export class EventStreamService {
     });
   }
 
-  broadcastEventDataToClients(gameId: string, eventJobName: JobName, eventDetailIndex: number): void {
+  buildCurrentEventDetailsPayload(gameId: string, updatedIndex: number = -1) {
     const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
-    const currentEventDetail = currentEvent.eventDetails[eventDetailIndex];
-    const clientsToBroadcast = this.clients[gameId];
-    const liveTimeMs = new Date().getTime() - new Date(currentEventDetail.scheduleStartTs).getTime();
-
-    if (eventJobName === JobName.UpdateVideoInfo && currentEventDetail.playlist === "") {
-      console.log(`No playlist for event ${currentEventDetail.eventID} index: ${eventDetailIndex}`);
+    if (!currentEvent) {
+      this.logService.logError(`No current event for game ${gameId}`);
+      return null;
     }
 
-    clientsToBroadcast.forEach((client) => {
-      const payload: EventStreamPayload = {
-        gameId: gameId,
-        eventId: currentEventDetail.eventID,
-        eventDetailIndex: eventDetailIndex,
-        playlist: currentEventDetail.playlist,
-        liveTimeMs: liveTimeMs,
-        liveScore: currentEvent.liveScore,
-        videoLength: 0,
-        currentPhase: eventJobName,
-        message: "Broadcasted updated data",
-        result: currentEventDetail.result,
-      };
+    const currentIndex = currentEvent.currentEventDetailIndex;
+    const now = Date.now();
 
+    const eventDetailsPayload: EventDetailStreamPayload[] = currentEvent.eventDetails.map((eventDetail) => ({
+      playlist: eventDetail.playlist,
+      videoLiveTimeMs: now - new Date(eventDetail.scheduleStartTs).getTime(),
+      videoLength: appSettings.videoLength[gameId],
+      result: eventDetail.result,
+    }));
+
+    const matchLiveTimeMs = eventDetailsPayload.reduce((acc, eventDetail) => {
+      const videoLiveTimeMs = Math.max(0, eventDetail.videoLiveTimeMs);
+      return acc + Math.min(videoLiveTimeMs, appSettings.videoLength[gameId] * 1000);
+    }, 0);
+
+    const payload: EventStreamPayload = {
+      gameId: gameId,
+      eventId: currentEvent.eventID,
+      currentIndex: currentIndex,
+      updatedIndex: updatedIndex === -1 ? currentIndex : updatedIndex,
+      eventDetails: eventDetailsPayload,
+      liveScore: currentEvent.liveScore,
+      matchLiveTimeMs: matchLiveTimeMs,
+      currentPhase: currentEvent.currentPhase,
+      message: "",
+    };
+
+    return payload;
+  }
+
+  broadcastUpdateEventDataToClients(gameId: string, eventJobName: JobName, updatedIndex: number): void {
+    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
+    const clientsToBroadcast = this.clients[gameId];
+
+    const payload = this.buildCurrentEventDetailsPayload(gameId, updatedIndex);
+
+    if (!payload) {
+      this.logService.logError(`No payload for game ${gameId} updatedIndex: ${updatedIndex}`);
+      return;
+    }
+
+    payload.message = `Broadcasted ${eventJobName} on index: ${updatedIndex}`;
+
+    clientsToBroadcast.forEach((client) => {
       client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
     });
 
     console.log(
-      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEventDetail.eventID} index: ${eventDetailIndex} and phase: ${eventJobName}`
+      `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} updatedIndex: ${updatedIndex} and phase: ${eventJobName} currentIndex: ${currentEvent.currentEventDetailIndex}`
     );
+
+    if (eventJobName !== currentEvent.currentPhase) {
+      this.logService.logError(
+        `Event job name ${eventJobName} does not match current phase ${currentEvent.currentPhase}`
+      );
+
+      console.log(`Event job name ${eventJobName} does not match current phase ${currentEvent.currentPhase}`);
+      return;
+    }
   }
 
   public async addClient(res: Response, gameId: string): Promise<void> {
@@ -66,29 +102,16 @@ export class EventStreamService {
 
     this.clients[gameId].push({ res, gameId });
 
-    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
-    const currentEventDetail = currentEvent?.eventDetails[currentEvent?.currentEventDetailIndex];
+    const payload = this.buildCurrentEventDetailsPayload(gameId);
 
-    if (currentEventDetail) {
-      const liveTimeMs = new Date().getTime() - new Date(currentEventDetail.scheduleStartTs).getTime();
-
-      const payload: EventStreamPayload = {
-        gameId: gameId,
-        eventId: currentEventDetail.eventID,
-        eventDetailIndex: currentEvent.currentEventDetailIndex,
-        playlist: currentEventDetail.playlist,
-        liveTimeMs: liveTimeMs,
-        liveScore: currentEvent.liveScore,
-        videoLength: 0,
-        currentPhase: currentEvent.currentPhase,
-        result: currentEventDetail.result,
-        message: "First connection",
-      };
-
-      res.write(`data: ${JSON.stringify(payload)}\n\n`);
-    } else {
-      console.log(`No current event detail for game ${gameId} index: ${currentEvent.currentEventDetailIndex}`);
+    if (!payload) {
+      this.logService.logError(`No payload for game ${gameId}`);
+      return;
     }
+
+    payload.message = "First connection";
+
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
   }
 
   public removeClient(res: Response, gameId: string): void {

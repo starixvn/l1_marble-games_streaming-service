@@ -63,16 +63,22 @@ export interface Video {
   gameId: string;
 }
 
+export type EventDetailStreamPayload = {
+  playlist: string;
+  videoLiveTimeMs: number;
+  videoLength: number;
+  result: string;
+};
+
 export interface EventStreamPayload {
   gameId: string;
   eventId: number;
-  eventDetailIndex: number;
-  playlist: string;
-  liveTimeMs: number;
+  currentIndex: number;
+  updatedIndex: number;
+  eventDetails: EventDetailStreamPayload[];
   liveScore: string;
-  videoLength: number;
+  matchLiveTimeMs: number;
   currentPhase: JobName;
-  result: string;
   message: string;
 }
 
