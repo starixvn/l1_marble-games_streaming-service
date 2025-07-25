@@ -13,10 +13,10 @@ export const createEventId = (gameId: number, roundId: number) => {
   return Number((BigInt(gameId) << SHIFT_BITS) + BigInt(roundId));
 };
 
-export const extractGameId = (eventId: number) => {
-  return Number(BigInt(eventId) >> SHIFT_BITS);
+export const extractGameId = (eventId: number): string => {
+  return Number(BigInt(eventId) >> SHIFT_BITS).toString();
 };
 
-export const extractRoundId = (eventId: number) => {
+export const extractRoundId = (eventId: number): number => {
   return Number(BigInt(eventId) & MASK_32_BITS);
 };

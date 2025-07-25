@@ -1,47 +1,42 @@
 import { logger } from "sc-common";
-import { AppContainer, EventDetail, EventValidator, JobName } from "../types";
+import { AppContainer } from "../types";
 import { OddsFeedService } from "./odds-feed-service";
 import cron from "cron";
-import { EventStreamService } from "./event-stream-service";
-import { EventState } from "../stores/event-state";
 import { JobScheduler } from "./job-scheduler";
-import { extractRoundId } from "../helpers/id-helper";
-import { appSettings } from "../app-settings";
 import { idHelper } from "../helpers";
+import { EventSchedulerService } from "./event-scheduler-service";
+import { EventStateManager } from "../stores/event-state-manager";
 
 export class EventManagementService {
   private readonly oddsFeedService: OddsFeedService;
   private readonly logService: typeof logger;
-  private readonly eventStreamService: EventStreamService;
-  private readonly eventState: EventState;
   private readonly jobScheduler: JobScheduler;
+  private readonly eventSchedulerService: EventSchedulerService;
+  private readonly eventStateManager: EventStateManager;
 
   constructor(container: AppContainer) {
     this.oddsFeedService = container.oddsFeedService;
     this.logService = container.logService;
-    this.eventStreamService = container.eventStreamService;
-    this.eventState = container.eventState;
     this.jobScheduler = container.jobScheduler;
+    this.eventSchedulerService = container.eventSchedulerService;
+    this.eventStateManager = container.eventStateManager;
   }
 
   async start() {
-    const currentEventIDs = await this.getCurrentEventIDsOfAllGames();
+    await this.initializeCurrentEventsForAllGames();
 
-    // First update for all current events
-    currentEventIDs.forEach((eventID) => {
-      this.firstUpdateCurrentEvent(eventID);
-    });
-
-    // Schedule next events (for next 30 seconds)
+    // immediately schedule next events
     this.schedule();
 
-    // Start cron job to schedule next events
-    this.startCron();
+    // schedule cron job to schedule next events every 30 seconds
+    this.scheduleNextEventsCron();
   }
 
-  startCron() {
+  scheduleNextEventsCron() {
+    const cronExpression = "*/30 * * * * *";
+
     const job = new cron.CronJob(
-      "*/30 * * * * *",
+      cronExpression,
       () => this.schedule().catch(this.logService.logError),
       () => {
         this.logService.logError("Cron job unexpectedly stopped because some other tasks halt it.");
@@ -55,16 +50,18 @@ export class EventManagementService {
   async schedule() {
     const nextEventIDs = await this.getNextEventIDsForEachGame();
 
-    this.handleScheduleEvents(Object.values(nextEventIDs));
+    this.eventSchedulerService.scheduleEvents(Object.values(nextEventIDs));
   }
 
-  handleScheduleEvents(eventIDs: number[]) {
-    eventIDs.forEach((eventID) => {
-      this.handleScheduleEvent(eventID);
+  async initializeCurrentEventsForAllGames() {
+    const currentEventIDs = await this.getCurrentEventIDsOfAllGames();
+
+    currentEventIDs.forEach((eventID) => {
+      this.initializeCurrentEvent(eventID);
     });
   }
 
-  async firstUpdateCurrentEvent(eventID: number) {
+  async initializeCurrentEvent(eventID: number) {
     const updateEvent = await this.oddsFeedService.getEventDetailsWithRetry(eventID);
 
     if (!updateEvent) {
@@ -73,129 +70,11 @@ export class EventManagementService {
       return;
     }
 
-    const gameId = idHelper.extractGameId(eventID).toString();
-    this.eventState.currentEvents[gameId] = {
-      ...updateEvent,
-      currentEventDetailIndex: 0,
-      liveScore: "0:0",
-      currentPhase: JobName.ScheduleEvent,
-    };
+    this.eventStateManager.initializeCurrentEvent(updateEvent);
 
-    const now = Date.now();
+    this.eventStateManager.initializePhaseForCurrentEvent(eventID);
 
-    updateEvent.eventDetails.forEach((eventDetail, index) => {
-      this.handleOddsAvailableForEventDetail(eventDetail, index, gameId);
-      this.handleVideoInfoAvailableForEventDetail(eventDetail, index, gameId);
-      this.handleResultAvailableForEventDetail(eventDetail, index, gameId);
-
-      if (now > new Date(eventDetail.oddsAvailableTs).getTime() && index > 0) {
-        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateOdds;
-      }
-
-      if (now > new Date(eventDetail.scheduleStartTs).getTime()) {
-        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateVideoInfo;
-      }
-
-      if (now > new Date(eventDetail.resultsAvailableTs).getTime()) {
-        this.eventState.currentEvents[gameId].currentPhase = JobName.UpdateResult;
-        this.incrementCurrentEventDetailIndex(gameId);
-      }
-    });
-  }
-
-  async handleScheduleEvent(eventID: number) {
-    const updateEvent = await this.oddsFeedService.getEventDetailsWithRetry(eventID);
-
-    if (!updateEvent) {
-      this.logService.logError(`Event ${eventID} not found`);
-      console.error(`Event ${eventID} not found`);
-      return;
-    }
-
-    const gameId = idHelper.extractGameId(eventID).toString();
-    const scheduledTime = new Date(
-      new Date(updateEvent.scheduleStartTs).getTime() + appSettings.scheduleDelay[gameId] || 0
-    );
-    const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
-
-    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      this.eventState.currentEvents[gameId] = {
-        ...updateEvent,
-        currentEventDetailIndex: 0,
-        liveScore: "0:0",
-        currentPhase: JobName.ScheduleEvent,
-      };
-
-      updateEvent.eventDetails.forEach((eventDetail, index) => {
-        this.handleOddsAvailableForEventDetail(eventDetail, index, gameId);
-        this.handleVideoInfoAvailableForEventDetail(eventDetail, index, gameId);
-        this.handleResultAvailableForEventDetail(eventDetail, index, gameId);
-      });
-
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.ScheduleEvent, 0);
-    });
-  }
-
-  async handleOddsAvailableForEventDetail(eventDetail: EventDetail, index: number, gameId: string) {
-    const scheduledTime = new Date(eventDetail.oddsAvailableTs);
-    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateOdds);
-
-    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      const validator: EventValidator = (data) => data.eventDetails[index]?.markets?.length > 0;
-      await this.handleUpdateEventDetail(eventDetail.eventID, gameId, JobName.UpdateOdds, validator);
-
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateOdds, index);
-    });
-  }
-
-  async handleVideoInfoAvailableForEventDetail(eventDetail: EventDetail, index: number, gameId: string) {
-    const scheduledTime = new Date(eventDetail.scheduleStartTs);
-    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateVideoInfo);
-
-    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      const validator: EventValidator = (data) => data.eventDetails[index].playlist !== "";
-      await this.handleUpdateEventDetail(eventDetail.eventID, gameId, JobName.UpdateVideoInfo, validator);
-
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
-    });
-  }
-
-  async handleResultAvailableForEventDetail(eventDetail: EventDetail, index: number, gameId: string) {
-    const scheduledTime = new Date(eventDetail.resultsAvailableTs);
-    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateResult);
-
-    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      const validator: EventValidator = (data) => data.eventDetails[index].hasResults;
-      await this.handleUpdateEventDetail(eventDetail.eventID, gameId, JobName.UpdateResult, validator);
-
-      this.eventStreamService.broadcastEventDataToClients(gameId, JobName.UpdateResult, index);
-
-      this.incrementCurrentEventDetailIndex(gameId);
-    });
-  }
-
-  async handleUpdateEventDetail(eventID: number, gameId: string, phase: JobName, validator: EventValidator) {
-    const updateEvent = await this.oddsFeedService.getEventDetailsWithRetry(eventID, validator);
-
-    if (!updateEvent) {
-      return;
-    }
-
-    const currentEvent = this.eventState.currentEvents[gameId];
-    this.eventState.currentEvents[gameId] = {
-      ...currentEvent,
-      ...updateEvent,
-      currentPhase: phase,
-    };
-  }
-
-  incrementCurrentEventDetailIndex(gameId: string) {
-    const currentEvent = this.eventState.currentEvents[gameId];
-
-    currentEvent.currentEventDetailIndex = Math.min(
-      currentEvent.currentEventDetailIndex + 1,
-      currentEvent.eventDetails.length - 1
-    );
+    this.eventSchedulerService.scheduleEventDetails(updateEvent);
   }
 
   async getUpcomingEventIDs() {
@@ -207,7 +86,7 @@ export class EventManagementService {
     const allUpComingEvents = await this.oddsFeedService.getScheduleWithRetry();
 
     const nextEvents = allUpComingEvents.reduce((events: Record<string, number>, event) => {
-      const gameId = idHelper.extractGameId(event.eventID).toString();
+      const gameId = idHelper.extractGameId(event.eventID);
       if (!events[gameId] || event.eventID < events[gameId]) {
         events[gameId] = event.eventID;
       }
@@ -221,7 +100,7 @@ export class EventManagementService {
     const nextEventIDs = await this.getNextEventIDsForEachGame();
 
     const currentEventIDs = Object.values(nextEventIDs).map((eventID) => {
-      const roundId = extractRoundId(eventID);
+      const roundId = idHelper.extractRoundId(eventID);
       return roundId > 1 ? eventID - 1 : eventID;
     });
 
@@ -230,9 +109,5 @@ export class EventManagementService {
 
   cleanup() {
     this.jobScheduler.stopAll();
-  }
-
-  private generateJobId(gameId: string, eventId: number, index: number, jobName: JobName) {
-    return `${gameId}_${eventId}_${index}_${jobName}`;
   }
 }

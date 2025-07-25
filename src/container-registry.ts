@@ -10,6 +10,8 @@ import { logger } from "sc-common";
 import { EventManagementService } from "./services/event-management-service";
 import { EventState } from "./stores/event-state";
 import { JobScheduler } from "./services/job-scheduler";
+import { EventSchedulerService } from "./services/event-scheduler-service";
+import { EventStateManager } from "./stores/event-state-manager";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -23,6 +25,7 @@ export class ContainerRegistry {
   register() {
     this.container.register({
       eventState: asClass(EventState).singleton(),
+      eventStateManager: asClass(EventStateManager).singleton(),
     });
 
     this.container.register({
@@ -32,6 +35,7 @@ export class ContainerRegistry {
       logService: asValue(logger),
       eventManagementService: asClass(EventManagementService).singleton(),
       jobScheduler: asClass(JobScheduler).singleton(),
+      eventSchedulerService: asClass(EventSchedulerService).singleton(),
     });
 
     this.container.register({

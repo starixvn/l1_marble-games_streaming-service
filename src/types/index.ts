@@ -9,6 +9,8 @@ import { EventManagementService } from "../services/event-management-service";
 import { EventState } from "../stores/event-state";
 import { JobScheduler } from "../services/job-scheduler";
 import { Response } from "express";
+import { EventSchedulerService } from "../services/event-scheduler-service";
+import { EventStateManager } from "../stores/event-state-manager";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
@@ -21,6 +23,8 @@ export interface AppContainer {
   eventManagementService: EventManagementService;
   eventState: EventState;
   jobScheduler: JobScheduler;
+  eventSchedulerService: EventSchedulerService;
+  eventStateManager: EventStateManager;
 }
 
 export type Event = {
