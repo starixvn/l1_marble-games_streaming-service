@@ -129,4 +129,12 @@ export class EventManagementService {
   cleanup() {
     this.jobScheduler.stopAll();
   }
+
+  getRemainingJobs(): string[] {
+    return this.jobScheduler.getRemainingJobs();
+  }
+
+  getRemainingJobsForGame(gameId: string): string[] {
+    return this.jobScheduler.getRemainingJobs().filter((job) => job.includes(`_${gameId}_`));
+  }
 }

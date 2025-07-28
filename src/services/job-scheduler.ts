@@ -31,6 +31,7 @@ export class JobScheduler {
       } catch (error) {
         this.logService.logError(`Job ${name} failed: ${error}`);
       } finally {
+        this.logService.log(`Job ${name} completed`);
         this.jobs.delete(name);
       }
     }, delay);
@@ -51,5 +52,9 @@ export class JobScheduler {
       clearTimeout(job.timeoutId);
     }
     this.jobs.clear();
+  }
+
+  getRemainingJobs(): string[] {
+    return Array.from(this.jobs.keys());
   }
 }
