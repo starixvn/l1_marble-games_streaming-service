@@ -77,7 +77,7 @@ export class EventStreamService {
       `Sent data to ${clientsToBroadcast.length} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} updatedIndex: ${updatedIndex} and phase: ${eventJobName} currentIndex: ${currentEvent.currentEventDetailIndex}`
     );
 
-    if (eventJobName !== currentEvent.currentPhase) {
+    if (eventJobName !== currentEvent.currentPhase && eventJobName !== JobName.UpdateGoalInfo) {
       this.logService.logError(
         `Event job name ${eventJobName} does not match current phase ${currentEvent.currentPhase}`
       );
