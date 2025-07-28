@@ -1,18 +1,17 @@
 import { appConfigs } from "../app-configs";
 import { retry } from "../helpers/retry-helper";
-import { AppContainer, Event, EventValidator } from "../types";
+import { AppContainer, Event, EventValidator, GoalInfoData } from "../types";
 import { logger } from "sc-common";
 
 export class OddsFeedService {
   private readonly logService: typeof logger;
+  private token = "";
 
   constructor(container: AppContainer) {
     this.logService = container.logService;
   }
 
-  private token = "";
-
-  async getOddsFeedToken() {
+  async getAndUpdateOddsFeedToken() {
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/login`, {
       method: "POST",
       headers: {
@@ -30,13 +29,18 @@ export class OddsFeedService {
   }
 
   private async getSchedule(): Promise<Event[]> {
-    const token = this.token || (await this.getOddsFeedToken());
+    const token = this.token || (await this.getAndUpdateOddsFeedToken());
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/schedule`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+
+    if (response.status === 401) {
+      await this.getAndUpdateOddsFeedToken();
+      throw new Error("Unauthorized! Invalid token, attempt retry...");
+    }
 
     if (response.status !== 200) {
       throw new Error(`Failed to get schedule: ${response.status}`);
@@ -57,7 +61,7 @@ export class OddsFeedService {
   }
 
   private async getEventDetails(eventId: number, validator: EventValidator): Promise<Event | null> {
-    const token = this.token || (await this.getOddsFeedToken());
+    const token = this.token || (await this.getAndUpdateOddsFeedToken());
 
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`, {
       method: "GET",
@@ -65,6 +69,11 @@ export class OddsFeedService {
         Authorization: `Bearer ${token}`,
       },
     });
+
+    if (response.status === 401) {
+      await this.getAndUpdateOddsFeedToken();
+      throw new Error("Unauthorized! Invalid token, attempt retry...");
+    }
 
     if (response.status !== 200) {
       throw new Error(`Failed to get event details: ${response.status}`);
@@ -85,6 +94,17 @@ export class OddsFeedService {
       return await retry(() => this.getEventDetails(eventId, validator));
     } catch (error) {
       this.logService.logError(`Failed to get event details of event ${eventId} with error: ${error}`);
+      return null;
+    }
+  }
+
+  async getGoalInfo(url: string): Promise<GoalInfoData | null> {
+    try {
+      const response = await retry(() => fetch(url));
+
+      return await response.json();
+    } catch (error) {
+      this.logService.logError(`Failed to get goal info: ${error}`);
       return null;
     }
   }
