@@ -8,6 +8,7 @@ export type JobHandle = {
 
 export class JobScheduler {
   private readonly jobs: Map<string, JobHandle> = new Map();
+  private jobsCompleted: Array<string> = [];
   private readonly logService: typeof logger;
 
   constructor(container: AppContainer) {
@@ -37,6 +38,7 @@ export class JobScheduler {
       } catch (error) {
         this.logService.logError(`Job ${name} failed: ${error}`);
       } finally {
+        this.addJobCompleted(name);
         this.jobs.delete(name);
       }
     }, delay);
@@ -57,6 +59,16 @@ export class JobScheduler {
       clearTimeout(job.timeoutId);
     }
     this.jobs.clear();
+  }
+
+  addJobCompleted(name: string) {
+    if (this.jobsCompleted.length >= 100) {
+      console.log(`Jobs completed: ${this.jobsCompleted.join("\n")}`);
+      this.logService.log(`Jobs completed: ${this.jobsCompleted.length}`);
+      this.jobsCompleted = [];
+    }
+
+    this.jobsCompleted.push(name);
   }
 
   getRemainingJobs(): string[] {

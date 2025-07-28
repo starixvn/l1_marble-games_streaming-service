@@ -1,6 +1,7 @@
 import { AuthController } from "../controllers/auth-controller";
 import { HealthController } from "../controllers/health-controller";
 import { EventStreamController } from "../controllers/event-stream-controller";
+import { MonitorController } from "../controllers/monitor-controller";
 import { AuthenticateService } from "../services/authenticate-service";
 import { OddsFeedService } from "../services/odds-feed-service";
 import { EventStreamService } from "../services/event-stream-service";
@@ -21,6 +22,7 @@ export interface AppContainer {
   authController: AuthController;
   eventStreamController: EventStreamController;
   healthController: HealthController;
+  monitorController: MonitorController;
   eventManagementService: EventManagementService;
   eventStore: EventStore;
   jobScheduler: JobScheduler;

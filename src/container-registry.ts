@@ -6,6 +6,7 @@ import { OddsFeedService } from "./services/odds-feed-service";
 import { AuthController } from "./controllers/auth-controller";
 import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
+import { MonitorController } from "./controllers/monitor-controller";
 import { logger } from "sc-common";
 import { EventManagementService } from "./services/event-management-service";
 import { EventStore } from "./stores/event-store";
@@ -44,6 +45,7 @@ export class ContainerRegistry {
       authController: asClass(AuthController).singleton(),
       eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
+      monitorController: asClass(MonitorController).singleton(),
     });
 
     return this.container;
