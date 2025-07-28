@@ -104,7 +104,7 @@ export class OddsFeedService {
 
       return await response.json();
     } catch (error) {
-      this.logService.logError(`Failed to get goal info: ${error}`);
+      this.logService.logError(`Failed to get goal info from ${url}! Error: ${error}`);
       return null;
     }
   }
