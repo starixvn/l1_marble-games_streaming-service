@@ -50,9 +50,16 @@ export type EventDetail = {
   markets: any;
 };
 
+export type GoalInfoData = {
+  frame: number[];
+  timeLine: number[];
+  result: string[];
+};
+
 export type EventStreamState = Event & {
   currentEventDetailIndex: number;
-  liveScore: string;
+  liveScores: string[];
+  goalInfos: (GoalInfoData | null)[];
   currentPhase: JobName;
 };
 
@@ -76,7 +83,8 @@ export interface EventStreamPayload {
   currentIndex: number;
   updatedIndex: number;
   eventDetails: EventDetailStreamPayload[];
-  liveScore: string;
+  liveScores: string[];
+  goalInfos: (GoalInfoData | null)[];
   matchLiveTimeMs: number;
   currentPhase: JobName;
   message: string;
@@ -86,6 +94,7 @@ export enum JobName {
   ScheduleEvent = "ScheduleEvent",
   UpdateOdds = "UpdateOdds",
   UpdateVideoInfo = "UpdateVideoInfo",
+  UpdateGoalInfo = "UpdateGoalInfo",
   UpdateResult = "UpdateResult",
 }
 

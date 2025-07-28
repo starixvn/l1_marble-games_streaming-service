@@ -81,6 +81,35 @@ export class EventSchedulerService {
       await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdateVideoInfo, index);
 
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
+
+      await this.scheduleUpdateGoalInfo(gameId, index);
+    });
+  }
+
+  async scheduleUpdateGoalInfo(gameId: string, index: number) {
+    const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+    const eventDetail = currentEvent.eventDetails[index];
+    const goalInfo = await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo);
+
+    console.log(`${gameId} goal info ${eventDetail.goalInfo}`, goalInfo);
+
+    if (!goalInfo) {
+      console.log(`${gameId} goal info ${eventDetail.goalInfo} is null`);
+      this.logService.logError(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
+      return;
+    }
+
+    this.eventManager.updateGoalInfo(gameId, goalInfo, index);
+
+    goalInfo.timeLine.forEach((time, goalIndex) => {
+      const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + time * 1000);
+      const jobId = this.generateJobId(gameId, eventDetail.eventID, index, `${JobName.UpdateGoalInfo}_${goalIndex}`);
+
+      this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
+        this.eventManager.updateLiveScore(gameId, goalInfo.result, goalIndex, index);
+
+        this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateGoalInfo, index);
+      });
     });
   }
 
@@ -109,7 +138,7 @@ export class EventSchedulerService {
     this.eventManager.updateCurrentEventDetail(updateEvent, phase, eventDetailIndex);
   }
 
-  generateJobId(gameId: string, eventId: number, index: number, jobName: JobName) {
+  generateJobId(gameId: string, eventId: number, index: number, jobName: string) {
     return `${gameId}_${eventId}_${index}_${jobName}`;
   }
 
