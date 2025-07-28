@@ -1,5 +1,5 @@
 import { logger } from "sc-common";
-import { AppContainer, EventDetail, EventValidator, JobName, Event } from "../types";
+import { AppContainer, EventDetail, EventValidator, JobName, Event, GoalInfoData } from "../types";
 import { JobScheduler } from "./job-scheduler";
 import { OddsFeedService } from "./odds-feed-service";
 import { appSettings } from "../app-settings";
@@ -86,10 +86,11 @@ export class EventSchedulerService {
     });
   }
 
-  async scheduleUpdateGoalInfo(gameId: string, index: number) {
+  async scheduleUpdateGoalInfo(gameId: string, index: number, givenGoalInfo: GoalInfoData | null = null) {
     const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
     const eventDetail = currentEvent.eventDetails[index];
-    const goalInfo = await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo);
+    const goalInfo = givenGoalInfo || (await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo));
+    const force = givenGoalInfo !== null; // run the job on first initializing event
 
     if (!goalInfo) {
       this.logService.logError(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
@@ -102,11 +103,16 @@ export class EventSchedulerService {
       const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + time * 1000);
       const jobId = this.generateJobId(gameId, eventDetail.eventID, index, `${JobName.UpdateGoalInfo}_${goalIndex}`);
 
-      this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-        this.eventManager.updateLiveScore(gameId, goalInfo.result, goalIndex, index);
+      this.jobScheduler.scheduleJob(
+        jobId,
+        scheduledTime,
+        async () => {
+          this.eventManager.updateLiveScore(gameId, goalInfo.result, goalIndex, index);
 
-        this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateGoalInfo, index);
-      });
+          this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateGoalInfo, index);
+        },
+        force
+      );
     });
   }
 

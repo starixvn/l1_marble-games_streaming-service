@@ -76,9 +76,9 @@ export class EventManagementService {
 
     this.eventManager.initializePhaseForCurrentEvent(eventID);
 
-    this.eventSchedulerService.scheduleEventDetails(updateEvent);
+    this.initializeLiveScoresForGame(gameId);
 
-    this.eventManager.initializeLiveScoresForCurrentEvent(gameId);
+    this.eventSchedulerService.scheduleEventDetails(updateEvent);
   }
 
   async initializeGoalInfoForGame(gameId: string) {
@@ -94,6 +94,18 @@ export class EventManagementService {
     }
 
     this.eventManager.initializeGoalInfoForCurrentEvent(gameId, goalInfos);
+  }
+
+  async initializeLiveScoresForGame(gameId: string) {
+    this.eventManager.initializeLiveScoresForCurrentEvent(gameId);
+
+    const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+
+    this.eventSchedulerService.scheduleUpdateGoalInfo(
+      gameId,
+      currentEvent.currentEventDetailIndex,
+      currentEvent.goalInfos[currentEvent.currentEventDetailIndex]
+    );
   }
 
   async getUpcomingEventIDs() {

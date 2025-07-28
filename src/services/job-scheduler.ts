@@ -14,12 +14,16 @@ export class JobScheduler {
     this.logService = container.logService;
   }
 
-  scheduleJob(name: string, time: Date, callback: () => Promise<void>) {
+  scheduleJob(name: string, time: Date, callback: () => Promise<void>, force = false) {
     const delay = time.getTime() - Date.now();
 
-    if (delay < 0) {
+    if (delay < 0 && !force) {
       console.log(`Scheduled time is in the past for job ${name}`);
       return;
+    }
+
+    if (delay < 0 && force) {
+      console.log(`Scheduled time is in the past for job ${name}, forcing it`);
     }
 
     if (this.jobs.has(name)) {
