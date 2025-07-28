@@ -135,6 +135,6 @@ export class EventManagementService {
   }
 
   getRemainingJobsForGame(gameId: string): string[] {
-    return this.jobScheduler.getRemainingJobs().filter((job) => job.includes(`_${gameId}_`));
+    return this.jobScheduler.getRemainingJobs().filter((job) => job.includes(`${gameId}_`));
   }
 }

@@ -1,4 +1,5 @@
 import { logger } from "sc-common";
+import { AppContainer } from "../types";
 
 export type JobHandle = {
   timeoutId: NodeJS.Timeout;
@@ -9,8 +10,8 @@ export class JobScheduler {
   private jobs: Map<string, JobHandle> = new Map();
   private readonly logService: typeof logger;
 
-  constructor(logService: typeof logger) {
-    this.logService = logService;
+  constructor(container: AppContainer) {
+    this.logService = container.logService;
   }
 
   scheduleJob(name: string, time: Date, callback: () => Promise<void>) {
