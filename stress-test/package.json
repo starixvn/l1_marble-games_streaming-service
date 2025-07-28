@@ -1,0 +1,19 @@
+{
+  "name": "streaming-service-stress-test",
+  "version": "1.0.0",
+  "description": "Stress testing tool for streaming service",
+  "main": "stress-test.js",
+  "scripts": {
+    "test": "node stress-test.js",
+    "test:small": "node stress-test.js 100 10 500",
+    "test:medium": "node stress-test.js 1000 50 1000",
+    "test:large": "node stress-test.js 10000 100 1000",
+    "test:extreme": "node stress-test.js 50000 200 2000"
+  },
+  "dependencies": {
+    "eventsource": "^2.0.2"
+  },
+  "keywords": ["stress-test", "streaming", "sse", "load-test"],
+  "author": "",
+  "license": "ISC"
+}
