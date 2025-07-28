@@ -22,7 +22,6 @@ export class JobScheduler {
     }
 
     if (this.jobs.has(name)) {
-      console.log(`Job ${name} already exists, cancelling it`);
       this.cancelJob(name);
     }
 
@@ -30,7 +29,7 @@ export class JobScheduler {
       try {
         await callback();
       } catch (error) {
-        console.error(`Job ${name} failed:`, error);
+        this.logService.logError(`Job ${name} failed: ${error}`);
       } finally {
         this.jobs.delete(name);
       }

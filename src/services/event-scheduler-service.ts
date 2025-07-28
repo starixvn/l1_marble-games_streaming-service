@@ -91,10 +91,7 @@ export class EventSchedulerService {
     const eventDetail = currentEvent.eventDetails[index];
     const goalInfo = await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo);
 
-    console.log(`${gameId} goal info ${eventDetail.goalInfo}`, goalInfo);
-
     if (!goalInfo) {
-      console.log(`${gameId} goal info ${eventDetail.goalInfo} is null`);
       this.logService.logError(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
       return;
     }

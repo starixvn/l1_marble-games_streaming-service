@@ -67,7 +67,6 @@ export class EventManagementService {
 
     if (!updateEvent) {
       this.logService.logError(`Event ${eventID} not found`);
-      console.error(`Event ${eventID} not found`);
       return;
     }
 

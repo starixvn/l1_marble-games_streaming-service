@@ -82,16 +82,12 @@ export class EventStreamService {
         `Event job name ${eventJobName} does not match current phase ${currentEvent.currentPhase}`
       );
 
-      console.log(`Event job name ${eventJobName} does not match current phase ${currentEvent.currentPhase}`);
       return;
     }
   }
 
   public async addClient(res: Response, gameId: string): Promise<void> {
-    console.log(`First connection for game ${gameId}`);
-
     if (!appSettings.gameIds.includes(gameId)) {
-      console.error(`Game ${gameId} not supported`);
       res.write(`data: ${JSON.stringify({ message: "Game not supported" })}\n\n`);
       res.end();
       return;

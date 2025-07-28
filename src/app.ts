@@ -19,7 +19,7 @@ const run = async () => {
   app.use(setupRoutes(container));
 
   const server = app.listen(appConfigs.hostingPort, () => {
-    console.log(`SSE server running at http://localhost:${appConfigs.hostingPort}`);
+    console.log(`Live Streaming server running at http://localhost:${appConfigs.hostingPort}`);
   });
 
   // Graceful shutdown
