@@ -80,6 +80,8 @@ export type EventDetailStreamPayload = {
 export interface EventStreamPayload {
   gameId: string;
   eventId: number;
+  homeTeam: string;
+  awayTeam: string;
   currentIndex: number;
   updatedIndex: number;
   eventDetails: EventDetailStreamPayload[];

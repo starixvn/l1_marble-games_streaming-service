@@ -43,6 +43,8 @@ export class EventStreamService {
     const payload: EventStreamPayload = {
       gameId: gameId,
       eventId: currentEvent.eventID,
+      homeTeam: currentEvent.eventNameAKey,
+      awayTeam: currentEvent.eventNameBKey,
       currentIndex: currentIndex,
       updatedIndex: updatedIndex === -1 ? currentIndex : updatedIndex,
       eventDetails: eventDetailsPayload,
