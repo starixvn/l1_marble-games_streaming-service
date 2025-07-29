@@ -12,6 +12,7 @@ import { EventStore } from "./stores/event-store";
 import { JobScheduler } from "./services/job-scheduler";
 import { EventSchedulerService } from "./services/event-scheduler-service";
 import { EventManager } from "./stores/event-manager";
+import { ClientManager } from "./managers/client-manager";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -26,6 +27,7 @@ export class ContainerRegistry {
     this.container.register({
       eventStore: asClass(EventStore).singleton(),
       eventManager: asClass(EventManager).singleton(),
+      clientManager: asClass(ClientManager).singleton(),
     });
 
     this.container.register({

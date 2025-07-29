@@ -11,6 +11,7 @@ import { JobScheduler } from "../services/job-scheduler";
 import { Response } from "express";
 import { EventSchedulerService } from "../services/event-scheduler-service";
 import { EventManager } from "../stores/event-manager";
+import { ClientManager } from "../managers/client-manager";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
@@ -25,6 +26,7 @@ export interface AppContainer {
   jobScheduler: JobScheduler;
   eventSchedulerService: EventSchedulerService;
   eventManager: EventManager;
+  clientManager: ClientManager;
 }
 
 export type Event = {
