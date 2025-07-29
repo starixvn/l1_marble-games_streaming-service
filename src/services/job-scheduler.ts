@@ -36,7 +36,6 @@ export class JobScheduler {
       } catch (error) {
         this.logService.logError(`Job ${name} failed: ${error}`);
       } finally {
-        this.logService.log(`Job ${name} completed`);
         this.jobs.delete(name);
       }
     }, delay);
