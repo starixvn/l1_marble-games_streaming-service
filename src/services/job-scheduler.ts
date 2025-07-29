@@ -22,12 +22,13 @@ export class JobScheduler {
       return;
     }
 
-    if (delay < 0 && force) {
-      console.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`);
+    if (this.jobs.has(name)) {
+      console.log(`Job ${name} already exists, ignoring it`);
+      return;
     }
 
-    if (this.jobs.has(name)) {
-      this.cancelJob(name);
+    if (delay < 0 && force) {
+      console.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`);
     }
 
     const timeoutId = setTimeout(async () => {
