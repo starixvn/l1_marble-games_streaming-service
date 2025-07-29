@@ -23,7 +23,7 @@ export class JobScheduler {
     }
 
     if (delay < 0 && force) {
-      console.log(`Scheduled time is in the past for job ${name}, forcing it`);
+      console.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`);
     }
 
     if (this.jobs.has(name)) {

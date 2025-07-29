@@ -90,7 +90,6 @@ export class EventSchedulerService {
     const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
     const eventDetail = currentEvent.eventDetails[index];
     const goalInfo = givenGoalInfo || (await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo));
-    const force = givenGoalInfo !== null; // run the job on first initializing event
 
     if (!goalInfo) {
       this.logService.logError(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
@@ -111,7 +110,7 @@ export class EventSchedulerService {
 
           this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateGoalInfo, index);
         },
-        force
+        true
       );
     });
   }
