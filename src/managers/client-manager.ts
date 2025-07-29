@@ -35,6 +35,10 @@ export class ClientManager {
     }
 
     clients.delete(res);
+
+    if (clients.size === 0) {
+      this.clients.delete(gameId);
+    }
   }
 
   getClientSetForGame(gameId: string): Set<Response> {
@@ -49,7 +53,7 @@ export class ClientManager {
 
   getTotalClientCount(): number {
     let total = 0;
-    for (const clients of this.clients.values()) {
+    for (const [, clients] of this.clients) {
       total += clients.size;
     }
     return total;
@@ -68,13 +72,17 @@ export class ClientManager {
       if (clients.size !== initialSize) {
         this.logService.log(`Cleaned up ${initialSize - clients.size} dead connections from game ${gameId}`);
       }
+
+      if (clients.size === 0) {
+        this.clients.delete(gameId);
+      }
     }
   }
 
   destroy(): void {
     clearInterval(this.cleanupInterval);
 
-    for (const clients of this.clients.values()) {
+    for (const [, clients] of this.clients) {
       for (const client of clients) {
         if (!client.destroyed && !client.writableEnded) {
           client.end();
@@ -86,6 +94,10 @@ export class ClientManager {
   }
 
   getConnectionStats(): Record<string, number> {
-    return Object.fromEntries(this.clients.entries().map(([gameId, clients]) => [gameId, clients.size]));
+    const stats: Record<string, number> = {};
+    for (const [gameId, clients] of this.clients) {
+      stats[gameId] = clients.size;
+    }
+    return stats;
   }
 }
