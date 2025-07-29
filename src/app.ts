@@ -10,6 +10,8 @@ const run = async () => {
   await configuration.configureDatabaseAndSentry(appConfigs);
   const container = new ContainerRegistry().register();
   const eventManagementService = container.resolve("eventManagementService");
+  const clientManager = container.resolve("clientManager");
+
   await eventManagementService.start();
   const app = express();
   app.use(express.json());
@@ -28,6 +30,8 @@ const run = async () => {
 
     // Clean up broadcast jobs
     eventManagementService.cleanup();
+
+    clientManager.destroy();
 
     server.close(() => {
       console.log("HTTP server closed");

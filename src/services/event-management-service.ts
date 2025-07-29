@@ -1,5 +1,5 @@
 import { logger } from "sc-common";
-import { AppContainer, Event, GoalInfoData } from "../types";
+import { AppContainer } from "../types";
 import { OddsFeedService } from "./odds-feed-service";
 import cron from "cron";
 import { JobScheduler } from "./job-scheduler";
