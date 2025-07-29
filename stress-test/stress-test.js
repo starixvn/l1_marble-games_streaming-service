@@ -1,8 +1,10 @@
 const EventSource = require("eventsource");
 const http = require("http");
 
+const baseUrlTest = "http://localhost:5000";
+
 class StreamingServiceStressTest {
-  constructor(baseUrl = "http://localhost:5000") {
+  constructor(baseUrl = baseUrlTest) {
     this.baseUrl = baseUrl;
     this.gameIds = ["2001", "2002", "2003"];
     this.connections = [];
@@ -209,7 +211,7 @@ async function main() {
   const totalConnections = parseInt(args[0]) || 100;
   const batchSize = parseInt(args[1]) || 10;
   const delayBetweenBatches = parseInt(args[2]) || 1000;
-  const baseUrl = "https://streaming-service.lumigame.com";
+  const baseUrl = args[3] || baseUrlTest;
 
   const stressTest = new StreamingServiceStressTest(baseUrl);
 
