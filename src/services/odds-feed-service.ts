@@ -28,7 +28,7 @@ export class OddsFeedService {
     return this.token;
   }
 
-  private async getSchedule(): Promise<Event[]> {
+  async getSchedule(): Promise<Event[]> {
     const token = this.token || (await this.getAndUpdateOddsFeedToken());
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/schedule`, {
       method: "GET",
@@ -51,16 +51,16 @@ export class OddsFeedService {
     return data;
   }
 
-  async getScheduleWithRetry(): Promise<Event[]> {
+  async getScheduleWithRetry(retries = 3, delay = 1000): Promise<Event[]> {
     try {
-      return await retry(() => this.getSchedule());
+      return await retry(() => this.getSchedule(), retries, delay);
     } catch (error) {
       this.logService.logError(`Failed to get schedule: ${error}`);
       return [];
     }
   }
 
-  private async getEventDetails(eventId: number, validator: EventValidator): Promise<Event | null> {
+  async getEventDetails(eventId: number, validator: EventValidator): Promise<Event | null> {
     const token = this.token || (await this.getAndUpdateOddsFeedToken());
 
     const response = await fetch(`${appConfigs.oddsFeedAPI.url}/api/events?eventID=${eventId}`, {
@@ -89,18 +89,23 @@ export class OddsFeedService {
     return data;
   }
 
-  async getEventDetailsWithRetry(eventId: number, validator: EventValidator = () => true): Promise<Event | null> {
+  async getEventDetailsWithRetry(
+    eventId: number,
+    validator: EventValidator = () => true,
+    retries = 3,
+    delay = 1000
+  ): Promise<Event | null> {
     try {
-      return await retry(() => this.getEventDetails(eventId, validator));
+      return await retry(() => this.getEventDetails(eventId, validator), retries, delay);
     } catch (error) {
       this.logService.logError(`Failed to get event details of event ${eventId} with error: ${error}`);
       return null;
     }
   }
 
-  async getGoalInfo(url: string): Promise<GoalInfoData | null> {
+  async getGoalInfo(url: string, retries = 3, delay = 1000): Promise<GoalInfoData | null> {
     try {
-      const response = await retry(() => fetch(url));
+      const response = await retry(() => fetch(url), retries, delay);
 
       return await response.json();
     } catch (error) {
