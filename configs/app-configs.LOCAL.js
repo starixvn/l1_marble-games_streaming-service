@@ -12,6 +12,8 @@ export const appConfigs = {
     env: "LOCAL",
   },
   jwt: {
+    username: "marble-tv",
+    password: "marble-tv-123",
     secret: "stream-service-secret",
   },
   oddsFeedAPI: {
