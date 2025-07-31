@@ -11,7 +11,7 @@ export const appConfigs = {
     secret: "stream-service-secret",
   },
   oddsFeedAPI: {
-    url: "https://mguatapi.sgamesuat.com",
+    url: "https://vnuat-mgapi.lalamoveoh.net",
     operatorId: "67d291d943a96fad7f14ddae",
     password: "gHwc1n01K38nX6TqZfwok",
   },
