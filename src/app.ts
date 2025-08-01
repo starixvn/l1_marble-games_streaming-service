@@ -17,6 +17,7 @@ const run = async () => {
   app.use(express.json());
   app.use(cors());
   app.set("port", appConfigs.hostingPort);
+  app.set("trust proxy", 1);
 
   app.use(setupRoutes(container));
 
