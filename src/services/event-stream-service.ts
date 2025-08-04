@@ -6,7 +6,7 @@ import { logger } from "sc-common";
 import { ClientManager } from "../managers/client-manager";
 
 export class EventStreamService {
-  private clientManager: ClientManager;
+  private readonly clientManager: ClientManager;
   private readonly eventStore: EventStore;
   private readonly logService: typeof logger;
 
@@ -16,7 +16,7 @@ export class EventStreamService {
     this.clientManager = container.clientManager;
   }
 
-  buildCurrentEventDetailsPayload(gameId: string, updatedIndex: number = -1) {
+  buildCurrentEventDetailsPayload(gameId: string, updatedIndex = -1) {
     const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
     if (!currentEvent) {
       this.logService.logError(`No current event for game ${gameId}`);
@@ -57,7 +57,6 @@ export class EventStreamService {
   }
 
   broadcastUpdateEventDataToClients(gameId: string, eventJobName: JobName, updatedIndex: number): void {
-    const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
     const clientsToBroadcast = this.clientManager.getClientSetForGame(gameId);
 
     const payload = this.buildCurrentEventDetailsPayload(gameId, updatedIndex);
@@ -71,18 +70,6 @@ export class EventStreamService {
 
     for (const client of clientsToBroadcast) {
       client.write(`data: ${JSON.stringify(payload)}\n\n`);
-    }
-
-    console.log(
-      `Sent data to ${clientsToBroadcast.size} client(s) for game: ${gameId} with eventID: ${currentEvent.eventID} updatedIndex: ${updatedIndex} and phase: ${eventJobName} currentIndex: ${currentEvent.currentEventDetailIndex}`
-    );
-
-    if (eventJobName !== currentEvent.currentPhase && eventJobName !== JobName.UpdateGoalInfo) {
-      this.logService.logError(
-        `Event job name ${eventJobName} does not match current phase ${currentEvent.currentPhase}`
-      );
-
-      return;
     }
   }
 

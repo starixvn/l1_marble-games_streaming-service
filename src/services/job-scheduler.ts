@@ -7,7 +7,7 @@ export type JobHandle = {
 };
 
 export class JobScheduler {
-  private jobs: Map<string, JobHandle> = new Map();
+  private readonly jobs: Map<string, JobHandle> = new Map();
   private readonly logService: typeof logger;
 
   constructor(container: AppContainer) {
@@ -18,17 +18,17 @@ export class JobScheduler {
     const delay = time.getTime() - Date.now();
 
     if (delay < 0 && !force) {
-      console.log(`Scheduled time is in the past for job ${name}`);
+      this.logService.log(`Scheduled time is in the past for job ${name}`);
       return;
     }
 
     if (this.jobs.has(name)) {
-      console.log(`Job ${name} already exists, ignoring it`);
+      this.logService.log(`Job already exists, ignoring it: ${name}`);
       return;
     }
 
     if (delay < 0 && force) {
-      console.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`);
+      this.logService.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`);
     }
 
     const timeoutId = setTimeout(async () => {

@@ -116,26 +116,22 @@ export class EventManagementService {
   async getNextEventIDsForEachGame() {
     const allUpComingEvents = await this.oddsFeedService.getScheduleWithRetry();
 
-    const nextEvents = allUpComingEvents.reduce((events: Record<string, number>, event) => {
+    return allUpComingEvents.reduce((events: Record<string, number>, event) => {
       const gameId = idHelper.extractGameId(event.eventID);
       if (!events[gameId] || event.eventID < events[gameId]) {
         events[gameId] = event.eventID;
       }
       return events;
     }, {});
-
-    return nextEvents;
   }
 
   async getCurrentEventIDsOfAllGames(): Promise<number[]> {
     const nextEventIDs = await this.getNextEventIDsForEachGame();
 
-    const currentEventIDs = Object.values(nextEventIDs).map((eventID) => {
+    return Object.values(nextEventIDs).map((eventID) => {
       const roundId = idHelper.extractRoundId(eventID);
       return roundId > 1 ? eventID - 1 : eventID;
     });
-
-    return currentEventIDs;
   }
 
   cleanup() {

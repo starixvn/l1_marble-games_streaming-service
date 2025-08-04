@@ -83,8 +83,12 @@ export class EventManager {
   updateLiveScore(gameId: string, goalResults: string[], goalIndex: number, eventDetailIndex: number) {
     const { homeScore, awayScore } = goalResults.slice(0, goalIndex + 1).reduce(
       (acc, result) => {
-        if (result === "H") acc.homeScore++;
-        else if (result === "A") acc.awayScore++;
+        if (result === "H") {
+          acc.homeScore++;
+        } else if (result === "A") {
+          acc.awayScore++;
+        }
+
         return acc;
       },
       { homeScore: 0, awayScore: 0 }

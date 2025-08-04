@@ -1,3 +1,7 @@
 {
-  "prettier.printWidth": 120
+  "prettier.printWidth": 120,
+  "sonarlint.connectedMode.project": {
+    "connectionId": "https-sonarqube-lumigame-com-",
+    "projectKey": "streaming-service"
+  }
 }

@@ -32,8 +32,7 @@ export class EventSchedulerService {
     const updateEvent = await this.oddsFeedService.getEventDetailsWithRetry(eventID);
 
     if (!updateEvent) {
-      this.logService.logError(`Event ${eventID} not found`);
-      console.error(`Event ${eventID} not found`);
+      this.logService.logError(`Schedule event ${eventID} failed, event not found`);
       return;
     }
 

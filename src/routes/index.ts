@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { verifyJWT } from "../middlewares/verify-jwt";
 import { AppContainer } from "../types";
 import { AwilixContainer } from "awilix";
 

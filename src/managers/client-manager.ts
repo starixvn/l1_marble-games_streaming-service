@@ -3,7 +3,7 @@ import { logger } from "sc-common";
 import { Response } from "express";
 
 export class ClientManager {
-  private clients = new Map<string, Set<Response>>();
+  private readonly clients = new Map<string, Set<Response>>();
   private readonly cleanupInterval: NodeJS.Timeout;
   private readonly logService: typeof logger;
 
