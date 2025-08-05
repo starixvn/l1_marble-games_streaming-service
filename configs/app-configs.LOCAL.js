@@ -12,7 +12,7 @@ export const appConfigs = {
   },
   oddsFeedAPI: {
     url: "https://mg-odds-feed-local.lumigame.com",
-    operatorId: "67d291d943a96fad7f14ddae",
-    password: "Nkb3rnoLMEhxUBB8Qahfn",
+    operatorId: "6891a166944b61adc2694d72",
+    password: "Ga1kx2LmADHlepAoQiHSV",
   },
 };

@@ -145,8 +145,6 @@ export class EventSchedulerService {
 
   getValidatorForPhase(phase: JobName, eventDetailIndex: number): EventValidator {
     switch (phase) {
-      case JobName.UpdateOdds:
-        return (data) => data?.eventDetails?.[eventDetailIndex]?.markets?.length > 0;
       case JobName.UpdateVideoInfo:
         return (data) => data?.eventDetails?.[eventDetailIndex]?.playlist !== "";
       case JobName.UpdateResult:

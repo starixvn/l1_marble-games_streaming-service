@@ -550,25 +550,6 @@ describe("EventSchedulerService", () => {
   });
 
   describe("getValidatorForPhase", () => {
-    it("should return correct validator for UpdateOdds phase", () => {
-      // Arrange
-      const phase = JobName.UpdateOdds;
-      const eventDetailIndex = 0;
-
-      // Act
-      const validator = eventSchedulerService.getValidatorForPhase(phase, eventDetailIndex);
-
-      // Assert
-      const validEvent = createMockEvent(1001);
-      const invalidEvent = {
-        ...createMockEvent(1001),
-        eventDetails: [{ ...createMockEventDetail(1001, 0), markets: [] }],
-      };
-
-      expect(validator(validEvent)).toBe(true);
-      expect(validator(invalidEvent)).toBe(false);
-    });
-
     it("should return correct validator for UpdateVideoInfo phase", () => {
       // Arrange
       const phase = JobName.UpdateVideoInfo;
