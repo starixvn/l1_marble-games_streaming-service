@@ -46,9 +46,7 @@ export class OddsFeedService {
       throw new Error(`Failed to get schedule: ${response.status}`);
     }
 
-    const data = await response.json();
-
-    return data;
+    return await response.json();
   }
 
   async getScheduleWithRetry(retries = 3, delay = 1000): Promise<Event[]> {
