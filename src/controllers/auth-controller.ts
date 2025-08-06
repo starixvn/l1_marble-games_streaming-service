@@ -10,9 +10,9 @@ export class AuthController {
   }
 
   public async login(req: Request, res: Response): Promise<void> {
-    const { operatorId, password } = req.body;
-
     try {
+      const { operatorId, password } = req.body;
+
       const token = await this.authenticateService.getAuthenticatedToken(operatorId, password);
       res.json({ token });
     } catch (error) {
