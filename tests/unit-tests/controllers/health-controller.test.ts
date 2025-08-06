@@ -3,7 +3,15 @@ import { Request, Response } from "express";
 
 // Mock Express Request and Response
 const createMockRequest = (): jest.Mocked<Request> => {
-  return {} as any;
+  return {
+    ip: "192.168.1.1",
+    headers: {
+      "x-forwarded-for": "10.0.0.1, 192.168.1.1",
+    },
+    socket: {
+      remoteAddress: "192.168.1.100",
+    },
+  } as any;
 };
 
 const createMockResponse = (): jest.Mocked<Response> => {
@@ -41,6 +49,9 @@ describe("HealthController", () => {
         status: "ok",
         message: "Streaming service running",
         timestamp: mockDate.toISOString(),
+        clientIP: mockReq.ip,
+        forwardedFor: mockReq.headers["x-forwarded-for"],
+        remoteAddress: mockReq.socket.remoteAddress,
       });
     });
   });

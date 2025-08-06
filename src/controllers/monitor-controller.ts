@@ -1,18 +1,14 @@
 import { Request, Response } from "express";
 import { AppContainer } from "../types";
 import { EventManagementService } from "../services/event-management-service";
-import { EventStreamService } from "../services/event-stream-service";
-import { appSettings } from "../app-settings";
 import { ClientManager } from "../managers/client-manager";
 
 export class MonitorController {
   private readonly eventManagementService: EventManagementService;
-  private readonly eventStreamService: EventStreamService;
   private readonly clientManager: ClientManager;
 
   constructor(container: AppContainer) {
     this.eventManagementService = container.eventManagementService;
-    this.eventStreamService = container.eventStreamService;
     this.clientManager = container.clientManager;
   }
 

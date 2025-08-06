@@ -28,6 +28,11 @@ const mockAuthController = {
   login: jest.fn(),
 };
 
+const mockMonitorController = {
+  getMonitoringData: jest.fn(),
+  getGameMonitoringData: jest.fn(),
+};
+
 // Mock container
 const mockContainer = {
   resolve: jest.fn(),
@@ -78,6 +83,8 @@ describe("setupRoutes", () => {
           return mockHealthController;
         case "authController":
           return mockAuthController;
+        case "monitorController":
+          return mockMonitorController;
         default:
           throw new Error(`Unknown key: ${key}`);
       }
@@ -93,7 +100,8 @@ describe("setupRoutes", () => {
       expect(mockContainer.resolve).toHaveBeenCalledWith("eventStreamController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("healthController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("authController");
-      expect(mockContainer.resolve).toHaveBeenCalledTimes(3);
+      expect(mockContainer.resolve).toHaveBeenCalledWith("monitorController");
+      expect(mockContainer.resolve).toHaveBeenCalledTimes(4);
     });
 
     it("should throw error when container fails to resolve controllers", () => {
@@ -144,9 +152,19 @@ describe("setupRoutes", () => {
       expect(mockRouter.get).toHaveBeenCalledWith("/live/:gameId", expect.any(Function));
     });
 
-    it("should register exactly 3 routes", () => {
+    it("should register monitoring route at /api/monitor", () => {
       // Assert
-      expect(mockRouter.get).toHaveBeenCalledTimes(2); // health check and event stream
+      expect(mockRouter.get).toHaveBeenCalledWith("/api/monitor", expect.any(Function));
+    });
+
+    it("should register game monitoring route at /api/monitor/:gameId", () => {
+      // Assert
+      expect(mockRouter.get).toHaveBeenCalledWith("/api/monitor/:gameId", expect.any(Function));
+    });
+
+    it("should register exactly 5 routes", () => {
+      // Assert
+      expect(mockRouter.get).toHaveBeenCalledTimes(4); // health check, event stream, and 2 monitor routes
       expect(mockRouter.post).toHaveBeenCalledTimes(1); // auth
       expect(mockRouter.put).not.toHaveBeenCalled();
       expect(mockRouter.delete).not.toHaveBeenCalled();
@@ -317,6 +335,111 @@ describe("setupRoutes", () => {
     });
   });
 
+  describe("monitoring route handlers", () => {
+    it("should call monitorController.getMonitoringData when /api/monitor route is accessed", () => {
+      // Arrange
+      const mockReq = createMockRequest();
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/api/monitor")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockMonitorController.getMonitoringData).toHaveBeenCalledWith(mockReq, mockRes);
+      expect(mockMonitorController.getMonitoringData).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle monitoring route with different query parameters", () => {
+      // Arrange
+      const mockReq1 = createMockRequest({}, { format: "json" });
+      const mockReq2 = createMockRequest({}, { detailed: "true" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/api/monitor")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq1, mockRes);
+        routeHandler(mockReq2, mockRes);
+      }
+
+      // Assert
+      expect(mockMonitorController.getMonitoringData).toHaveBeenCalledWith(mockReq1, mockRes);
+      expect(mockMonitorController.getMonitoringData).toHaveBeenCalledWith(mockReq2, mockRes);
+      expect(mockMonitorController.getMonitoringData).toHaveBeenCalledTimes(2);
+    });
+
+    it("should call monitorController.getGameMonitoringData when /api/monitor/:gameId route is accessed", () => {
+      // Arrange
+      const mockReq = createMockRequest({ gameId: "2001" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/api/monitor/:gameId")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledWith(mockReq, mockRes);
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle game monitoring route with different game IDs", () => {
+      // Arrange
+      const mockReq1 = createMockRequest({ gameId: "2001" });
+      const mockReq2 = createMockRequest({ gameId: "2002" });
+      const mockReq3 = createMockRequest({ gameId: "2003" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/api/monitor/:gameId")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq1, mockRes);
+        routeHandler(mockReq2, mockRes);
+        routeHandler(mockReq3, mockRes);
+      }
+
+      // Assert
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledWith(mockReq1, mockRes);
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledWith(mockReq2, mockRes);
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledWith(mockReq3, mockRes);
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle game monitoring route with query parameters", () => {
+      // Arrange
+      const mockReq = createMockRequest({ gameId: "2001" }, { detailed: "true", format: "json" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/api/monitor/:gameId")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledWith(mockReq, mockRes);
+    });
+
+    it("should handle game monitoring route with missing game ID", () => {
+      // Arrange
+      const mockReq = createMockRequest({});
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/api/monitor/:gameId")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockMonitorController.getGameMonitoringData).toHaveBeenCalledWith(mockReq, mockRes);
+    });
+  });
+
   describe("route handler error handling", () => {
     it("should handle controller method throwing errors", () => {
       // Arrange
@@ -367,6 +490,8 @@ describe("setupRoutes", () => {
       // Check that routes are registered
       expect(getCalls.some((call: any) => call[0] === "/")).toBe(true);
       expect(getCalls.some((call: any) => call[0] === "/live/:gameId")).toBe(true);
+      expect(getCalls.some((call: any) => call[0] === "/api/monitor")).toBe(true);
+      expect(getCalls.some((call: any) => call[0] === "/api/monitor/:gameId")).toBe(true);
       expect(postCalls.some((call: any) => call[0] === "/api/token")).toBe(true);
     });
 
