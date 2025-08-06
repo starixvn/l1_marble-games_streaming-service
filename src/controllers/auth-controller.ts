@@ -15,8 +15,8 @@ export class AuthController {
 
       const token = await this.authenticateService.getAuthenticatedToken(operatorId, password);
       res.json({ token });
-    } catch (error) {
-      res.status(401).json({ error: error instanceof Error ? error.message : "Authentication failed" });
+    } catch (error: any) {
+      res.status(401).json({ error: error?.message || "Authentication failed" });
     }
   }
 }

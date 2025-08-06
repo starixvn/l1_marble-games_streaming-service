@@ -90,5 +90,20 @@ describe("AuthController", () => {
       expect(mockAuthenticateService.getAuthenticatedToken).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
+
+    it("should handle error not having message", async () => {
+      // Arrange
+      mockAuthenticateService.getAuthenticatedToken.mockRejectedValue(new Error());
+
+      // Act
+      await authController.login(mockReq, mockRes);
+
+      // Assert
+      expect(mockAuthenticateService.getAuthenticatedToken).toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: "Authentication failed",
+      });
+    });
   });
 });
