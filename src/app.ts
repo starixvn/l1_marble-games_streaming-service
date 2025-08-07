@@ -3,7 +3,8 @@ import { appConfigs } from "./app-configs";
 import { Configuration } from "./configuration";
 import { setupRoutes } from "./routes";
 import { ContainerRegistry } from "./container-registry";
-import cors from "cors";
+import { corsMiddleware } from "./middlewares/cors";
+import { errorHandler } from "./middlewares/error-handler";
 
 const run = async () => {
   const configuration = new Configuration();
@@ -15,11 +16,14 @@ const run = async () => {
   await eventManagementService.start();
   const app = express();
   app.use(express.json());
-  app.use(cors());
+  app.use(corsMiddleware);
   app.set("port", appConfigs.hostingPort);
   app.set("trust proxy", 1);
 
   app.use(setupRoutes(container));
+
+  // Error handling middleware (must be last)
+  app.use(errorHandler);
 
   const server = app.listen(appConfigs.hostingPort, () => {
     console.log(`Live Streaming server running at http://localhost:${appConfigs.hostingPort}`);
