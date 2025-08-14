@@ -26,8 +26,8 @@ describe("JobScheduler", () => {
 
       // Assert
       expect(jobScheduler.getRemainingJobs()).toContain("test-job");
-
       // Act - Trigger the job
+
       jest.advanceTimersByTime(1000);
       await Promise.resolve();
 

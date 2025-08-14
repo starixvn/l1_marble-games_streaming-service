@@ -54,6 +54,7 @@ const createMockEventStreamState = (eventId: number = 1, gameId: string = "2001"
   liveScores: ["1-0", "2-0"],
   goalInfos: [null, null],
   currentPhase: JobName.ScheduleEvent,
+  liveVoices: ["", ""],
 });
 
 const createMockClient = (gameId: string = "2001") => ({

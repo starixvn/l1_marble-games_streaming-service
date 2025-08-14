@@ -51,6 +51,7 @@ const createMockEventStreamState = (gameId: string = "2001", eventId: number = 1
   liveScores: ["0:0", "0:0"],
   goalInfos: [null, null],
   currentPhase: JobName.ScheduleEvent,
+  liveVoices: ["", ""],
 });
 
 describe("EventManager", () => {
@@ -96,6 +97,7 @@ describe("EventManager", () => {
         liveScores: ["0:0", "0:0"],
         goalInfos: [null, null],
         currentPhase: JobName.ScheduleEvent,
+        liveVoices: [],
       });
     });
   });

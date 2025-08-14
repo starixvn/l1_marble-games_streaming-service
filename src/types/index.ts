@@ -73,7 +73,8 @@ export type EventStreamState = Event & {
   goalInfos: (GoalInfoData | null)[];
   currentPhase: JobName;
   inGameEvents?: (InGameEvent | null)[];
-  liveEvent?: string[];
+  voices?: VoiceEvent;
+  liveVoices: string[];
 };
 
 export type VoiceEvent = {
@@ -123,6 +124,7 @@ export enum JobName {
   UpdateVideoInfo = "UpdateVideoInfo",
   UpdateGoalInfo = "UpdateGoalInfo",
   UpdateResult = "UpdateResult",
+  UpdateVoice = "UpdateVoice",
 }
 
 export type StreamingClient = { res: Response; gameId: string };

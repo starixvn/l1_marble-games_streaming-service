@@ -20,6 +20,7 @@ export class EventManager {
       liveScores: liveScores,
       goalInfos: goalInfos,
       currentPhase: JobName.ScheduleEvent,
+      liveVoices: []
     });
   }
 
