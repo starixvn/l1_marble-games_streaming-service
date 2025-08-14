@@ -38,7 +38,7 @@ export class EventSchedulerService {
 
     const gameId = idHelper.extractGameId(eventID);
     const scheduledTime = new Date(
-      new Date(updateEvent.scheduleStartTs).getTime() + appSettings.scheduleDelay[gameId] || 0
+      new Date(updateEvent.scheduleStartTs).getTime() + (appSettings.scheduleDelay[gameId] || 0)
     );
     const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
 
