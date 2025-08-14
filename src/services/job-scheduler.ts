@@ -19,12 +19,12 @@ export class JobScheduler {
     const delay = time.getTime() - Date.now();
 
     if (delay < 0 && !force) {
-      this.logService.log(`Scheduled time is in the past for job ${name}`);
+      console.log(`Scheduled time is in the past for job ${name}`);
       return;
     }
 
     if (this.jobs.has(name)) {
-      this.logService.log(`Job already exists, ignoring it: ${name}`);
+      console.log(`Job already exists, ignoring it: ${name}`);
       return;
     }
 
