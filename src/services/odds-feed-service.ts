@@ -1,6 +1,6 @@
 import { appConfigs } from "../app-configs";
 import { retry } from "../helpers/retry-helper";
-import { AppContainer, Event, EventValidator, GoalInfoData } from "../types";
+import { AppContainer, Event, EventValidator, GoalInfoData, InGameEvent } from "../types";
 import { logger } from "sc-common";
 
 export class OddsFeedService {
@@ -102,12 +102,19 @@ export class OddsFeedService {
   }
 
   async getGoalInfo(url: string, retries = 3, delay = 1000): Promise<GoalInfoData | null> {
+    return this.getRemoteJson<GoalInfoData>(url, retries, delay);
+  }
+
+  async getInGameEvent(url: string, retries = 3, delay = 1000): Promise<InGameEvent | null> {
+    return this.getRemoteJson<InGameEvent>(url, retries, delay);
+  }
+
+  async getRemoteJson<T>(url: string, retries = 3, delay = 1000): Promise<T | null> {
     try {
       const response = await retry(() => fetch(url), retries, delay);
-
-      return await response.json();
+      return (await response.json()) as T;
     } catch (error) {
-      this.logService.logError(`Failed to get goal info from ${url}! Error: ${error}`);
+      this.logService.logError(`Failed to get json from ${url}! Error: ${error}`);
       return null;
     }
   }

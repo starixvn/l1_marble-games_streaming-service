@@ -500,7 +500,7 @@ describe("OddsFeedService", () => {
       // Assert
       expect(result).toBeNull();
       expect(mockContainer.logService.logError).toHaveBeenCalledWith(
-        "Failed to get goal info from https://api.goals.com/info/789! Error: Error: Goal info not available"
+        "Failed to get json from https://api.goals.com/info/789! Error: Error: Goal info not available"
       );
     });
 
@@ -518,7 +518,7 @@ describe("OddsFeedService", () => {
       // Assert
       expect(result).toBeNull();
       expect(mockContainer.logService.logError).toHaveBeenCalledWith(
-        "Failed to get goal info from https://api.goals.com/info/999! Error: Error: Invalid JSON format"
+        "Failed to get json from https://api.goals.com/info/999! Error: Error: Invalid JSON format"
       );
     });
 

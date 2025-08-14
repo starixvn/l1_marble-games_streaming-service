@@ -52,6 +52,7 @@ export type EventDetail = {
   playlist: string;
   result: string;
   markets: any;
+  inGameEventInfo: string;
 };
 
 export type GoalInfoData = {
@@ -60,11 +61,30 @@ export type GoalInfoData = {
   result: string[];
 };
 
+export type InGameEvent = {
+  timeLine: number[];
+  frame: number[];
+  eventName: string;
+};
+
 export type EventStreamState = Event & {
   currentEventDetailIndex: number;
   liveScores: string[];
   goalInfos: (GoalInfoData | null)[];
   currentPhase: JobName;
+  inGameEvents?: (InGameEvent | null)[];
+  liveEvent?: string[];
+};
+
+export type VoiceEvent = {
+  timeline: number[];
+  voice: string[];
+};
+
+export type VoiceConfig = {
+  [event: string]: {
+    [duration: number]: VoiceEvent;
+  };
 };
 
 export interface Video {

@@ -12,6 +12,7 @@ const createMockEventDetail = (eventId: number = 1, index: number = 0): EventDet
   playlist: "playlist1",
   result: "1-0",
   markets: [{ id: 1, name: "market1" }],
+  inGameEventInfo: "in-game-event-info-1",
 });
 
 const createMockGoalInfo = (): GoalInfoData => ({
