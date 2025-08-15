@@ -6,6 +6,7 @@ const createMockRequest = (): jest.Mocked<Request> => {
   return {
     ip: "192.168.1.1",
     headers: {
+      host: "localhost:5000",
       "x-forwarded-for": "10.0.0.1, 192.168.1.1",
     },
     socket: {
@@ -49,6 +50,7 @@ describe("HealthController", () => {
         status: "ok",
         message: "Streaming service running",
         timestamp: mockDate.toISOString(),
+        host: mockReq.headers.host,
         clientIP: mockReq.ip,
         forwardedFor: mockReq.headers["x-forwarded-for"],
         remoteAddress: mockReq.socket.remoteAddress,

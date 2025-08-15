@@ -7,8 +7,9 @@ export class HealthController {
       message: "Streaming service running",
       timestamp: new Date().toISOString(),
       clientIP: req.ip,
-      forwardedFor: req.headers["x-forwarded-for"] || "Not available",
-      remoteAddress: req.socket.remoteAddress || "Not available",
+      host: req.headers.host,
+      forwardedFor: req.headers["x-forwarded-for"],
+      remoteAddress: req.socket.remoteAddress,
     });
   }
 }
