@@ -12,7 +12,7 @@ export const appConfigs = {
   },
   oddsFeedAPI: {
     url: "https://vnuat-mgapi.lalamoveoh.net",
-    operatorId: "67d291d943a96fad7f14ddae",
-    password: "gHwc1n01K38nX6TqZfwok",
+    operatorId: "689ea3912cd1f115e936f229",
+    password: "tNGPDL334PG89w0pDVRwf",
   },
 };
