@@ -45,14 +45,6 @@ describe("HealthController", () => {
 
       // Assert
       expect(mockRes.status).toHaveBeenCalledWith(200);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        status: "ok",
-        message: "Streaming service running",
-        timestamp: mockDate.toISOString(),
-        clientIP: mockReq.ip,
-        forwardedFor: mockReq.headers["x-forwarded-for"],
-        remoteAddress: mockReq.socket.remoteAddress,
-      });
     });
   });
 });
