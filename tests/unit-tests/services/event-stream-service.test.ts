@@ -101,6 +101,11 @@ describe("EventStreamService", () => {
         "2002": 30,
         "2003": 30,
       },
+      videoDelay: {
+        "2001": 3 * 1000,
+        "2002": 3 * 1000,
+        "2003": 3 * 1000,
+      },
     };
 
     // Mock Date.now() to return a fixed timestamp
@@ -140,7 +145,7 @@ describe("EventStreamService", () => {
       // Verify event details payload structure
       expect(result?.eventDetails[0]).toEqual({
         playlist: "playlist1",
-        videoLiveTimeMs: 1000, // Since scheduleStartTs is the same as mockNow
+        videoLiveTimeMs: -2000, // Since scheduleStartTs is the same as mockNow
         videoLength: 30,
         result: "1-0",
       });
@@ -189,7 +194,7 @@ describe("EventStreamService", () => {
       const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
 
       // Assert
-      expect(result?.eventDetails[0].videoLiveTimeMs).toBe(10000);
+      expect(result?.eventDetails[0].videoLiveTimeMs).toBe(7000); // delay 3000ms
     });
 
     it("should calculate matchLiveTimeMs correctly", () => {
@@ -204,7 +209,7 @@ describe("EventStreamService", () => {
       const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
 
       // Assert
-      const expectedMatchLiveTime = 50000;
+      const expectedMatchLiveTime = 47000; // delay 3000ms
       expect(result?.matchLiveTimeMs).toBe(expectedMatchLiveTime);
     });
 
@@ -220,7 +225,7 @@ describe("EventStreamService", () => {
       const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
 
       // Assert
-      expect(result?.eventDetails[0].videoLiveTimeMs).toBe(-5000);
+      expect(result?.eventDetails[0].videoLiveTimeMs).toBe(-8000); // delay 3000ms
       expect(result?.matchLiveTimeMs).toBe(0);
     });
 

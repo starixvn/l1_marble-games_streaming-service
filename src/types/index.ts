@@ -99,6 +99,7 @@ export interface EventStreamPayload {
 export enum JobName {
   ScheduleEvent = "ScheduleEvent",
   UpdateOdds = "UpdateOdds",
+  UpdatePreloadVideoInfo = "UpdatePreloadVideoInfo",
   UpdateVideoInfo = "UpdateVideoInfo",
   UpdateGoalInfo = "UpdateGoalInfo",
   UpdateResult = "UpdateResult",

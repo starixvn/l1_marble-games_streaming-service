@@ -14,4 +14,12 @@ export const appSettings = {
     "2002": 10 * 1000,
     "2003": 10 * 1000,
   } as Record<string, number>,
+
+  videoDelay: {
+    // in milliseconds
+    "2000": 3 * 1000,
+    "2001": 3 * 1000,
+    "2002": 3 * 1000,
+    "2003": 3 * 1000,
+  } as Record<string, number>,
 };
