@@ -74,15 +74,35 @@ export class EventSchedulerService {
 
   async scheduleUpdateVideoInfo(eventDetail: EventDetail, index: number, gameId: string) {
     const scheduledTime = new Date(eventDetail.scheduleStartTs);
-    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateVideoInfo);
+
+    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdatePreloadVideoInfo);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdateVideoInfo, index);
+      await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdatePreloadVideoInfo, index);
 
-      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdatePreloadVideoInfo, index);
+
+      await this.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
 
       await this.scheduleUpdateGoalInfo(gameId, index);
     });
+  }
+
+  async scheduleBroadcastVideoInfo(eventDetail: EventDetail, index: number, gameId: string) {
+    const scheduledTime = new Date(eventDetail.scheduleStartTs);
+    const scheduledDelay = new Date(scheduledTime.getTime() + (appSettings.videoDelay[gameId] || 0));
+    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.UpdateVideoInfo);
+
+    this.jobScheduler.scheduleJob(
+      jobId,
+      scheduledDelay,
+      async () => {
+        const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+        this.eventManager.updateCurrentEventDetail(currentEvent, JobName.UpdateVideoInfo, index);
+        this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
+      },
+      true
+    );
   }
 
   async scheduleUpdateGoalInfo(gameId: string, index: number, givenGoalInfo: GoalInfoData | null = null) {
@@ -98,7 +118,8 @@ export class EventSchedulerService {
     this.eventManager.updateGoalInfo(gameId, goalInfo, index);
 
     goalInfo.timeLine.forEach((time, goalIndex) => {
-      const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + time * 1000);
+      const goalTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
+      const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + goalTime);
       const jobId = this.generateJobId(gameId, eventDetail.eventID, index, `${JobName.UpdateGoalInfo}_${goalIndex}`);
 
       this.jobScheduler.scheduleJob(

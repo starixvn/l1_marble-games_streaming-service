@@ -98,6 +98,11 @@ describe("EventSchedulerService", () => {
         "2002": 10000,
         "2003": 10000,
       },
+      videoDelay: {
+        "2001": 3000,
+        "2002": 3000,
+        "2003": 3000,
+      },
     };
 
     eventSchedulerService = new EventSchedulerService(mockContainer);
@@ -300,7 +305,7 @@ describe("EventSchedulerService", () => {
   });
 
   describe("scheduleUpdateVideoInfo", () => {
-    it("should schedule video info update job", async () => {
+    it("should schedule preload video info update job", async () => {
       // Arrange
       const eventDetail = createMockEventDetail(1001, 0);
       const index = 0;
@@ -311,23 +316,23 @@ describe("EventSchedulerService", () => {
 
       // Assert
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
-        `${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVideoInfo}`,
+        `${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdatePreloadVideoInfo}`,
         new Date(eventDetail.scheduleStartTs),
         expect.any(Function)
       );
     });
 
-    it("should execute video info update job callback correctly", async () => {
+    it("should execute preload video info update job callback correctly", async () => {
       // Arrange
       const eventDetail = createMockEventDetail(1001, 0);
       const index = 0;
       const gameId = "2001";
       const mockEvent = createMockEvent(1001);
 
-      // Mock the current event for scheduleUpdateGoalInfo
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
       // Mock the updateCurrentEventDetail method
       mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
+      // Mock the current event for scheduleUpdateGoalInfo
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
 
       // Act
       await eventSchedulerService.scheduleUpdateVideoInfo(eventDetail, index, gameId);
@@ -339,11 +344,90 @@ describe("EventSchedulerService", () => {
       await scheduledCallback();
 
       // Assert
+      expect(mockEventManager.updateCurrentEventDetail).toHaveBeenCalledWith(
+        mockEvent,
+        JobName.UpdatePreloadVideoInfo,
+        index
+      );
+      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
+        gameId,
+        JobName.UpdatePreloadVideoInfo,
+        index
+      );
+    });
+  });
+
+  describe("scheduleBroadcastVideoInfo", () => {
+    it("should schedule broadcast video info job with delay", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 0);
+      const index = 0;
+      const gameId = "2001";
+      const mockEvent = createMockEvent(1001);
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventSchedulerService.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
+
+      // Assert
+      const expectedScheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + 3000); // videoDelay[gameId]
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVideoInfo}`,
+        expectedScheduledTime,
+        expect.any(Function),
+        true
+      );
+    });
+
+    it("should execute broadcast video info job callback correctly", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 0);
+      const index = 0;
+      const gameId = "2001";
+      const mockEvent = createMockEvent(1001);
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventSchedulerService.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
+
+      // Get the scheduled callback
+      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
+
+      // Execute the callback
+      await scheduledCallback();
+
+      // Assert
+      expect(mockEventManager.getCurrentEventForGame).toHaveBeenCalledWith(gameId);
       expect(mockEventManager.updateCurrentEventDetail).toHaveBeenCalledWith(mockEvent, JobName.UpdateVideoInfo, index);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.UpdateVideoInfo,
         index
+      );
+    });
+
+    it("should handle missing video delay", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 0);
+      const index = 0;
+      const gameId = "2001";
+      const mockEvent = createMockEvent(1001);
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      (appSettings as any).videoDelay = {};
+
+      // Act
+      await eventSchedulerService.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
+
+      // Assert
+      const expectedScheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + 0); // no delay
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVideoInfo}`,
+        expectedScheduledTime,
+        expect.any(Function),
+        true
       );
     });
   });
@@ -433,6 +517,32 @@ describe("EventSchedulerService", () => {
         JobName.UpdateGoalInfo,
         index
       );
+    });
+
+    it("should schedule goal info jobs with video delay", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const givenGoalInfo = createMockGoalInfo();
+      const mockEvent = createMockEvent(1001);
+      const eventDetail = mockEvent.eventDetails[index];
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
+
+      // Assert
+      // Check that jobs are scheduled with video delay
+      givenGoalInfo.timeLine.forEach((time, goalIndex) => {
+        const expectedTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + (time * 1000 + 3000)); // time * 1000 + videoDelay
+        expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+          `${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateGoalInfo}_${goalIndex}`,
+          expectedTime,
+          expect.any(Function),
+          true
+        );
+      });
     });
   });
 
@@ -653,6 +763,40 @@ describe("EventSchedulerService", () => {
       expect(mockOddsFeedService.getEventDetailsWithRetry).toHaveBeenCalledTimes(3);
       // Each event should schedule one job initially
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle video info scheduling flow correctly", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 0);
+      const index = 0;
+      const gameId = "2001";
+      const mockEvent = createMockEvent(1001);
+      const mockGoalInfo = createMockGoalInfo();
+
+      mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockOddsFeedService.getGoalInfo.mockResolvedValue(mockGoalInfo);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateVideoInfo(eventDetail, index, gameId);
+
+      // Get the scheduled callback and execute it
+      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
+      await scheduledCallback();
+
+      // Assert
+      expect(mockEventManager.updateCurrentEventDetail).toHaveBeenCalledWith(
+        mockEvent,
+        JobName.UpdatePreloadVideoInfo,
+        index
+      );
+      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
+        gameId,
+        JobName.UpdatePreloadVideoInfo,
+        index
+      );
+      // Should also schedule broadcast video info and goal info
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(5); // 1 for preload + 1 for broadcast + 3 for goal info timeline entries
     });
   });
 });

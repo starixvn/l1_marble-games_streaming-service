@@ -28,7 +28,7 @@ export class EventStreamService {
 
     const eventDetailsPayload: EventDetailStreamPayload[] = currentEvent.eventDetails.map((eventDetail) => ({
       playlist: eventDetail.playlist,
-      videoLiveTimeMs: now - new Date(eventDetail.scheduleStartTs).getTime(),
+      videoLiveTimeMs: now - new Date(eventDetail.scheduleStartTs).getTime() - (appSettings.videoDelay[gameId] || 0),
       videoLength: appSettings.videoLength[gameId],
       result: eventDetail.result,
     }));
