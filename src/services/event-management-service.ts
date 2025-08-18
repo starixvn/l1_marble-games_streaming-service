@@ -73,6 +73,7 @@ export class EventManagementService {
     this.eventManager.initializeCurrentEvent(updateEvent);
 
     await this.initializeGoalInfoForGame(gameId);
+    await this.initializeInGameEventForGame(gameId);
 
     this.eventManager.initializePhaseForCurrentEvent(eventID);
 
@@ -94,6 +95,16 @@ export class EventManagementService {
     }
 
     this.eventManager.initializeGoalInfoForCurrentEvent(gameId, goalInfos);
+  }
+
+  async initializeInGameEventForGame(gameId: string) {
+    const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+    for (const eventDetail of currentEvent.eventDetails) {
+      if (eventDetail.inGameEventInfo) {
+        const inGameEvent = await this.oddsFeedService.getInGameEvent(eventDetail.inGameEventInfo);
+        console.log(inGameEvent);
+      }
+    }
   }
 
   async initializeLiveScoresForGame(gameId: string) {

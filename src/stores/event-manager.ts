@@ -1,4 +1,4 @@
-import { AppContainer, Event, JobName, EventStreamState, GoalInfoData } from "../types";
+import { AppContainer, Event, JobName, EventStreamState, GoalInfoData, InGameEvent } from "../types";
 import { EventStore } from "./event-store";
 import { idHelper } from "../helpers";
 
@@ -47,6 +47,10 @@ export class EventManager {
 
   initializeGoalInfoForCurrentEvent(gameId: string, goalInfos: (GoalInfoData | null)[]) {
     this.eventStore.setCurrentEventGoalInfosForGame(gameId, goalInfos);
+  }
+
+  initializeInGameEventForCurrentEvent(gameId: string, inGameEvents: (InGameEvent | null)[]) {
+    this.eventStore.setCurrentInGameEventsForGame(gameId, inGameEvents);
   }
 
   initializeLiveScoresForCurrentEvent(gameId: string) {
