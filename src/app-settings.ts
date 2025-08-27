@@ -1,11 +1,12 @@
 export const appSettings = {
-  gameIds: ["2000", "2001", "2002", "2003"],
+  gameIds: ["2000"],
   videoLength: {
     // in seconds
     "2000": 30,
     "2001": 30,
     "2002": 30,
     "2003": 30,
+    "2004": 10,
   } as Record<string, number>,
 
   scheduleDelay: {

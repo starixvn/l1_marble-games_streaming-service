@@ -6,6 +6,7 @@ import { JobScheduler } from "./job-scheduler";
 import { idHelper } from "../helpers";
 import { EventSchedulerService } from "./event-scheduler-service";
 import { EventManager } from "../stores/event-manager";
+import { appSettings } from "../app-settings";
 
 export class EventManagementService {
   private readonly oddsFeedService: OddsFeedService;
@@ -108,15 +109,14 @@ export class EventManagementService {
     );
   }
 
-  async getUpcomingEventIDs() {
-    const upcomingEvents = await this.oddsFeedService.getScheduleWithRetry();
-    return upcomingEvents.map((event) => event.eventID);
-  }
-
   async getNextEventIDsForEachGame() {
     const allUpComingEvents = await this.oddsFeedService.getScheduleWithRetry();
+    const upcomingEvents = allUpComingEvents.filter((event) => {
+      const gameId = idHelper.extractGameId(event.eventID);
+      return appSettings.gameIds.includes(gameId);
+    });
 
-    return allUpComingEvents.reduce((events: Record<string, number>, event) => {
+    return upcomingEvents.reduce((events: Record<string, number>, event) => {
       const gameId = idHelper.extractGameId(event.eventID);
       if (!events[gameId] || event.eventID < events[gameId]) {
         events[gameId] = event.eventID;

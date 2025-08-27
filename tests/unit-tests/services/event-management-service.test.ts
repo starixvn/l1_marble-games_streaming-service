@@ -2,6 +2,7 @@ import { EventManagementService } from "../../../src/services/event-management-s
 import { mockContainer } from "../global-stubs";
 import { idHelper } from "../../../src/helpers";
 import { Event, EventStreamState, JobName } from "../../../src/types";
+import { appSettings } from "../../../src/app-settings";
 
 // Mock dependencies
 jest.mock("../../../src/helpers");
@@ -364,40 +365,6 @@ describe("EventManagementService", () => {
     });
   });
 
-  describe("getUpcomingEventIDs", () => {
-    it("should return array of upcoming event IDs", async () => {
-      // Arrange
-      const mockEvents = [createMockEvent(1001), createMockEvent(2001), createMockEvent(3001)];
-      mockOddsFeedService.getScheduleWithRetry.mockResolvedValue(mockEvents);
-
-      // Act
-      const result = await eventManagementService.getUpcomingEventIDs();
-
-      // Assert
-      expect(result).toEqual([1001, 2001, 3001]);
-      expect(mockOddsFeedService.getScheduleWithRetry).toHaveBeenCalled();
-    });
-
-    it("should handle empty schedule", async () => {
-      // Arrange
-      mockOddsFeedService.getScheduleWithRetry.mockResolvedValue([]);
-
-      // Act
-      const result = await eventManagementService.getUpcomingEventIDs();
-
-      // Assert
-      expect(result).toEqual([]);
-    });
-
-    it("should handle API errors", async () => {
-      // Arrange
-      mockOddsFeedService.getScheduleWithRetry.mockRejectedValue(new Error("Schedule API Error"));
-
-      // Act & Assert
-      await expect(eventManagementService.getUpcomingEventIDs()).rejects.toThrow("Schedule API Error");
-    });
-  });
-
   describe("getNextEventIDsForEachGame", () => {
     it("should return next event ID for each game", async () => {
       // Arrange
@@ -406,8 +373,17 @@ describe("EventManagementService", () => {
         createMockEvent(2001), // Game 2002
         createMockEvent(3001), // Game 2003
       ];
+      (appSettings as any) = {
+        gameIds: ["2001", "2002", "2003"],
+      };
       mockOddsFeedService.getScheduleWithRetry.mockResolvedValue(mockEvents);
-      mockIdHelper.extractGameId.mockReturnValueOnce("2001").mockReturnValueOnce("2002").mockReturnValueOnce("2003");
+      mockIdHelper.extractGameId
+        .mockReturnValueOnce("2001")
+        .mockReturnValueOnce("2002")
+        .mockReturnValueOnce("2003")
+        .mockReturnValueOnce("2001")
+        .mockReturnValueOnce("2002")
+        .mockReturnValueOnce("2003");
 
       // Act
       const result = await eventManagementService.getNextEventIDsForEachGame();
@@ -427,8 +403,17 @@ describe("EventManagementService", () => {
         createMockEvent(1001), // Game 2001, lower ID (should be selected)
         createMockEvent(2001), // Game 2002
       ];
+      (appSettings as any) = {
+        gameIds: ["2001", "2002", "2003"],
+      };
       mockOddsFeedService.getScheduleWithRetry.mockResolvedValue(mockEvents);
-      mockIdHelper.extractGameId.mockReturnValueOnce("2001").mockReturnValueOnce("2001").mockReturnValueOnce("2002");
+      mockIdHelper.extractGameId
+        .mockReturnValueOnce("2001")
+        .mockReturnValueOnce("2001")
+        .mockReturnValueOnce("2002")
+        .mockReturnValueOnce("2001")
+        .mockReturnValueOnce("2001")
+        .mockReturnValueOnce("2002");
 
       // Act
       const result = await eventManagementService.getNextEventIDsForEachGame();
