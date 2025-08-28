@@ -5,6 +5,10 @@ import { appSettings } from "../app-settings";
 import { logger } from "sc-common";
 import { ClientManager } from "../managers/client-manager";
 
+interface AdditionalPayload {
+  voice?: string;
+}
+
 export class EventStreamService {
   private readonly clientManager: ClientManager;
   private readonly eventStore: EventStore;
@@ -16,7 +20,7 @@ export class EventStreamService {
     this.clientManager = container.clientManager;
   }
 
-  buildCurrentEventDetailsPayload(gameId: string, updatedIndex = -1) {
+  buildCurrentEventDetailsPayload(gameId: string, updatedIndex = -1, additionalPayload: AdditionalPayload = {}) {
     const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
     if (!currentEvent) {
       this.logService.logError(`No current event for game ${gameId}`);
@@ -51,15 +55,23 @@ export class EventStreamService {
       matchLiveTimeMs: matchLiveTimeMs,
       currentPhase: currentEvent.currentPhase,
       message: "",
+      ...additionalPayload,
     };
 
     return payload;
   }
 
-  broadcastUpdateEventDataToClients(gameId: string, eventJobName: JobName, updatedIndex: number): void {
+  broadcastUpdateEventDataToClients(gameId: string, eventJobName: JobName, updatedIndex: number, additionalPayload: AdditionalPayload = {}): void {
     const clientsToBroadcast = this.clientManager.getClientSetForGame(gameId);
+    const payload = this.buildCurrentEventDetailsPayload(gameId, updatedIndex, additionalPayload);
 
-    const payload = this.buildCurrentEventDetailsPayload(gameId, updatedIndex);
+    if (gameId === "2000" && payload?.liveScores && eventJobName === JobName.UpdateGoalInfo) {
+      console.log("live scores ", payload.liveScores);
+    }
+
+    if (gameId === "2000" && payload?.voice && eventJobName === JobName.UpdateVoice) {
+      console.log("voice ", additionalPayload.voice);
+    }
 
     if (!payload) {
       this.logService.logError(`No payload for game ${gameId} updatedIndex: ${updatedIndex}`);

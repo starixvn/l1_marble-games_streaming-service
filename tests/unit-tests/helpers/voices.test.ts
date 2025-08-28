@@ -1,5 +1,5 @@
 import Chance from 'chance';
-import { DEFAULT_VOICE_DURATION_CONFIG, generateVoiceWithEventTimeline } from '../../../src/helpers/voices';
+import { DEFAULT_VOICE_DURATION_CONFIG, generateVoiceWithEventTimeline, EventTimelineArgs, VoiceGenerationResult } from '../../../src/helpers/voices';
 
 
 function mockPickoneIndices(indices: number[]): () => void {
@@ -510,74 +510,6 @@ describe('generateVoiceWithEventTimeline', () => {
                     restore();
                 }
             });
-        });
-    });
-
-    describe("No Goal", () => {
-        it("Should generate voice for no goal", () => {
-            // Arrange
-            const restore = mockPickoneIndices([0, 0, 0, 0]);
-            const timeline = [21];
-            const eventName = ["goal_H"];
-            try {
-                // Act
-                const actual = generateVoiceWithEventTimeline({
-                    eventName,
-                    timeline
-                }, {
-                    goal: { 3: 1 },
-                    noGoal: { 1: 1 }
-                });
-
-                // Assert
-                expect(actual.voice).toEqual(['noGoal_1_1', 'goal_3_1']);
-            } finally {
-                restore();
-            }
-        });
-
-        it("Should not overlap next goal", () => {
-            // Arrange
-            const restore = mockPickoneIndices([0, 0]);
-            const timeline = [16];
-            const eventName = ["goal_H"];
-            try {
-                // Act
-                const actual = generateVoiceWithEventTimeline({
-                    eventName,
-                    timeline
-                }, {
-                    goal: { 1: 1 },
-                    noGoal: { 2: 1 }
-                });
-
-                // Assert
-                expect(actual.voice).toEqual(['goal_1_1']);
-            } finally {
-                restore();
-            }
-        });
-
-        it("Should left for previous glove", () => {
-            // Arrange
-            const restore = mockPickoneIndices([0, 0]);
-            const timeline = [14];
-            const eventName = ["hit_glove_B"];
-            try {
-                // Act
-                const actual = generateVoiceWithEventTimeline({
-                    eventName,
-                    timeline
-                }, {
-                    save: { 2: 1 },
-                    noGoal: { 2: 1 }
-                });
-
-                // Assert
-                expect(actual.voice).toEqual(['save_2_1']);
-            } finally {
-                restore();
-            }
         });
     });
 

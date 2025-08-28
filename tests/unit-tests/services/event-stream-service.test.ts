@@ -246,6 +246,21 @@ describe("EventStreamService", () => {
       expect(result?.eventDetails).toEqual([]);
       expect(result?.matchLiveTimeMs).toBe(0);
     });
+
+    it("should include voice in additional payload", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(1, gameId);
+      const additionalPayload = { voice: "test_voice_1_2" };
+      
+      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId, -1, additionalPayload);
+
+      // Assert
+      expect(result?.voice).toBe("test_voice_1_2");
+    });
   });
 
   describe("broadcastUpdateEventDataToClients", () => {
@@ -307,6 +322,82 @@ describe("EventStreamService", () => {
       // Assert
       const expectedMessage = `Broadcasted ${eventJobName} on index: ${updatedIndex}`;
       expect(mockClient.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"${expectedMessage}"`));
+    });
+
+    it("should broadcast voice updates with additional payload", () => {
+      // Arrange
+      const gameId = "2001";
+      const eventJobName = JobName.UpdateVoice;
+      const updatedIndex = 0;
+      const additionalPayload = { voice: "goal_2_1" };
+      const mockEvent = createMockEventStreamState(1, gameId);
+      const mockClient = createMockClient(gameId);
+
+      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
+
+      // Act
+      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex, additionalPayload);
+
+      // Assert
+      expect(mockClient.write).toHaveBeenCalledWith(
+        expect.stringContaining(`"voice":"goal_2_1"`)
+      );
+      expect(mockClient.write).toHaveBeenCalledWith(
+        expect.stringContaining(`"message":"Broadcasted ${eventJobName} on index: ${updatedIndex}"`)
+      );
+    });
+
+    it("should log debug information for voice updates on game 2000", () => {
+      // Arrange
+      const gameId = "2000";
+      const eventJobName = JobName.UpdateVoice;
+      const updatedIndex = 0;
+      const additionalPayload = { voice: "goal_2_1" };
+      const mockEvent = createMockEventStreamState(1, gameId);
+      const mockClient = createMockClient(gameId);
+      
+      // Mock console.log to spy on it
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
+
+      // Act
+      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex, additionalPayload);
+
+      // Assert
+      expect(consoleSpy).toHaveBeenCalledWith("voice ", "goal_2_1");
+      
+      // Cleanup
+      consoleSpy.mockRestore();
+    });
+
+    it("should log debug information for goal info updates on game 2000", () => {
+      // Arrange
+      const gameId = "2000";
+      const eventJobName = JobName.UpdateGoalInfo;
+      const updatedIndex = 0;
+      const mockEvent = {
+        ...createMockEventStreamState(1, gameId),
+        liveScores: ["1:0", "2:1"]
+      };
+      const mockClient = createMockClient(gameId);
+      
+      // Mock console.log to spy on it
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
+
+      // Act
+      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex);
+
+      // Assert
+      expect(consoleSpy).toHaveBeenCalledWith("live scores ", ["1:0", "2:1"]);
+      
+      // Cleanup
+      consoleSpy.mockRestore();
     });
   });
 

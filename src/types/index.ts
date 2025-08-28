@@ -64,7 +64,7 @@ export type GoalInfoData = {
 export type InGameEvent = {
   timeLine: number[];
   frame: number[];
-  eventName: string;
+  eventName: string[];
 };
 
 export type EventStreamState = Event & {
@@ -111,6 +111,7 @@ export interface EventStreamPayload {
   updatedIndex: number;
   eventDetails: EventDetailStreamPayload[];
   liveScores: string[];
+  voice?: string;
   goalInfos: (GoalInfoData | null)[];
   matchLiveTimeMs: number;
   currentPhase: JobName;

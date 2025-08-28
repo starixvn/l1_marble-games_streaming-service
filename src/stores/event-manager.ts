@@ -108,6 +108,10 @@ export class EventManager {
     this.eventStore.setCurrentEventGoalInfoForGame(gameId, goalInfo, eventDetailIndex);
   }
 
+  updateInGameEventInfo(gameId: string, inGameEvent: InGameEvent | null, eventDetailIndex: number) {
+    this.eventStore.setCurrentInGameEventForGame(gameId, inGameEvent, eventDetailIndex);
+  }
+
   getCurrentEventForGame(gameId: string): EventStreamState {
     return this.eventStore.getCurrentEventForGame(gameId);
   }

@@ -99,12 +99,17 @@ export class EventManagementService {
 
   async initializeInGameEventForGame(gameId: string) {
     const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+    const inGameEvents = [];
     for (const eventDetail of currentEvent.eventDetails) {
       if (eventDetail.inGameEventInfo) {
         const inGameEvent = await this.oddsFeedService.getInGameEvent(eventDetail.inGameEventInfo);
-        console.log(inGameEvent);
+        inGameEvents.push(inGameEvent);
+      } else {
+        inGameEvents.push(null);
       }
     }
+
+    this.eventManager.initializeInGameEventForCurrentEvent(gameId, inGameEvents);
   }
 
   async initializeLiveScoresForGame(gameId: string) {
@@ -115,7 +120,8 @@ export class EventManagementService {
     this.eventSchedulerService.scheduleUpdateGoalInfo(
       gameId,
       currentEvent.currentEventDetailIndex,
-      currentEvent.goalInfos[currentEvent.currentEventDetailIndex]
+      currentEvent.goalInfos[currentEvent.currentEventDetailIndex],
+      currentEvent.inGameEvents?.[currentEvent.currentEventDetailIndex]
     );
   }
 

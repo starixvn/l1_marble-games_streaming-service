@@ -1,11 +1,12 @@
 import { logger } from "sc-common";
-import { AppContainer, EventDetail, EventValidator, JobName, Event, GoalInfoData } from "../types";
+import { AppContainer, EventDetail, EventValidator, JobName, Event, GoalInfoData, InGameEvent } from "../types";
 import { JobScheduler } from "./job-scheduler";
 import { OddsFeedService } from "./odds-feed-service";
 import { appSettings } from "../app-settings";
 import { EventStreamService } from "./event-stream-service";
 import { idHelper } from "../helpers";
 import { EventManager } from "../stores/event-manager";
+import { generateVoiceWithEventTimeline } from "../helpers/voices";
 
 export class EventSchedulerService {
   private readonly jobScheduler: JobScheduler;
@@ -108,7 +109,8 @@ export class EventSchedulerService {
   async scheduleUpdateGoalInfo(gameId: string, index: number, givenGoalInfo: GoalInfoData | null = null) {
     const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
     const eventDetail = currentEvent.eventDetails[index];
-    const goalInfo = givenGoalInfo || (await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo));
+    const goalInfo = givenGoalInfo ?? (await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo));
+    const inGameEvent = givenInGameEvent ?? (await this.oddsFeedService.getInGameEvent(eventDetail.inGameEventInfo));
 
     if (!goalInfo) {
       this.logService.logError(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
@@ -116,6 +118,7 @@ export class EventSchedulerService {
     }
 
     this.eventManager.updateGoalInfo(gameId, goalInfo, index);
+    this.eventManager.updateInGameEventInfo(gameId, inGameEvent, index);
 
     goalInfo.timeLine.forEach((time, goalIndex) => {
       const goalTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
@@ -127,12 +130,32 @@ export class EventSchedulerService {
         scheduledTime,
         async () => {
           this.eventManager.updateLiveScore(gameId, goalInfo.result, goalIndex, index);
-
           this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateGoalInfo, index);
         },
         true
       );
     });
+
+    const timeline = inGameEvent?.timeLine ?? [];
+    const eventName = inGameEvent?.eventName ?? [];
+
+    const voices = generateVoiceWithEventTimeline({
+      timeline,
+      eventName,
+    });
+
+    voices.timeline.forEach((time, voiceIndex) => {
+      const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + time * 1000);
+      const jobId = this.generateJobId(gameId, eventDetail.eventID, index, `${JobName.UpdateVoice}_${voiceIndex}`);
+      this.jobScheduler.scheduleJob(
+        jobId,
+        scheduledTime,
+        async () => {
+          this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVoice, index, { voice: voices.voice[voiceIndex] });
+        },
+        true
+      )
+    })
   }
 
   async scheduleUpdateResult(eventDetail: EventDetail, index: number, gameId: string) {

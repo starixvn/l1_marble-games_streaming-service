@@ -146,9 +146,8 @@ export const DEFAULT_VOICE_DURATION_CONFIG: VoiceDurationConfig = {
 const TIME_WITHIN_TO_BE_CONSIDERED_AS_FAST_GOAL = 5;
 const GOAL_COUNT_TO_BE_CONSIDERED_AS_FAST_GOAL = 2;
 const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 25;
-const TIME_TO_BE_CONSIDERED_AS_NO_GOAL_WITHIN = 15;
 
-export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: VoiceDurationConfig): VoiceGenerationResult {
+export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: VoiceDurationConfig = DEFAULT_VOICE_DURATION_CONFIG): VoiceGenerationResult {
     const events = args.eventName;
 
     const { initialVoice, initialTracker } = initVoiceEvents(args, config);
@@ -172,20 +171,6 @@ export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: 
         }, nextEvent);
 
         const durationLimit = nextEvent?.eventTime ? Math.ceil(nextEvent.eventTime - eventTime) : undefined;
-
-        if (isNoGoalWithinTime(tracker, TIME_TO_BE_CONSIDERED_AS_NO_GOAL_WITHIN) && !isPreviousEventPassedTime(tracker, TIME_TO_BE_CONSIDERED_AS_NO_GOAL_WITHIN)) {
-            const noGoalVoices = getPossibleVoiceArray(config, "noGoal", {
-                limitDuration: durationLimit,
-                exclusion
-            });
-            const chance = new Chance();
-            const chosenVoice = chance.pickone(noGoalVoices);
-            if (chosenVoice) {
-                timeline.push(TIME_TO_BE_CONSIDERED_AS_NO_GOAL_WITHIN);
-                voice.push(chosenVoice.file);
-                tracker = trackEventOnVoiceChosen(tracker, TIME_TO_BE_CONSIDERED_AS_NO_GOAL_WITHIN, chosenVoice);
-            }
-        }
 
         if (isGoalForEventName(eventName)) {
             tracker = trackGoal(tracker, {

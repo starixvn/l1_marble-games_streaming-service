@@ -1,6 +1,6 @@
 import { EventManager } from "../../../src/stores/event-manager";
 import { mockContainer } from "../global-stubs";
-import { Event, EventDetail, JobName, GoalInfoData, EventStreamState } from "../../../src/types";
+import { Event, EventDetail, JobName, GoalInfoData, EventStreamState, InGameEvent } from "../../../src/types";
 import { EventStore } from "../../../src/stores/event-store";
 import { idHelper } from "../../../src/helpers";
 
@@ -36,6 +36,12 @@ const createMockGoalInfo = (): GoalInfoData => ({
   frame: [1, 2, 3],
   timeLine: [10, 20, 30],
   result: ["H", "A", "H"], // Home, Away, Home goals
+});
+
+const createMockInGameEvent = (): InGameEvent => ({
+  timeLine: [5, 15, 25],
+  frame: [100, 200, 300],
+  eventName: ["kick-off", "corner", "free-kick"],
 });
 
 const createMockEventStreamState = (gameId: string = "2001", eventId: number = 1): EventStreamState => ({
@@ -196,6 +202,62 @@ describe("EventManager", () => {
 
       // Assert
       expect(eventStore.setCurrentEventGoalInfosForGame).toHaveBeenCalledWith(gameId, goalInfos);
+    });
+  });
+
+  describe("initializeInGameEventForCurrentEvent", () => {
+    it("should initialize in-game events for current event", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvents = [createMockInGameEvent(), null, createMockInGameEvent()];
+      jest.spyOn(eventStore, "setCurrentInGameEventsForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeInGameEventForCurrentEvent(gameId, inGameEvents);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventsForGame).toHaveBeenCalledWith(gameId, inGameEvents);
+    });
+
+    it("should handle array of null in-game events", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvents = [null, null, null];
+      jest.spyOn(eventStore, "setCurrentInGameEventsForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeInGameEventForCurrentEvent(gameId, inGameEvents);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventsForGame).toHaveBeenCalledWith(gameId, inGameEvents);
+    });
+
+    it("should handle empty in-game events array", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvents: (InGameEvent | null)[] = [];
+      jest.spyOn(eventStore, "setCurrentInGameEventsForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeInGameEventForCurrentEvent(gameId, inGameEvents);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventsForGame).toHaveBeenCalledWith(gameId, inGameEvents);
+    });
+
+    it("should handle mixed in-game events array", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockInGameEvent1 = createMockInGameEvent();
+      const mockInGameEvent2 = { ...createMockInGameEvent(), eventName: ["penalty", "yellow-card"] };
+      const inGameEvents = [mockInGameEvent1, null, mockInGameEvent2];
+      jest.spyOn(eventStore, "setCurrentInGameEventsForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeInGameEventForCurrentEvent(gameId, inGameEvents);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventsForGame).toHaveBeenCalledWith(gameId, inGameEvents);
     });
   });
 
@@ -500,6 +562,68 @@ describe("EventManager", () => {
     });
   });
 
+  describe("updateInGameEventInfo", () => {
+    beforeEach(() => {
+      jest.spyOn(eventStore, "setCurrentInGameEventForGame").mockImplementation();
+    });
+
+    it("should update in-game event info for specific event detail", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvent = createMockInGameEvent();
+      const eventDetailIndex = 0;
+
+      // Act
+      eventManager.updateInGameEventInfo(gameId, inGameEvent, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventForGame).toHaveBeenCalledWith(gameId, inGameEvent, eventDetailIndex);
+    });
+
+    it("should handle null in-game event info", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvent = null;
+      const eventDetailIndex = 0;
+
+      // Act
+      eventManager.updateInGameEventInfo(gameId, inGameEvent, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventForGame).toHaveBeenCalledWith(gameId, null, eventDetailIndex);
+    });
+
+    it("should handle different event detail indices", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvent = createMockInGameEvent();
+      const eventDetailIndex = 2;
+
+      // Act
+      eventManager.updateInGameEventInfo(gameId, inGameEvent, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventForGame).toHaveBeenCalledWith(gameId, inGameEvent, eventDetailIndex);
+    });
+
+    it("should handle different types of in-game events", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvent = {
+        timeLine: [1, 30, 60],
+        frame: [50, 500, 1000],
+        eventName: ["start", "halftime", "end"],
+      };
+      const eventDetailIndex = 0;
+
+      // Act
+      eventManager.updateInGameEventInfo(gameId, inGameEvent, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentInGameEventForGame).toHaveBeenCalledWith(gameId, inGameEvent, eventDetailIndex);
+    });
+  });
+
   describe("getCurrentEventForGame", () => {
     beforeEach(() => {
       jest.spyOn(eventStore, "getCurrentEventForGame").mockImplementation();
@@ -518,6 +642,222 @@ describe("EventManager", () => {
       // Assert
       expect(result).toBe(mockEvent);
       expect(eventStore.getCurrentEventForGame).toHaveBeenCalledWith(gameId);
+    });
+  });
+
+  describe("integration and edge case scenarios", () => {
+    it("should handle complete event lifecycle initialization", async () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      const gameId = "2001";
+      const goalInfos = [createMockGoalInfo(), null];
+      const inGameEvents = [createMockInGameEvent(), null];
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventForGame");
+      jest.spyOn(eventStore, "setCurrentEventGoalInfosForGame");
+      jest.spyOn(eventStore, "setCurrentInGameEventsForGame");
+
+      // Act - Initialize event, goal infos, and in-game events
+      await eventManager.initializeCurrentEvent(event);
+      eventManager.initializeGoalInfoForCurrentEvent(gameId, goalInfos);
+      eventManager.initializeInGameEventForCurrentEvent(gameId, inGameEvents);
+
+      // Assert - Verify the methods were called correctly
+      expect(eventStore.setCurrentEventForGame).toHaveBeenCalledTimes(1);
+      expect(eventStore.setCurrentEventGoalInfosForGame).toHaveBeenCalledWith(gameId, goalInfos);
+      expect(eventStore.setCurrentInGameEventsForGame).toHaveBeenCalledWith(gameId, inGameEvents);
+      
+      // Check the initial event was set with correct basic structure
+      const firstCall = (eventStore.setCurrentEventForGame as jest.Mock).mock.calls[0];
+      const [calledGameId, calledEvent] = firstCall;
+      
+      expect(calledGameId).toBe(gameId);
+      expect(calledEvent.eventID).toBe(event.eventID);
+      expect(calledEvent.currentEventDetailIndex).toBe(0);
+      expect(calledEvent.liveScores).toEqual(["0:0", "0:0"]);
+      expect(calledEvent.currentPhase).toBe(JobName.ScheduleEvent);
+      expect(calledEvent.liveVoices).toEqual([]);
+      // goalInfos array is initialized with nulls, but may have been updated by time we check
+      expect(Array.isArray(calledEvent.goalInfos)).toBe(true);
+      expect(calledEvent.goalInfos).toHaveLength(2);
+    });
+
+    it("should handle event with many event details", async () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      event.eventDetails = [
+        createMockEventDetail(1001, 0),
+        createMockEventDetail(1001, 1),
+        createMockEventDetail(1001, 2),
+        createMockEventDetail(1001, 3),
+        createMockEventDetail(1001, 4),
+      ];
+      const gameId = "2001";
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventForGame");
+
+      // Act
+      await eventManager.initializeCurrentEvent(event);
+
+      // Assert
+      expect(eventStore.setCurrentEventForGame).toHaveBeenCalledWith(gameId, {
+        ...event,
+        currentEventDetailIndex: 0,
+        liveScores: ["0:0", "0:0", "0:0", "0:0", "0:0"],
+        goalInfos: [null, null, null, null, null],
+        currentPhase: JobName.ScheduleEvent,
+        liveVoices: [],
+      });
+    });
+
+    it("should handle event with empty event details", async () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      event.eventDetails = [];
+      const gameId = "2001";
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventForGame");
+
+      // Act
+      await eventManager.initializeCurrentEvent(event);
+
+      // Assert
+      expect(eventStore.setCurrentEventForGame).toHaveBeenCalledWith(gameId, {
+        ...event,
+        currentEventDetailIndex: 0,
+        liveScores: [],
+        goalInfos: [],
+        currentPhase: JobName.ScheduleEvent,
+        liveVoices: [],
+      });
+    });
+
+    it("should handle complex live score calculation with multiple goal results", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalResults = ["H", "A", "H", "A", "H", "A", "H"]; // Alternating goals
+      const goalIndex = 6; // All goals
+      const eventDetailIndex = 0;
+
+      jest.spyOn(eventStore, "setCurrentEventLiveScoreForGame").mockImplementation();
+
+      // Act
+      eventManager.updateLiveScore(gameId, goalResults, goalIndex, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentEventLiveScoreForGame).toHaveBeenCalledWith(gameId, "4:3", eventDetailIndex);
+    });
+
+    it("should handle live score with large goal counts", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalResults = Array(20).fill("H"); // 20 home goals
+      const goalIndex = 19;
+      const eventDetailIndex = 0;
+
+      jest.spyOn(eventStore, "setCurrentEventLiveScoreForGame").mockImplementation();
+
+      // Act
+      eventManager.updateLiveScore(gameId, goalResults, goalIndex, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentEventLiveScoreForGame).toHaveBeenCalledWith(gameId, "20:0", eventDetailIndex);
+    });
+
+    it("should handle goal results with mixed case and special characters", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalResults = ["h", "H", "a", "A", "x", "Y", "H"]; // Mixed case and unknown types
+      const goalIndex = 6;
+      const eventDetailIndex = 0;
+
+      jest.spyOn(eventStore, "setCurrentEventLiveScoreForGame").mockImplementation();
+
+      // Act
+      eventManager.updateLiveScore(gameId, goalResults, goalIndex, eventDetailIndex);
+
+      // Assert
+      expect(eventStore.setCurrentEventLiveScoreForGame).toHaveBeenCalledWith(gameId, "2:1", eventDetailIndex); // Only "H" and "A" count (2 H's, 1 A)
+    });
+
+    it("should handle multiple simultaneous updates correctly", async () => {
+      // Arrange
+      const gameId = "2001";
+      const event = createMockEvent(1001);
+      const goalInfo = createMockGoalInfo();
+      const inGameEvent = createMockInGameEvent();
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventDetailForGame").mockImplementation();
+      jest.spyOn(eventStore, "setCurrentEventPhaseForGame").mockImplementation();
+      jest.spyOn(eventStore, "setCurrentEventGoalInfoForGame").mockImplementation();
+      jest.spyOn(eventStore, "setCurrentInGameEventForGame").mockImplementation();
+
+      // Act - Perform multiple updates
+      await eventManager.updateCurrentEventDetail(event, JobName.UpdateOdds, 0);
+      eventManager.updateGoalInfo(gameId, goalInfo, 0);
+      eventManager.updateInGameEventInfo(gameId, inGameEvent, 0);
+
+      // Assert
+      expect(eventStore.setCurrentEventDetailForGame).toHaveBeenCalledWith(gameId, event.eventDetails[0], 0);
+      expect(eventStore.setCurrentEventPhaseForGame).toHaveBeenCalledWith(gameId, JobName.UpdateOdds);
+      expect(eventStore.setCurrentEventGoalInfoForGame).toHaveBeenCalledWith(gameId, goalInfo, 0);
+      expect(eventStore.setCurrentInGameEventForGame).toHaveBeenCalledWith(gameId, inGameEvent, 0);
+    });
+
+    it("should handle phase transitions correctly during initialization", async () => {
+      // Arrange
+      const eventId = 1001;
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId, eventId);
+      
+      // Set up timestamps for different phases - need index > 0 for UpdateOdds to trigger
+      const baseTime = new Date("2024-01-01T10:00:00Z").getTime();
+      mockEvent.eventDetails[0].oddsAvailableTs = new Date(baseTime + 1000).toISOString();
+      mockEvent.eventDetails[0].scheduleStartTs = new Date(baseTime + 2000).toISOString();
+      mockEvent.eventDetails[0].resultsAvailableTs = new Date(baseTime + 3000).toISOString();
+      
+      mockEvent.eventDetails[1].oddsAvailableTs = new Date(baseTime + 500).toISOString(); // Earlier for index 1
+      mockEvent.eventDetails[1].scheduleStartTs = new Date(baseTime + 3500).toISOString();
+      mockEvent.eventDetails[1].resultsAvailableTs = new Date(baseTime + 4000).toISOString();
+
+      const now = baseTime + 2500; // Between first scheduleStartTs and first resultsAvailableTs
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      jest.spyOn(Date, "now").mockReturnValue(now);
+
+      // Act
+      await eventManager.initializePhaseForCurrentEvent(eventId);
+
+      // Assert - Should be in UpdateOdds phase because index 1 oddsAvailableTs has passed and index > 0
+      expect(eventStore.getCurrentEventForGame(gameId).currentPhase).toBe(JobName.UpdateOdds);
+    });
+
+    it("should handle live scores initialization with edge case timings", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      
+      // Set one result available in the past, one in the future
+      const now = new Date("2024-01-01T10:00:30Z").getTime();
+      mockEvent.eventDetails[0].resultsAvailableTs = "2024-01-01T09:59:00Z"; // Past
+      mockEvent.eventDetails[1].resultsAvailableTs = "2024-01-01T10:02:00Z"; // Future
+      mockEvent.eventDetails[0].result = "2-1";
+      mockEvent.eventDetails[1].result = "3-2";
+
+      jest.spyOn(eventStore, "getCurrentEventForGame").mockReturnValue(mockEvent);
+      jest.spyOn(eventStore, "setCurrentEventLiveScoresForGame").mockImplementation();
+      jest.spyOn(Date, "now").mockReturnValue(now);
+
+      // Act
+      eventManager.initializeLiveScoresForCurrentEvent(gameId);
+
+      // Assert
+      expect(eventStore.setCurrentEventLiveScoresForGame).toHaveBeenCalledWith(gameId, ["2-1", "0:0"]);
     });
   });
 });

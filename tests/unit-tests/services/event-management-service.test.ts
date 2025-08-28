@@ -58,6 +58,7 @@ const createMockEventStreamState = (eventId: number = 1001, gameId: string = "20
   currentEventDetailIndex: 0,
   liveScores: ["1-0", "2-0"],
   goalInfos: [null, null],
+  inGameEvents: [null, null],
   currentPhase: JobName.ScheduleEvent,
   liveVoices: ["", ""],
 });
@@ -66,6 +67,12 @@ const createMockGoalInfo = () => ({
   frame: [1, 2, 3],
   timeLine: [10, 20, 30],
   result: ["goal", "assist", "save"],
+});
+
+const createMockInGameEvent = () => ({
+  timeLine: [5, 15, 25],
+  frame: [100, 200, 300],
+  eventName: ["kick-off", "corner", "free-kick"],
 });
 
 describe("EventManagementService", () => {
@@ -86,6 +93,7 @@ describe("EventManagementService", () => {
       getEventDetailsWithRetry: jest.fn(),
       getGoalInfo: jest.fn(),
       getScheduleWithRetry: jest.fn(),
+      getInGameEvent: jest.fn(),
     };
     mockJobScheduler = {
       stopAll: jest.fn(),
@@ -100,6 +108,7 @@ describe("EventManagementService", () => {
       initializeCurrentEvent: jest.fn(),
       getCurrentEventForGame: jest.fn(),
       initializeGoalInfoForCurrentEvent: jest.fn(),
+      initializeInGameEventForCurrentEvent: jest.fn(),
       initializePhaseForCurrentEvent: jest.fn(),
       initializeLiveScoresForCurrentEvent: jest.fn(),
     };
@@ -242,6 +251,7 @@ describe("EventManagementService", () => {
       mockIdHelper.extractGameId.mockReturnValue(gameId);
       mockEventManager.getCurrentEventForGame.mockReturnValue(createMockEventStreamState(eventId, gameId));
       jest.spyOn(eventManagementService, "initializeGoalInfoForGame").mockResolvedValue();
+      jest.spyOn(eventManagementService, "initializeInGameEventForGame").mockResolvedValue();
 
       // Act
       await eventManagementService.initializeCurrentEvent(eventId);
@@ -252,6 +262,7 @@ describe("EventManagementService", () => {
       expect(mockEventManager.initializePhaseForCurrentEvent).toHaveBeenCalledWith(eventId);
       expect(mockEventSchedulerService.scheduleEventDetails).toHaveBeenCalledWith(mockEvent);
       expect(eventManagementService.initializeGoalInfoForGame).toHaveBeenCalledWith(gameId);
+      expect(eventManagementService.initializeInGameEventForGame).toHaveBeenCalledWith(gameId);
     });
 
     it("should handle event not found", async () => {
@@ -332,6 +343,89 @@ describe("EventManagementService", () => {
     });
   });
 
+  describe("initializeInGameEventForGame", () => {
+    it("should initialize in-game events for all event details", async () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(1001, gameId);
+      const mockInGameEvent = createMockInGameEvent();
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockOddsFeedService.getInGameEvent.mockResolvedValue(mockInGameEvent);
+
+      // Act
+      await eventManagementService.initializeInGameEventForGame(gameId);
+
+      // Assert
+      expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledTimes(2);
+      expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith("in-game-event-info-1");
+      expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith("in-game-event-info-2");
+      expect(mockEventManager.initializeInGameEventForCurrentEvent).toHaveBeenCalledWith(gameId, [
+        mockInGameEvent,
+        mockInGameEvent,
+      ]);
+    });
+
+    it("should handle event details without in-game event info", async () => {
+      // Arrange
+      const gameId = "2001";
+      const baseEvent = createMockEventStreamState(1001, gameId);
+      const mockEvent = {
+        ...baseEvent,
+        eventDetails: [
+          { ...baseEvent.eventDetails[0], inGameEventInfo: null },
+          { ...baseEvent.eventDetails[1], inGameEventInfo: "in-game-event-info-2" },
+        ],
+      };
+      const mockInGameEvent = createMockInGameEvent();
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockOddsFeedService.getInGameEvent.mockResolvedValue(mockInGameEvent);
+
+      // Act
+      await eventManagementService.initializeInGameEventForGame(gameId);
+
+      // Assert
+      expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledTimes(1);
+      expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith("in-game-event-info-2");
+      expect(mockEventManager.initializeInGameEventForCurrentEvent).toHaveBeenCalledWith(gameId, [null, mockInGameEvent]);
+    });
+
+    it("should handle in-game event fetch failures", async () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(1001, gameId);
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockOddsFeedService.getInGameEvent.mockResolvedValue(null);
+
+      // Act
+      await eventManagementService.initializeInGameEventForGame(gameId);
+
+      // Assert
+      expect(mockEventManager.initializeInGameEventForCurrentEvent).toHaveBeenCalledWith(gameId, [null, null]);
+    });
+
+    it("should handle empty event details", async () => {
+      // Arrange
+      const gameId = "2001";
+      const baseEvent = createMockEventStreamState(1001, gameId);
+      const mockEvent = {
+        ...baseEvent,
+        eventDetails: [],
+      };
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventManagementService.initializeInGameEventForGame(gameId);
+
+      // Assert
+      expect(mockOddsFeedService.getInGameEvent).not.toHaveBeenCalled();
+      expect(mockEventManager.initializeInGameEventForCurrentEvent).toHaveBeenCalledWith(gameId, []);
+    });
+  });
+
   describe("initializeLiveScoresForGame", () => {
     it("should initialize live scores and schedule goal info updates", async () => {
       // Arrange
@@ -345,16 +439,18 @@ describe("EventManagementService", () => {
 
       // Assert
       expect(mockEventManager.initializeLiveScoresForCurrentEvent).toHaveBeenCalledWith(gameId);
-      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null);
+      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null, null);
     });
 
-    it("should handle current event with goal info", async () => {
+    it("should handle current event with goal info and in-game events", async () => {
       // Arrange
       const gameId = "2001";
       const mockGoalInfo = createMockGoalInfo();
+      const mockInGameEvent = createMockInGameEvent();
       const mockEvent = {
         ...createMockEventStreamState(1001, gameId),
         goalInfos: [mockGoalInfo, null],
+        inGameEvents: [mockInGameEvent, null],
       };
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
@@ -363,7 +459,26 @@ describe("EventManagementService", () => {
       await eventManagementService.initializeLiveScoresForGame(gameId);
 
       // Assert
-      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, mockGoalInfo);
+      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, mockGoalInfo, mockInGameEvent);
+    });
+
+    it("should handle current event with only in-game events", async () => {
+      // Arrange
+      const gameId = "2001";
+      const mockInGameEvent = createMockInGameEvent();
+      const mockEvent = {
+        ...createMockEventStreamState(1001, gameId),
+        goalInfos: [null, null],
+        inGameEvents: [mockInGameEvent, null],
+      };
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventManagementService.initializeLiveScoresForGame(gameId);
+
+      // Assert
+      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null, mockInGameEvent);
     });
   });
 
