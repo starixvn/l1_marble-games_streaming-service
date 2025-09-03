@@ -103,6 +103,7 @@ describe("EventManagementService", () => {
       scheduleEvents: jest.fn(),
       scheduleEventDetails: jest.fn(),
       scheduleUpdateGoalInfo: jest.fn(),
+      scheduleUpdateVoice: jest.fn(),
     };
     mockEventManager = {
       initializeCurrentEvent: jest.fn(),
@@ -439,7 +440,8 @@ describe("EventManagementService", () => {
 
       // Assert
       expect(mockEventManager.initializeLiveScoresForCurrentEvent).toHaveBeenCalledWith(gameId);
-      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null, null);
+      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null);
+      expect(mockEventSchedulerService.scheduleUpdateVoice).toHaveBeenCalledWith(gameId, 0, null);
     });
 
     it("should handle current event with goal info and in-game events", async () => {
@@ -459,7 +461,8 @@ describe("EventManagementService", () => {
       await eventManagementService.initializeLiveScoresForGame(gameId);
 
       // Assert
-      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, mockGoalInfo, mockInGameEvent);
+      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, mockGoalInfo);
+      expect(mockEventSchedulerService.scheduleUpdateVoice).toHaveBeenCalledWith(gameId, 0, mockInGameEvent);
     });
 
     it("should handle current event with only in-game events", async () => {
@@ -478,7 +481,8 @@ describe("EventManagementService", () => {
       await eventManagementService.initializeLiveScoresForGame(gameId);
 
       // Assert
-      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null, mockInGameEvent);
+      expect(mockEventSchedulerService.scheduleUpdateGoalInfo).toHaveBeenCalledWith(gameId, 0, null);
+      expect(mockEventSchedulerService.scheduleUpdateVoice).toHaveBeenCalledWith(gameId, 0, mockInGameEvent);
     });
   });
 

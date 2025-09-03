@@ -553,11 +553,81 @@ describe("EventSchedulerService", () => {
       );
     });
 
-    it("should schedule voice jobs when in-game event is provided", async () => {
+    it("should schedule only goal info jobs without voice functionality", async () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
       const givenGoalInfo = createMockGoalInfo();
+      const mockEvent = createMockEvent(1001);
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
+
+      // Assert
+      expect(mockGenerateVoiceWithEventTimeline).not.toHaveBeenCalled();
+      
+      // Should schedule only 3 goal info jobs
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
+      
+      // Check that no voice jobs are scheduled
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
+        call[0].includes(JobName.UpdateVoice)
+      );
+      expect(voiceJobCalls).toHaveLength(0);
+    });
+
+    it("should fetch goal info when not provided", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const mockEvent = createMockEvent(1001);
+      const mockGoalInfo = createMockGoalInfo();
+      const eventDetail = mockEvent.eventDetails[index];
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockOddsFeedService.getGoalInfo.mockResolvedValue(mockGoalInfo);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index);
+
+      // Assert
+      expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(eventDetail.goalInfo);
+      expect(mockEventManager.updateGoalInfo).toHaveBeenCalledWith(gameId, mockGoalInfo, index);
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle goal info fetch failure", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const mockEvent = createMockEvent(1001);
+      const eventDetail = mockEvent.eventDetails[index];
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockOddsFeedService.getGoalInfo.mockResolvedValue(null);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index);
+
+      // Assert
+      expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(eventDetail.goalInfo);
+      expect(mockLogService.logError).toHaveBeenCalledWith(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+  });
+
+  describe("scheduleUpdateVoice", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("should schedule voice jobs when in-game event is provided", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
       const givenInGameEvent = createMockInGameEvent();
       const mockEvent = createMockEvent(1001);
       const mockVoiceResult = {
@@ -569,7 +639,7 @@ describe("EventSchedulerService", () => {
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
-      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo, givenInGameEvent);
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert
       expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalledWith({
@@ -577,8 +647,8 @@ describe("EventSchedulerService", () => {
         eventName: givenInGameEvent.eventName,
       });
       
-      // Should schedule 3 goal info jobs + 2 voice jobs = 5 total
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(5);
+      // Should schedule 2 voice jobs
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(2);
       
       // Check voice job scheduling
       const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
@@ -591,7 +661,6 @@ describe("EventSchedulerService", () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
-      const givenGoalInfo = createMockGoalInfo();
       const givenInGameEvent = createMockInGameEvent();
       const mockEvent = createMockEvent(1001);
       const eventDetail = mockEvent.eventDetails[index];
@@ -604,7 +673,7 @@ describe("EventSchedulerService", () => {
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
-      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo, givenInGameEvent);
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert voice job scheduling
       const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
@@ -635,7 +704,6 @@ describe("EventSchedulerService", () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
-      const givenGoalInfo = createMockGoalInfo();
       const givenInGameEvent = createMockInGameEvent();
       const mockEvent = createMockEvent(1001);
       const mockVoiceResult = {
@@ -647,11 +715,11 @@ describe("EventSchedulerService", () => {
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
-      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo, givenInGameEvent);
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert
-      // Should only schedule 3 goal info jobs, no voice jobs
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
+      // Should not schedule any voice jobs
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
       
       const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
         call[0].includes(JobName.UpdateVoice)
@@ -663,7 +731,6 @@ describe("EventSchedulerService", () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
-      const givenGoalInfo = createMockGoalInfo();
       const mockEvent = createMockEvent(1001);
       const mockInGameEvent = createMockInGameEvent();
       const eventDetail = mockEvent.eventDetails[index];
@@ -677,7 +744,7 @@ describe("EventSchedulerService", () => {
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
-      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index);
 
       // Assert
       expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith(eventDetail.inGameEventInfo);
@@ -688,30 +755,23 @@ describe("EventSchedulerService", () => {
       });
     });
 
-    it("should handle null in-game event gracefully", async () => {
+    it("should handle in-game event fetch failure", async () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
-      const givenGoalInfo = createMockGoalInfo();
       const mockEvent = createMockEvent(1001);
-      const mockVoiceResult = {
-        timeline: [],
-        voice: [],
-      };
+      const eventDetail = mockEvent.eventDetails[index];
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
       mockOddsFeedService.getInGameEvent.mockResolvedValue(null);
-      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
-      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index);
 
       // Assert
-      expect(mockEventManager.updateInGameEventInfo).toHaveBeenCalledWith(gameId, null, index);
-      expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalledWith({
-        timeline: [],
-        eventName: [],
-      });
+      expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith(eventDetail.inGameEventInfo);
+      expect(mockLogService.logError).toHaveBeenCalledWith(`Failed to get in-game event for event ${eventDetail.eventID} index: ${index}`);
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
     });
 
     it("should schedule goal info jobs with video delay", async () => {

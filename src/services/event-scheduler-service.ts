@@ -86,6 +86,7 @@ export class EventSchedulerService {
       await this.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
 
       await this.scheduleUpdateGoalInfo(gameId, index);
+      await this.scheduleUpdateVoice(gameId, index);
     });
   }
 
@@ -110,7 +111,6 @@ export class EventSchedulerService {
     const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
     const eventDetail = currentEvent.eventDetails[index];
     const goalInfo = givenGoalInfo ?? (await this.oddsFeedService.getGoalInfo(eventDetail.goalInfo));
-    const inGameEvent = givenInGameEvent ?? (await this.oddsFeedService.getInGameEvent(eventDetail.inGameEventInfo));
 
     if (!goalInfo) {
       this.logService.logError(`Failed to get goal info for event ${eventDetail.eventID} index: ${index}`);
@@ -118,7 +118,7 @@ export class EventSchedulerService {
     }
 
     this.eventManager.updateGoalInfo(gameId, goalInfo, index);
-    this.eventManager.updateInGameEventInfo(gameId, inGameEvent, index);
+    
 
     goalInfo.timeLine.forEach((time, goalIndex) => {
       const goalTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
@@ -135,6 +135,25 @@ export class EventSchedulerService {
         true
       );
     });
+
+   
+  }
+
+  async scheduleUpdateVoice(
+    gameId: string,
+    index: number,
+    givenInGameEvent: InGameEvent | null = null
+  ) {
+    const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+    const eventDetail = currentEvent.eventDetails[index];
+    const inGameEvent = givenInGameEvent ?? (await this.oddsFeedService.getInGameEvent(eventDetail.inGameEventInfo));
+    
+    if (!inGameEvent) {
+      this.logService.logError(`Failed to get in-game event for event ${eventDetail.eventID} index: ${index}`);
+      return;
+    }
+
+    this.eventManager.updateInGameEventInfo(gameId, inGameEvent, index);
 
     const timeline = inGameEvent?.timeLine ?? [];
     const eventName = inGameEvent?.eventName ?? [];

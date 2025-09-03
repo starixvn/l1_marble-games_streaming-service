@@ -121,7 +121,11 @@ export class EventManagementService {
       gameId,
       currentEvent.currentEventDetailIndex,
       currentEvent.goalInfos[currentEvent.currentEventDetailIndex],
-      currentEvent.inGameEvents?.[currentEvent.currentEventDetailIndex]
+    );
+    this.eventSchedulerService.scheduleUpdateVoice(
+      gameId,
+      currentEvent.currentEventDetailIndex,
+      currentEvent.inGameEvents?.[currentEvent.currentEventDetailIndex],
     );
   }
 
