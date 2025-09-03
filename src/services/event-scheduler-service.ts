@@ -84,7 +84,6 @@ export class EventSchedulerService {
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdatePreloadVideoInfo, index);
 
       await this.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
-
       await this.scheduleUpdateGoalInfo(gameId, index);
       await this.scheduleUpdateVoice(gameId, index);
     });
