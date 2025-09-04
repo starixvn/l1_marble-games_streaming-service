@@ -71,7 +71,7 @@ export class EventManagementService {
     }
 
     this.eventManager.initializeCurrentEvent(updateEvent);
-
+    await this.initializeVoiceConfigForGame(gameId);
     await this.initializeGoalInfoForGame(gameId);
     await this.initializeInGameEventForGame(gameId);
 
@@ -80,6 +80,17 @@ export class EventManagementService {
     this.initializeLiveScoresForGame(gameId);
 
     this.eventSchedulerService.scheduleEventDetails(updateEvent);
+
+  }
+
+  async initializeVoiceConfigForGame(gameId: string) {
+    const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
+    if (currentEvent?.voiceConfig) {
+      const voiceConfigDetail = await this.oddsFeedService.getVoiceConfig(currentEvent?.voiceConfig ?? "");
+      if (voiceConfigDetail) {
+        this.eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, voiceConfigDetail);
+      }
+    }
   }
 
   async initializeGoalInfoForGame(gameId: string) {

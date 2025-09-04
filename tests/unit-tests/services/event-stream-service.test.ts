@@ -347,58 +347,6 @@ describe("EventStreamService", () => {
         expect.stringContaining(`"message":"Broadcasted ${eventJobName} on index: ${updatedIndex}"`)
       );
     });
-
-    it("should log debug information for voice updates on game 2000", () => {
-      // Arrange
-      const gameId = "2000";
-      const eventJobName = JobName.UpdateVoice;
-      const updatedIndex = 0;
-      const additionalPayload = { voice: "goal_2_1" };
-      const mockEvent = createMockEventStreamState(1, gameId);
-      const mockClient = createMockClient(gameId);
-      
-      // Mock console.log to spy on it
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
-
-      // Act
-      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex, additionalPayload);
-
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("voice ", "goal_2_1");
-      
-      // Cleanup
-      consoleSpy.mockRestore();
-    });
-
-    it("should log debug information for goal info updates on game 2000", () => {
-      // Arrange
-      const gameId = "2000";
-      const eventJobName = JobName.UpdateGoalInfo;
-      const updatedIndex = 0;
-      const mockEvent = {
-        ...createMockEventStreamState(1, gameId),
-        liveScores: ["1:0", "2:1"]
-      };
-      const mockClient = createMockClient(gameId);
-      
-      // Mock console.log to spy on it
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
-
-      // Act
-      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex);
-
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("live scores ", ["1:0", "2:1"]);
-      
-      // Cleanup
-      consoleSpy.mockRestore();
-    });
   });
 
   describe("addClient", () => {

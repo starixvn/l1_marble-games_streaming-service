@@ -1,6 +1,6 @@
 import { appConfigs } from "../app-configs";
 import { retry } from "../helpers/retry-helper";
-import { AppContainer, Event, EventValidator, GoalInfoData, InGameEvent } from "../types";
+import { AppContainer, Event, EventValidator, GoalInfoData, InGameEvent, VoiceConfig } from "../types";
 import { logger } from "sc-common";
 
 export class OddsFeedService {
@@ -107,6 +107,10 @@ export class OddsFeedService {
 
   async getInGameEvent(url: string, retries = 3, delay = 1000): Promise<InGameEvent | null> {
     return this.getRemoteJson<InGameEvent>(url, retries, delay);
+  }
+
+  async getVoiceConfig(url: string, retries = 3, delay = 1000): Promise<VoiceConfig | null> {
+    return this.getRemoteJson<VoiceConfig>(url, retries, delay);
   }
 
   async getRemoteJson<T>(url: string, retries = 3, delay = 1000): Promise<T | null> {

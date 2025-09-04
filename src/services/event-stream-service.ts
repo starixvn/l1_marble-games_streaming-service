@@ -52,6 +52,7 @@ export class EventStreamService {
       eventDetails: eventDetailsPayload,
       liveScores: currentEvent.liveScores,
       goalInfos: [],
+      voiceConfigDetail: currentEvent.voiceConfigDetail,
       matchLiveTimeMs: matchLiveTimeMs,
       currentPhase: currentEvent.currentPhase,
       message: "",
@@ -64,14 +65,6 @@ export class EventStreamService {
   broadcastUpdateEventDataToClients(gameId: string, eventJobName: JobName, updatedIndex: number, additionalPayload: AdditionalPayload = {}): void {
     const clientsToBroadcast = this.clientManager.getClientSetForGame(gameId);
     const payload = this.buildCurrentEventDetailsPayload(gameId, updatedIndex, additionalPayload);
-
-    if (gameId === "2000" && payload?.liveScores && eventJobName === JobName.UpdateGoalInfo) {
-      console.log("live scores ", payload.liveScores);
-    }
-
-    if (gameId === "2000" && payload?.voice && eventJobName === JobName.UpdateVoice) {
-      console.log("voice ", additionalPayload.voice);
-    }
 
     if (!payload) {
       this.logService.logError(`No payload for game ${gameId} updatedIndex: ${updatedIndex}`);

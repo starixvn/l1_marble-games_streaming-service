@@ -2,7 +2,7 @@ import { OddsFeedService } from "../../../src/services/odds-feed-service";
 import { mockContainer } from "../global-stubs";
 import { appConfigs } from "../../../src/app-configs";
 import { retry } from "../../../src/helpers/retry-helper";
-import { Event, EventValidator, GoalInfoData, EventDetail } from "../../../src/types";
+import { Event, EventValidator, GoalInfoData, InGameEvent, VoiceConfig } from "../../../src/types";
 
 // Mock dependencies
 jest.mock("../../../src/app-configs");
@@ -34,6 +34,31 @@ const createMockGoalInfo = (): GoalInfoData => ({
   frame: [1, 2, 3],
   timeLine: [10, 20, 30],
   result: ["goal", "assist", "save"],
+});
+
+const createMockInGameEvent = (): InGameEvent => ({
+  timeLine: [5, 15, 25],
+  frame: [100, 200, 300],
+  eventName: ["kick-off", "corner", "free-kick"],
+});
+
+const createMockVoiceConfig = (): VoiceConfig => ({
+  "goal": {
+    1000: {
+      timeline: [0, 500, 1000],
+      voice: ["Goal scored!", "What a shot!", "Amazing!"],
+    },
+    2000: {
+      timeline: [0, 1000, 2000],
+      voice: ["Two goals!", "Incredible!", "Fantastic!"],
+    },
+  },
+  "assist": {
+    500: {
+      timeline: [0, 250, 500],
+      voice: ["Great assist!", "Perfect pass!", "Teamwork!"],
+    },
+  },
 });
 
 const createMockEventValidator =
@@ -549,6 +574,284 @@ describe("OddsFeedService", () => {
       // Assert
       expect(result).toBeNull();
       expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 1, 100);
+    });
+  });
+
+  describe("getInGameEvent", () => {
+    it("should successfully get in-game event with default retry parameters", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/123";
+      const mockInGameEvent = createMockInGameEvent();
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(mockInGameEvent),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url);
+
+      // Assert
+      expect(result).toEqual(mockInGameEvent);
+      expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 3, 1000);
+    });
+
+    it("should get in-game event with custom retry parameters", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/456";
+      const mockInGameEvent = createMockInGameEvent();
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(mockInGameEvent),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url, 5, 2000);
+
+      // Assert
+      expect(result).toEqual(mockInGameEvent);
+      expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 5, 2000);
+    });
+
+    it("should handle fetch errors and return null", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/789";
+      const fetchError = new Error("In-game event not available");
+      mockRetry.mockRejectedValue(fetchError);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockContainer.logService.logError).toHaveBeenCalledWith(
+        "Failed to get json from https://api.ingame.com/event/789! Error: Error: In-game event not available"
+      );
+    });
+
+    it("should handle JSON parsing errors", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/999";
+      const mockResponse = {
+        json: jest.fn().mockRejectedValue(new Error("Invalid JSON format")),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockContainer.logService.logError).toHaveBeenCalledWith(
+        "Failed to get json from https://api.ingame.com/event/999! Error: Error: Invalid JSON format"
+      );
+    });
+
+    it("should handle empty response", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/empty";
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(null),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url);
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it("should handle retry exhaustion", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/timeout";
+      const timeoutError = new Error("Request timeout");
+      mockRetry.mockRejectedValue(timeoutError);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url, 1, 100);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 1, 100);
+    });
+
+    it("should handle network timeout", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/slow";
+      const timeoutError = new Error("Network timeout");
+      mockRetry.mockRejectedValue(timeoutError);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url, 2, 500);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockContainer.logService.logError).toHaveBeenCalledWith(
+        "Failed to get json from https://api.ingame.com/event/slow! Error: Error: Network timeout"
+      );
+    });
+
+    it("should handle complex in-game event structure", async () => {
+      // Arrange
+      const url = "https://api.ingame.com/event/complex";
+      const complexInGameEvent: InGameEvent = {
+        timeLine: [0, 5, 10, 15, 20, 25, 30],
+        frame: [0, 100, 200, 300, 400, 500, 600],
+        eventName: ["kick-off", "pass", "dribble", "shot", "save", "corner", "throw-in"],
+      };
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(complexInGameEvent),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getInGameEvent(url);
+
+      // Assert
+      expect(result).toEqual(complexInGameEvent);
+    });
+  });
+
+  describe("getVoiceConfig", () => {
+    it("should successfully get voice config with default retry parameters", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/123";
+      const mockVoiceConfig = createMockVoiceConfig();
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(mockVoiceConfig),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url);
+
+      // Assert
+      expect(result).toEqual(mockVoiceConfig);
+      expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 3, 1000);
+    });
+
+    it("should get voice config with custom retry parameters", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/456";
+      const mockVoiceConfig = createMockVoiceConfig();
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(mockVoiceConfig),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url, 5, 2000);
+
+      // Assert
+      expect(result).toEqual(mockVoiceConfig);
+      expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 5, 2000);
+    });
+
+    it("should handle fetch errors and return null", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/789";
+      const fetchError = new Error("Voice config not available");
+      mockRetry.mockRejectedValue(fetchError);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockContainer.logService.logError).toHaveBeenCalledWith(
+        "Failed to get json from https://api.voice.com/config/789! Error: Error: Voice config not available"
+      );
+    });
+
+    it("should handle JSON parsing errors", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/999";
+      const mockResponse = {
+        json: jest.fn().mockRejectedValue(new Error("Invalid JSON format")),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockContainer.logService.logError).toHaveBeenCalledWith(
+        "Failed to get json from https://api.voice.com/config/999! Error: Error: Invalid JSON format"
+      );
+    });
+
+    it("should handle empty response", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/empty";
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(null),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url);
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it("should handle retry exhaustion", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/timeout";
+      const timeoutError = new Error("Request timeout");
+      mockRetry.mockRejectedValue(timeoutError);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url, 1, 100);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), 1, 100);
+    });
+
+    it("should handle network timeout", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/slow";
+      const timeoutError = new Error("Network timeout");
+      mockRetry.mockRejectedValue(timeoutError);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url, 2, 500);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockContainer.logService.logError).toHaveBeenCalledWith(
+        "Failed to get json from https://api.voice.com/config/slow! Error: Error: Network timeout"
+      );
+    });
+
+    it("should handle complex voice config structure", async () => {
+      // Arrange
+      const url = "https://api.voice.com/config/complex";
+      const complexVoiceConfig: VoiceConfig = {
+        "goal": {
+          500: { timeline: [0, 250, 500], voice: ["Quick goal!", "Fast!", "Speed!"] },
+          1000: { timeline: [0, 500, 1000], voice: ["Goal!", "Score!", "Yes!"] },
+          2000: { timeline: [0, 1000, 2000], voice: ["Long goal!", "Extended!", "Duration!"] },
+        },
+        "assist": {
+          300: { timeline: [0, 150, 300], voice: ["Assist!", "Pass!", "Help!"] },
+        },
+        "save": {
+          800: { timeline: [0, 400, 800], voice: ["Great save!", "Blocked!", "Stopped!"] },
+        },
+      };
+      const mockResponse = {
+        json: jest.fn().mockResolvedValue(complexVoiceConfig),
+      };
+      mockRetry.mockResolvedValue(mockResponse);
+
+      // Act
+      const result = await oddsFeedService.getVoiceConfig(url);
+
+      // Assert
+      expect(result).toEqual(complexVoiceConfig);
     });
   });
 });

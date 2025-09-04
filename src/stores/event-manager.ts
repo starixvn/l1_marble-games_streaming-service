@@ -1,4 +1,4 @@
-import { AppContainer, Event, JobName, EventStreamState, GoalInfoData, InGameEvent } from "../types";
+import { AppContainer, Event, JobName, EventStreamState, GoalInfoData, InGameEvent, VoiceConfig } from "../types";
 import { EventStore } from "./event-store";
 import { idHelper } from "../helpers";
 
@@ -13,6 +13,7 @@ export class EventManager {
     const gameId = idHelper.extractGameId(event.eventID);
     const liveScores = event.eventDetails.map(() => "0:0");
     const goalInfos = event.eventDetails.map(() => null);
+    const voiceConfig = event.voiceConfig;
 
     this.eventStore.setCurrentEventForGame(gameId, {
       ...event,
@@ -20,7 +21,8 @@ export class EventManager {
       liveScores: liveScores,
       goalInfos: goalInfos,
       currentPhase: JobName.ScheduleEvent,
-      liveVoices: []
+      liveVoices: [],
+      voiceConfig
     });
   }
 
@@ -51,6 +53,14 @@ export class EventManager {
 
   initializeInGameEventForCurrentEvent(gameId: string, inGameEvents: (InGameEvent | null)[]) {
     this.eventStore.setCurrentInGameEventsForGame(gameId, inGameEvents);
+  }
+
+  initializeVoiceConfigForCurrentEvent(gameId: string, voiceConfig?: string) {
+    this.eventStore.setCurrentVoiceConfigForGame(gameId, voiceConfig);
+  }
+
+  initializeVoiceConfigDetailForCurrentEvent(gameId: string, voiceConfigDetail?: VoiceConfig) {
+    this.eventStore.setCurrentVoiceConfigDetailForGame(gameId, voiceConfigDetail);
   }
 
   initializeLiveScoresForCurrentEvent(gameId: string) {

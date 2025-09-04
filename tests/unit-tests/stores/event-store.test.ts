@@ -1,5 +1,5 @@
 import { EventStore } from "../../../src/stores/event-store";
-import { EventStreamState, EventDetail, JobName, GoalInfoData, InGameEvent, VoiceEvent } from "../../../src/types";
+import { EventStreamState, EventDetail, JobName, GoalInfoData, InGameEvent, VoiceEvent, VoiceConfig } from "../../../src/types";
 
 // Test data factories
 const createMockEventDetail = (eventId: number = 1, index: number = 0): EventDetail => ({
@@ -30,6 +30,25 @@ const createMockInGameEvent = (): InGameEvent => ({
 const createMockVoiceEvent = (): VoiceEvent => ({
   timeline: [8.5, 15.2, 22.7],
   voice: ["goal_1_0", "equalizer_1_1", "lastGoal_2_1"],
+});
+
+const createMockVoiceConfig = (): VoiceConfig => ({
+  "goal": {
+    1000: {
+      timeline: [0, 500, 1000],
+      voice: ["Goal scored!", "What a shot!", "Amazing!"],
+    },
+    2000: {
+      timeline: [0, 1000, 2000],
+      voice: ["Two goals!", "Incredible!", "Fantastic!"],
+    },
+  },
+  "assist": {
+    500: {
+      timeline: [0, 250, 500],
+      voice: ["Great assist!", "Perfect pass!", "Teamwork!"],
+    },
+  },
 });
 
 const createMockEventStreamState = (gameId: string = "2001", eventId: number = 1): EventStreamState => ({
@@ -824,6 +843,351 @@ describe("EventStore", () => {
     });
   });
 
+  describe("setCurrentVoiceConfigForGame", () => {
+    it("should set voice config for a game", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const voiceConfig = "voice-config-123";
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId, voiceConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBe(voiceConfig);
+    });
+
+    it("should handle undefined voice config", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId, undefined);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBeUndefined();
+    });
+
+    it("should handle empty string voice config", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId, "");
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBe("");
+    });
+
+    it("should overwrite existing voice config", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const firstConfig = "voice-config-1";
+      const secondConfig = "voice-config-2";
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId, firstConfig);
+      eventStore.setCurrentVoiceConfigForGame(gameId, secondConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBe(secondConfig);
+    });
+
+    it("should handle long voice config strings", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const longConfig = "very-long-voice-config-url-with-many-parameters-and-details";
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId, longConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBe(longConfig);
+    });
+
+    it("should handle voice config with special characters", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const specialConfig = "voice-config-123!@#$%^&*()_+-=[]{}|;:,.<>?";
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId, specialConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBe(specialConfig);
+    });
+
+    it("should handle voice config for multiple games independently", () => {
+      // Arrange
+      const gameId1 = "2001";
+      const gameId2 = "2002";
+      const mockEvent1 = createMockEventStreamState(gameId1);
+      const mockEvent2 = createMockEventStreamState(gameId2);
+      eventStore.setCurrentEventForGame(gameId1, mockEvent1);
+      eventStore.setCurrentEventForGame(gameId2, mockEvent2);
+      const config1 = "voice-config-game1";
+      const config2 = "voice-config-game2";
+
+      // Act
+      eventStore.setCurrentVoiceConfigForGame(gameId1, config1);
+      eventStore.setCurrentVoiceConfigForGame(gameId2, config2);
+
+      // Assert
+      expect(eventStore.getCurrentEventForGame(gameId1)?.voiceConfig).toBe(config1);
+      expect(eventStore.getCurrentEventForGame(gameId2)?.voiceConfig).toBe(config2);
+    });
+
+    it("should throw error for non-existent game", () => {
+      // Act & Assert
+      expect(() => {
+        eventStore.setCurrentVoiceConfigForGame("non-existent", "voice-config");
+      }).toThrow();
+    });
+
+    it("should handle rapid voice config updates", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      // Act
+      for (let i = 0; i < 10; i++) {
+        eventStore.setCurrentVoiceConfigForGame(gameId, `voice-config-${i}`);
+      }
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfig).toBe("voice-config-9");
+    });
+  });
+
+  describe("setCurrentVoiceConfigDetailForGame", () => {
+    it("should set voice config detail for a game", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const voiceConfigDetail = createMockVoiceConfig();
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, voiceConfigDetail);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual(voiceConfigDetail);
+    });
+
+    it("should handle undefined voice config detail", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, undefined);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toBeUndefined();
+    });
+
+    it("should handle empty voice config detail", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const emptyConfig: VoiceConfig = {};
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, emptyConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual({});
+    });
+
+    it("should overwrite existing voice config detail", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const firstConfig = createMockVoiceConfig();
+      const secondConfig: VoiceConfig = {
+        "penalty": {
+          1500: {
+            timeline: [0, 750, 1500],
+            voice: ["Penalty!", "Shot!", "Goal or miss?"],
+          },
+        },
+      };
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, firstConfig);
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, secondConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual(secondConfig);
+    });
+
+    it("should handle complex voice config detail structure", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const complexConfig: VoiceConfig = {
+        "goal": {
+          500: { timeline: [0, 250, 500], voice: ["Quick goal!", "Fast!", "Speed!"] },
+          1000: { timeline: [0, 500, 1000], voice: ["Goal!", "Score!", "Yes!"] },
+          2000: { timeline: [0, 1000, 2000], voice: ["Long goal!", "Extended!", "Duration!"] },
+        },
+        "assist": {
+          300: { timeline: [0, 150, 300], voice: ["Assist!", "Pass!", "Help!"] },
+          600: { timeline: [0, 300, 600], voice: ["Great assist!", "Perfect pass!", "Teamwork!"] },
+        },
+        "save": {
+          800: { timeline: [0, 400, 800], voice: ["Great save!", "Blocked!", "Stopped!"] },
+        },
+        "corner": {
+          200: { timeline: [0, 100, 200], voice: ["Corner!", "Quick!", "Fast!"] },
+          1000: { timeline: [0, 500, 1000], voice: ["Corner opportunity!", "Slow build!", "Dramatic!"] },
+        },
+      };
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, complexConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual(complexConfig);
+    });
+
+    it("should handle voice config detail for multiple games independently", () => {
+      // Arrange
+      const gameId1 = "2001";
+      const gameId2 = "2002";
+      const mockEvent1 = createMockEventStreamState(gameId1);
+      const mockEvent2 = createMockEventStreamState(gameId2);
+      eventStore.setCurrentEventForGame(gameId1, mockEvent1);
+      eventStore.setCurrentEventForGame(gameId2, mockEvent2);
+      const config1 = createMockVoiceConfig();
+      const config2: VoiceConfig = {
+        "penalty": {
+          1000: {
+            timeline: [0, 500, 1000],
+            voice: ["Penalty kick!", "Will it go in?", "Goal!"],
+          },
+        },
+      };
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId1, config1);
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId2, config2);
+
+      // Assert
+      expect(eventStore.getCurrentEventForGame(gameId1)?.voiceConfigDetail).toEqual(config1);
+      expect(eventStore.getCurrentEventForGame(gameId2)?.voiceConfigDetail).toEqual(config2);
+    });
+
+    it("should handle voice config with single event type", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const singleEventConfig: VoiceConfig = {
+        "free-kick": {
+          2000: {
+            timeline: [0, 1000, 2000],
+            voice: ["Free kick awarded!", "Taking the shot!", "What a strike!"],
+          },
+        },
+      };
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, singleEventConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual(singleEventConfig);
+    });
+
+    it("should handle voice config with multiple durations for same event", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+      const multiDurationConfig: VoiceConfig = {
+        "substitution": {
+          500: { timeline: [0, 250, 500], voice: ["Sub!", "Quick!", "Change!"] },
+          1000: { timeline: [0, 500, 1000], voice: ["Substitution!", "Player change!", "Fresh legs!"] },
+          1500: { timeline: [0, 750, 1500], voice: ["Strategic substitution!", "Tactical change!", "New player on!"] },
+        },
+      };
+
+      // Act
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, multiDurationConfig);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual(multiDurationConfig);
+    });
+
+    it("should throw error for non-existent game", () => {
+      // Act & Assert
+      expect(() => {
+        eventStore.setCurrentVoiceConfigDetailForGame("non-existent", createMockVoiceConfig());
+      }).toThrow();
+    });
+
+    it("should handle rapid voice config detail updates", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      // Act
+      for (let i = 0; i < 5; i++) {
+        const config: VoiceConfig = {
+          [`event_${i}`]: {
+            1000: {
+              timeline: [0, 500, 1000],
+              voice: [`voice_${i}_1`, `voice_${i}_2`, `voice_${i}_3`],
+            },
+          },
+        };
+        eventStore.setCurrentVoiceConfigDetailForGame(gameId, config);
+      }
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.voiceConfigDetail).toEqual({
+        "event_4": {
+          1000: {
+            timeline: [0, 500, 1000],
+            voice: ["voice_4_1", "voice_4_2", "voice_4_3"],
+          },
+        },
+      });
+    });
+  });
+
   describe("data integrity and edge cases", () => {
     it("should maintain data integrity across multiple operations", () => {
       // Arrange
@@ -872,6 +1236,35 @@ describe("EventStore", () => {
       expect(result?.inGameEvents).toEqual(inGameEvents);
       expect(result?.liveVoices[0]).toBe("goal_commentary_live");
       expect(result?.inGameEvents?.[1]).toEqual(singleInGameEvent);
+      expect(result?.eventID).toBe(mockEvent.eventID); // Original data preserved
+    });
+
+    it("should maintain data integrity with voice config operations", () => {
+      // Arrange
+      const gameId = "2001";
+      const mockEvent = createMockEventStreamState(gameId);
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      const voiceConfig = "voice-config-comprehensive-test";
+      const voiceConfigDetail = createMockVoiceConfig();
+      const voiceEvent = createMockVoiceEvent();
+
+      // Act - Perform comprehensive voice-related operations
+      eventStore.setCurrentEventPhaseForGame(gameId, JobName.UpdateGoalInfo);
+      eventStore.setCurrentVoiceConfigForGame(gameId, voiceConfig);
+      eventStore.setCurrentVoiceConfigDetailForGame(gameId, voiceConfigDetail);
+      eventStore.setCurrentVoiceEventForGame(gameId, voiceEvent);
+      eventStore.setCurrentLiveVoiceForGame(gameId, "live_voice_test", 0);
+      eventStore.setCurrentEventLiveScoreForGame(gameId, "3:2", 1);
+
+      // Assert - All voice operations should coexist with other data
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result?.currentPhase).toBe(JobName.UpdateGoalInfo);
+      expect(result?.voiceConfig).toBe(voiceConfig);
+      expect(result?.voiceConfigDetail).toEqual(voiceConfigDetail);
+      expect(result?.voices).toEqual(voiceEvent);
+      expect(result?.liveVoices[0]).toBe("live_voice_test");
+      expect(result?.liveScores[1]).toBe("3:2");
       expect(result?.eventID).toBe(mockEvent.eventID); // Original data preserved
     });
 

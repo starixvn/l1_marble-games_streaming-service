@@ -1,4 +1,4 @@
-import { EventDetail, EventStreamState, GoalInfoData, InGameEvent, JobName, VoiceEvent } from "../types";
+import { EventDetail, EventStreamState, GoalInfoData, InGameEvent, JobName, VoiceConfig, VoiceEvent } from "../types";
 
 export class  EventStore {
   private _currentEvents: Record<string, EventStreamState> = {};
@@ -40,6 +40,14 @@ export class  EventStore {
 
   setCurrentEventDetailForGame(gameId: string, eventDetail: EventDetail, index: number): void {
     this._currentEvents[gameId].eventDetails[index] = eventDetail;
+  }
+
+  setCurrentVoiceConfigForGame(gameId: string, voiceConfig?: string): void {
+    this._currentEvents[gameId].voiceConfig = voiceConfig;
+  }
+
+  setCurrentVoiceConfigDetailForGame(gameId: string, voiceConfigDetail?: VoiceConfig): void {
+    this._currentEvents[gameId].voiceConfigDetail = voiceConfigDetail;
   }
 
   setCurrentInGameEventsForGame(gameId: string, inGameEvents: (InGameEvent | null)[]): void {

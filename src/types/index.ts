@@ -40,6 +40,7 @@ export type Event = {
   productCode: string;
   productTypeKey: string;
   eventDetails: EventDetail[];
+  voiceConfig?: string;
 };
 
 export type EventDetail = {
@@ -75,6 +76,7 @@ export type EventStreamState = Event & {
   inGameEvents?: (InGameEvent | null)[];
   voices?: VoiceEvent;
   liveVoices: string[];
+  voiceConfigDetail?: VoiceConfig;
 };
 
 export type VoiceEvent = {
@@ -113,6 +115,7 @@ export interface EventStreamPayload {
   liveScores: string[];
   voice?: string;
   goalInfos: (GoalInfoData | null)[];
+  voiceConfigDetail?: VoiceConfig;
   matchLiveTimeMs: number;
   currentPhase: JobName;
   message: string;

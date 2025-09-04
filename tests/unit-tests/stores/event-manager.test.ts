@@ -1,6 +1,6 @@
 import { EventManager } from "../../../src/stores/event-manager";
 import { mockContainer } from "../global-stubs";
-import { Event, EventDetail, JobName, GoalInfoData, EventStreamState, InGameEvent } from "../../../src/types";
+import { Event, EventDetail, JobName, GoalInfoData, EventStreamState, InGameEvent, VoiceConfig } from "../../../src/types";
 import { EventStore } from "../../../src/stores/event-store";
 import { idHelper } from "../../../src/helpers";
 
@@ -29,6 +29,7 @@ const createMockEvent = (eventId: number = 1, name: string = "Test Event"): Even
   scheduleStartTs: "2024-01-01T10:00:00Z",
   productCode: "SPORT",
   productTypeKey: "FOOTBALL",
+  voiceConfig: "voice-config-1",
   eventDetails: [createMockEventDetail(eventId, 0), createMockEventDetail(eventId, 1)],
 });
 
@@ -42,6 +43,25 @@ const createMockInGameEvent = (): InGameEvent => ({
   timeLine: [5, 15, 25],
   frame: [100, 200, 300],
   eventName: ["kick-off", "corner", "free-kick"],
+});
+
+const createMockVoiceConfig = (): VoiceConfig => ({
+  "goal": {
+    1000: {
+      timeline: [0, 500, 1000],
+      voice: ["Goal scored!", "What a shot!", "Amazing!"],
+    },
+    2000: {
+      timeline: [0, 1000, 2000],
+      voice: ["Two goals!", "Incredible!", "Fantastic!"],
+    },
+  },
+  "assist": {
+    500: {
+      timeline: [0, 250, 500],
+      voice: ["Great assist!", "Perfect pass!", "Teamwork!"],
+    },
+  },
 });
 
 const createMockEventStreamState = (gameId: string = "2001", eventId: number = 1): EventStreamState => ({
@@ -104,6 +124,82 @@ describe("EventManager", () => {
         goalInfos: [null, null],
         currentPhase: JobName.ScheduleEvent,
         liveVoices: [],
+        voiceConfig: "voice-config-1",
+      });
+    });
+
+    it("should initialize current event without voiceConfig", async () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      delete event.voiceConfig; // Remove voiceConfig
+      const gameId = "2001";
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventForGame");
+
+      // Act
+      await eventManager.initializeCurrentEvent(event);
+
+      // Assert
+      expect(mockIdHelper.extractGameId).toHaveBeenCalledWith(event.eventID);
+      expect(eventStore.setCurrentEventForGame).toHaveBeenCalledWith(gameId, {
+        ...event,
+        currentEventDetailIndex: 0,
+        liveScores: ["0:0", "0:0"],
+        goalInfos: [null, null],
+        currentPhase: JobName.ScheduleEvent,
+        liveVoices: [],
+        voiceConfig: undefined,
+      });
+    });
+
+    it("should initialize current event with undefined voiceConfig", async () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      event.voiceConfig = undefined;
+      const gameId = "2001";
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventForGame");
+
+      // Act
+      await eventManager.initializeCurrentEvent(event);
+
+      // Assert
+      expect(mockIdHelper.extractGameId).toHaveBeenCalledWith(event.eventID);
+      expect(eventStore.setCurrentEventForGame).toHaveBeenCalledWith(gameId, {
+        ...event,
+        currentEventDetailIndex: 0,
+        liveScores: ["0:0", "0:0"],
+        goalInfos: [null, null],
+        currentPhase: JobName.ScheduleEvent,
+        liveVoices: [],
+        voiceConfig: undefined,
+      });
+    });
+
+    it("should initialize current event with empty voiceConfig", async () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      event.voiceConfig = "";
+      const gameId = "2001";
+
+      mockIdHelper.extractGameId.mockReturnValue(gameId);
+      jest.spyOn(eventStore, "setCurrentEventForGame");
+
+      // Act
+      await eventManager.initializeCurrentEvent(event);
+
+      // Assert
+      expect(mockIdHelper.extractGameId).toHaveBeenCalledWith(event.eventID);
+      expect(eventStore.setCurrentEventForGame).toHaveBeenCalledWith(gameId, {
+        ...event,
+        currentEventDetailIndex: 0,
+        liveScores: ["0:0", "0:0"],
+        goalInfos: [null, null],
+        currentPhase: JobName.ScheduleEvent,
+        liveVoices: [],
+        voiceConfig: "",
       });
     });
   });
@@ -258,6 +354,190 @@ describe("EventManager", () => {
 
       // Assert
       expect(eventStore.setCurrentInGameEventsForGame).toHaveBeenCalledWith(gameId, inGameEvents);
+    });
+  });
+
+  describe("initializeVoiceConfigForCurrentEvent", () => {
+    it("should initialize voice config for current event", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceConfig = "voice-config-123";
+      jest.spyOn(eventStore, "setCurrentVoiceConfigForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigForCurrentEvent(gameId, voiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigForGame).toHaveBeenCalledWith(gameId, voiceConfig);
+    });
+
+    it("should handle undefined voice config", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceConfig = undefined;
+      jest.spyOn(eventStore, "setCurrentVoiceConfigForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigForCurrentEvent(gameId, voiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigForGame).toHaveBeenCalledWith(gameId, undefined);
+    });
+
+    it("should handle empty string voice config", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceConfig = "";
+      jest.spyOn(eventStore, "setCurrentVoiceConfigForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigForCurrentEvent(gameId, voiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigForGame).toHaveBeenCalledWith(gameId, "");
+    });
+
+    it("should handle undefined voice config parameter", () => {
+      // Arrange
+      const gameId = "2001";
+      jest.spyOn(eventStore, "setCurrentVoiceConfigForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigForCurrentEvent(gameId);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigForGame).toHaveBeenCalledWith(gameId, undefined);
+    });
+
+    it("should handle different game IDs", () => {
+      // Arrange
+      const gameIds = ["2001", "2002", "2003"];
+      const voiceConfig = "voice-config-456";
+      jest.spyOn(eventStore, "setCurrentVoiceConfigForGame").mockImplementation();
+
+      // Act & Assert
+      gameIds.forEach(gameId => {
+        eventManager.initializeVoiceConfigForCurrentEvent(gameId, voiceConfig);
+        expect(eventStore.setCurrentVoiceConfigForGame).toHaveBeenCalledWith(gameId, voiceConfig);
+      });
+    });
+  });
+
+  describe("initializeVoiceConfigDetailForCurrentEvent", () => {
+    it("should initialize voice config detail for current event", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceConfigDetail = createMockVoiceConfig();
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, voiceConfigDetail);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, voiceConfigDetail);
+    });
+
+    it("should handle undefined voice config detail", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceConfigDetail = undefined;
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, voiceConfigDetail);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, undefined);
+    });
+
+    it("should handle complex voice config detail structure", () => {
+      // Arrange
+      const gameId = "2001";
+      const complexVoiceConfig: VoiceConfig = {
+        "goal": {
+          500: { timeline: [0, 250, 500], voice: ["Quick goal!", "Fast!", "Speed!"] },
+          1000: { timeline: [0, 500, 1000], voice: ["Goal!", "Score!", "Yes!"] },
+          2000: { timeline: [0, 1000, 2000], voice: ["Long goal!", "Extended!", "Duration!"] },
+        },
+        "assist": {
+          300: { timeline: [0, 150, 300], voice: ["Assist!", "Pass!", "Help!"] },
+        },
+        "save": {
+          800: { timeline: [0, 400, 800], voice: ["Great save!", "Blocked!", "Stopped!"] },
+        },
+      };
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, complexVoiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, complexVoiceConfig);
+    });
+
+    it("should handle empty voice config detail", () => {
+      // Arrange
+      const gameId = "2001";
+      const emptyVoiceConfig: VoiceConfig = {};
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, emptyVoiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, emptyVoiceConfig);
+    });
+
+    it("should handle different game IDs with same voice config detail", () => {
+      // Arrange
+      const gameIds = ["2001", "2002", "2003"];
+      const voiceConfigDetail = createMockVoiceConfig();
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act & Assert
+      gameIds.forEach(gameId => {
+        eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, voiceConfigDetail);
+        expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, voiceConfigDetail);
+      });
+    });
+
+    it("should handle voice config with single event type", () => {
+      // Arrange
+      const gameId = "2001";
+      const singleEventVoiceConfig: VoiceConfig = {
+        "penalty": {
+          1500: {
+            timeline: [0, 750, 1500],
+            voice: ["Penalty awarded!", "Taking the shot!", "Goal or miss?"],
+          },
+        },
+      };
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, singleEventVoiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, singleEventVoiceConfig);
+    });
+
+    it("should handle voice config with multiple durations for same event", () => {
+      // Arrange
+      const gameId = "2001";
+      const multiDurationVoiceConfig: VoiceConfig = {
+        "corner": {
+          200: { timeline: [0, 100, 200], voice: ["Corner!", "Quick!", "Fast!"] },
+          500: { timeline: [0, 250, 500], voice: ["Corner kick!", "Medium pace!", "Standard!"] },
+          1000: { timeline: [0, 500, 1000], voice: ["Corner opportunity!", "Slow build!", "Dramatic!"] },
+        },
+      };
+      jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeVoiceConfigDetailForCurrentEvent(gameId, multiDurationVoiceConfig);
+
+      // Assert
+      expect(eventStore.setCurrentVoiceConfigDetailForGame).toHaveBeenCalledWith(gameId, multiDurationVoiceConfig);
     });
   });
 
