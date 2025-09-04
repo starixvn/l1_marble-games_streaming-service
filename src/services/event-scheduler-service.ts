@@ -44,7 +44,7 @@ export class EventSchedulerService {
     const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      this.eventManager.initializeCurrentEvent(updateEvent);
+      await this.eventManager.initializeCurrentEvent(updateEvent);
 
       this.scheduleEventDetails(updateEvent);
 
