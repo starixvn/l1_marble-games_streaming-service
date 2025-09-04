@@ -76,13 +76,6 @@ const createMockInGameEvent = () => ({
   eventName: ["kick-off", "corner", "free-kick"],
 });
 
-const createMockVoiceConfig = () => ({
-  voiceConfigId: "voice-config-1",
-  language: "en",
-  voice: "male",
-  speed: 1.0,
-  volume: 0.8,
-});
 
 describe("EventManagementService", () => {
   let eventManagementService: EventManagementService;
@@ -103,7 +96,6 @@ describe("EventManagementService", () => {
       getGoalInfo: jest.fn(),
       getScheduleWithRetry: jest.fn(),
       getInGameEvent: jest.fn(),
-      getVoiceConfig: jest.fn(),
     };
     mockJobScheduler = {
       stopAll: jest.fn(),
@@ -122,7 +114,6 @@ describe("EventManagementService", () => {
       initializeInGameEventForCurrentEvent: jest.fn(),
       initializePhaseForCurrentEvent: jest.fn(),
       initializeLiveScoresForCurrentEvent: jest.fn(),
-      initializeVoiceConfigDetailForCurrentEvent: jest.fn(),
     };
     mockLogService = {
       logError: jest.fn(),
@@ -262,9 +253,9 @@ describe("EventManagementService", () => {
       mockOddsFeedService.getGoalInfo.mockResolvedValue(mockGoalInfo);
       mockIdHelper.extractGameId.mockReturnValue(gameId);
       mockEventManager.getCurrentEventForGame.mockReturnValue(createMockEventStreamState(eventId, gameId));
-      jest.spyOn(eventManagementService, "initializeVoiceConfigForGame").mockResolvedValue();
       jest.spyOn(eventManagementService, "initializeGoalInfoForGame").mockResolvedValue();
       jest.spyOn(eventManagementService, "initializeInGameEventForGame").mockResolvedValue();
+      jest.spyOn(eventManagementService, "initializeLiveScoresForGame").mockResolvedValue();
 
       // Act
       await eventManagementService.initializeCurrentEvent(eventId);
@@ -274,9 +265,9 @@ describe("EventManagementService", () => {
       expect(mockEventManager.initializeCurrentEvent).toHaveBeenCalledWith(mockEvent);
       expect(mockEventManager.initializePhaseForCurrentEvent).toHaveBeenCalledWith(eventId);
       expect(mockEventSchedulerService.scheduleEventDetails).toHaveBeenCalledWith(mockEvent);
-      expect(eventManagementService.initializeVoiceConfigForGame).toHaveBeenCalledWith(gameId);
       expect(eventManagementService.initializeGoalInfoForGame).toHaveBeenCalledWith(gameId);
       expect(eventManagementService.initializeInGameEventForGame).toHaveBeenCalledWith(gameId);
+      expect(eventManagementService.initializeLiveScoresForGame).toHaveBeenCalledWith(gameId);
     });
 
     it("should handle event not found", async () => {
@@ -440,110 +431,6 @@ describe("EventManagementService", () => {
     });
   });
 
-  describe("initializeVoiceConfigForGame", () => {
-    it("should initialize voice config when event has voice config", async () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1001, gameId);
-      const mockVoiceConfig = createMockVoiceConfig();
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockOddsFeedService.getVoiceConfig.mockResolvedValue(mockVoiceConfig);
-
-      // Act
-      await eventManagementService.initializeVoiceConfigForGame(gameId);
-
-      // Assert
-      expect(mockOddsFeedService.getVoiceConfig).toHaveBeenCalledWith("voice-config-1");
-      expect(mockEventManager.initializeVoiceConfigDetailForCurrentEvent).toHaveBeenCalledWith(gameId, mockVoiceConfig);
-    });
-
-    it("should handle event without voice config", async () => {
-      // Arrange
-      const gameId = "2001";
-      const baseEvent = createMockEventStreamState(1001, gameId);
-      const mockEvent = {
-        ...baseEvent,
-        voiceConfig: null,
-      };
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      await eventManagementService.initializeVoiceConfigForGame(gameId);
-
-      // Assert
-      expect(mockOddsFeedService.getVoiceConfig).not.toHaveBeenCalled();
-      expect(mockEventManager.initializeVoiceConfigDetailForCurrentEvent).not.toHaveBeenCalled();
-    });
-
-    it("should handle event with undefined voice config", async () => {
-      // Arrange
-      const gameId = "2001";
-      const baseEvent = createMockEventStreamState(1001, gameId);
-      const mockEvent = {
-        ...baseEvent,
-        voiceConfig: undefined,
-      };
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      await eventManagementService.initializeVoiceConfigForGame(gameId);
-
-      // Assert
-      expect(mockOddsFeedService.getVoiceConfig).not.toHaveBeenCalled();
-      expect(mockEventManager.initializeVoiceConfigDetailForCurrentEvent).not.toHaveBeenCalled();
-    });
-
-    it("should handle voice config fetch failure", async () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1001, gameId);
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockOddsFeedService.getVoiceConfig.mockResolvedValue(null);
-
-      // Act
-      await eventManagementService.initializeVoiceConfigForGame(gameId);
-
-      // Assert
-      expect(mockOddsFeedService.getVoiceConfig).toHaveBeenCalledWith("voice-config-1");
-      expect(mockEventManager.initializeVoiceConfigDetailForCurrentEvent).not.toHaveBeenCalled();
-    });
-
-    it("should handle voice config API errors", async () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1001, gameId);
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockOddsFeedService.getVoiceConfig.mockRejectedValue(new Error("Voice Config API Error"));
-
-      // Act & Assert
-      await expect(eventManagementService.initializeVoiceConfigForGame(gameId)).rejects.toThrow("Voice Config API Error");
-      expect(mockEventManager.initializeVoiceConfigDetailForCurrentEvent).not.toHaveBeenCalled();
-    });
-
-    it("should handle empty voice config string", async () => {
-      // Arrange
-      const gameId = "2001";
-      const baseEvent = createMockEventStreamState(1001, gameId);
-      const mockEvent = {
-        ...baseEvent,
-        voiceConfig: "",
-      };
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      await eventManagementService.initializeVoiceConfigForGame(gameId);
-
-      // Assert
-      expect(mockOddsFeedService.getVoiceConfig).not.toHaveBeenCalled();
-      expect(mockEventManager.initializeVoiceConfigDetailForCurrentEvent).not.toHaveBeenCalled();
-    });
-  });
 
   describe("initializeLiveScoresForGame", () => {
     it("should initialize live scores and schedule goal info updates", async () => {

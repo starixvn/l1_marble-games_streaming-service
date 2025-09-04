@@ -1,12 +1,15 @@
 import { AppContainer, Event, JobName, EventStreamState, GoalInfoData, InGameEvent, VoiceConfig } from "../types";
 import { EventStore } from "./event-store";
 import { idHelper } from "../helpers";
+import { OddsFeedService } from "../services/odds-feed-service";
 
 export class EventManager {
   private readonly eventStore: EventStore;
+  private readonly oddsFeedService: OddsFeedService;
 
   constructor(container: AppContainer) {
     this.eventStore = container.eventStore;
+    this.oddsFeedService = container.oddsFeedService;
   }
 
   async initializeCurrentEvent(event: Event): Promise<void> {
@@ -14,7 +17,10 @@ export class EventManager {
     const liveScores = event.eventDetails.map(() => "0:0");
     const goalInfos = event.eventDetails.map(() => null);
     const voiceConfig = event.voiceConfig;
-
+    const voiceConfigDetail = voiceConfig 
+      ? await this.oddsFeedService.getVoiceConfig(voiceConfig) ?? undefined 
+      : undefined;
+    
     this.eventStore.setCurrentEventForGame(gameId, {
       ...event,
       currentEventDetailIndex: 0,
@@ -22,7 +28,8 @@ export class EventManager {
       goalInfos: goalInfos,
       currentPhase: JobName.ScheduleEvent,
       liveVoices: [],
-      voiceConfig
+      voiceConfig,
+      voiceConfigDetail
     });
   }
 
