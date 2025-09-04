@@ -44,6 +44,7 @@ export class EventStreamService {
 
     const payload: EventStreamPayload = {
       gameId: gameId,
+      voiceConfigDetail: currentEvent.voiceConfigDetail,
       eventId: currentEvent.eventID,
       homeTeam: currentEvent.eventNameAKey,
       awayTeam: currentEvent.eventNameBKey,
@@ -52,12 +53,12 @@ export class EventStreamService {
       eventDetails: eventDetailsPayload,
       liveScores: currentEvent.liveScores,
       goalInfos: [],
-      voiceConfigDetail: currentEvent.voiceConfigDetail,
       matchLiveTimeMs: matchLiveTimeMs,
       currentPhase: currentEvent.currentPhase,
       message: "",
       ...additionalPayload,
     };
+    console.log(`game ${gameId} payload voice config detail`, payload?.voiceConfigDetail);
 
     return payload;
   }
@@ -88,6 +89,7 @@ export class EventStreamService {
     this.clientManager.addClient(res, gameId);
 
     const payload = this.buildCurrentEventDetailsPayload(gameId);
+
 
     if (!payload) {
       this.logService.logError(`No payload for game ${gameId}`);
