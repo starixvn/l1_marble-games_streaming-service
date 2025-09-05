@@ -163,7 +163,8 @@ export class EventSchedulerService {
     });
 
     voices.timeline.forEach((time, voiceIndex) => {
-      const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + time * 1000);
+      const voiceTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
+      const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() + voiceTime);
       const jobId = this.generateJobId(gameId, eventDetail.eventID, index, `${JobName.UpdateVoice}_${voiceIndex}`);
       this.jobScheduler.scheduleJob(
         jobId,

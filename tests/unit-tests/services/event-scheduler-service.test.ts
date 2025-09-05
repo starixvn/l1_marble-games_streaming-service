@@ -657,7 +657,7 @@ describe("EventSchedulerService", () => {
       expect(voiceJobCalls).toHaveLength(2);
     });
 
-    it("should schedule voice jobs with correct timing and payloads", async () => {
+    it("should schedule voice jobs with correct timing and payloads including video delay", async () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
@@ -680,13 +680,15 @@ describe("EventSchedulerService", () => {
         call[0].includes(JobName.UpdateVoice)
       );
 
-      // Check first voice job
+      // Check first voice job - should include video delay (3000ms)
       expect(voiceJobCalls[0][0]).toBe(`${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVoice}_0`);
-      expect(voiceJobCalls[0][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 10 * 1000));
+      expect(voiceJobCalls[0][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 10 * 1000 + 3000));
+      expect(voiceJobCalls[0][3]).toBe(true); // should be background job
 
-      // Check second voice job
+      // Check second voice job - should include video delay (3000ms)
       expect(voiceJobCalls[1][0]).toBe(`${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVoice}_1`);
-      expect(voiceJobCalls[1][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 20 * 1000));
+      expect(voiceJobCalls[1][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 20 * 1000 + 3000));
+      expect(voiceJobCalls[1][3]).toBe(true); // should be background job
 
       // Test voice job callbacks
       const firstVoiceCallback = voiceJobCalls[0][2];
@@ -772,6 +774,41 @@ describe("EventSchedulerService", () => {
       expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith(eventDetail.inGameEventInfo);
       expect(mockLogService.logError).toHaveBeenCalledWith(`Failed to get in-game event for event ${eventDetail.eventID} index: ${index}`);
       expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+    it("should handle missing video delay configuration in voice scheduling", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const givenInGameEvent = createMockInGameEvent();
+      const mockEvent = createMockEvent(1001);
+      const eventDetail = mockEvent.eventDetails[index];
+      const mockVoiceResult = {
+        timeline: [10, 20],
+        voice: ["voice1", "voice2"],
+      };
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
+      (appSettings as any).videoDelay = {}; // No video delay configured
+
+      // Act
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
+
+      // Assert voice job scheduling
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
+        call[0].includes(JobName.UpdateVoice)
+      );
+
+      // Check first voice job - should use 0 delay when not configured
+      expect(voiceJobCalls[0][0]).toBe(`${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVoice}_0`);
+      expect(voiceJobCalls[0][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 10 * 1000 + 0));
+      expect(voiceJobCalls[0][3]).toBe(true); // should be background job
+
+      // Check second voice job - should use 0 delay when not configured
+      expect(voiceJobCalls[1][0]).toBe(`${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVoice}_1`);
+      expect(voiceJobCalls[1][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 20 * 1000 + 0));
+      expect(voiceJobCalls[1][3]).toBe(true); // should be background job
     });
 
     it("should schedule goal info jobs with video delay", async () => {
@@ -1050,8 +1087,9 @@ describe("EventSchedulerService", () => {
         JobName.UpdatePreloadVideoInfo,
         index
       );
-      // Should also schedule broadcast video info and goal info
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(5); // 1 for preload + 1 for broadcast + 3 for goal info timeline entries
+      // Should also schedule broadcast video info, goal info, and voice jobs
+      // 1 for preload + 1 for broadcast + 3 for goal info timeline entries + voice jobs (if any)
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(5);
     });
   });
 });
