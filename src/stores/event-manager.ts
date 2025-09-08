@@ -2,6 +2,9 @@ import { AppContainer, Event, JobName, EventStreamState, GoalInfoData, InGameEve
 import { EventStore } from "./event-store";
 import { idHelper } from "../helpers";
 import { OddsFeedService } from "../services/odds-feed-service";
+import { appSettings } from "../app-settings";
+
+const DEFAULT_VIDEO_LENGTH = 30;
 
 export class EventManager {
   private readonly eventStore: EventStore;
@@ -58,6 +61,29 @@ export class EventManager {
     this.eventStore.setCurrentEventGoalInfosForGame(gameId, goalInfos);
   }
 
+  initializeGamePhaseWithResult(gameId: string, result: string[], phaseIndex?: number) {
+    this.eventStore.updateResultForGame(gameId, result, phaseIndex);
+  }
+
+  initializeGamePhaseWithGoalInfo(gameId: string, goalInfo: GoalInfoData | null, phaseIndex?: number) {
+    const videoLength = goalInfo?.length ?? appSettings.videoLength[gameId] ?? DEFAULT_VIDEO_LENGTH;
+    this.eventStore.updateVideoLengthForGame(gameId, videoLength, phaseIndex);
+    this.eventStore.updateResultForGame(gameId, goalInfo?.result ?? [], phaseIndex);
+  }
+
+  appendInGameEventForGame(gameId: string, inGameEvent: InGameEvent, phaseIndex?: number) {
+      const previousVideoLength = this.eventStore.getPreviousVideoLengthForGame(gameId);
+      const timelines = inGameEvent.timeLine.map((time) => time + previousVideoLength);
+      const eventNames = inGameEvent.eventName;
+      this.eventStore.appendInGameEventForGame(gameId, { timeline: timelines, eventName: eventNames }, phaseIndex);
+  }
+
+  appendVoiceForGame(gameId: string, voice: string[], timeline: number[], phaseIndex?: number) {
+    const previousVideoLength = this.eventStore.getPreviousVideoLengthForGame(gameId);
+    const timelines = timeline.map((time) => time + previousVideoLength);
+    this.eventStore.appendVoiceForGame(gameId, { voice, timeline: timelines }, phaseIndex);
+  }
+  
   initializeInGameEventForCurrentEvent(gameId: string, inGameEvents: (InGameEvent | null)[]) {
     this.eventStore.setCurrentInGameEventsForGame(gameId, inGameEvents);
   }
@@ -127,6 +153,18 @@ export class EventManager {
 
   updateInGameEventInfo(gameId: string, inGameEvent: InGameEvent | null, eventDetailIndex: number) {
     this.eventStore.setCurrentInGameEventForGame(gameId, inGameEvent, eventDetailIndex);
+  }
+
+  getVoiceForGame(gameId: string) {
+    return this.eventStore.getVoiceAndTimelineForGame(gameId);
+  }
+
+  getInGameEventForGame(gameId: string) {
+    return this.eventStore.getInGameEventAndTimelineForGame(gameId);
+  }
+
+  getPreviousResultForGame(gameId: string): string[] {
+    return this.eventStore.getPreviousHalfResultForGame(gameId);
   }
 
   getCurrentEventForGame(gameId: string): EventStreamState {

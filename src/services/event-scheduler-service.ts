@@ -118,6 +118,8 @@ export class EventSchedulerService {
 
     this.eventManager.updateGoalInfo(gameId, goalInfo, index);
     
+    this.eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, eventDetail.phase ?? index);
+    console.log("update goal info and result", goalInfo.result, " phase index ", eventDetail.phase ?? index);
 
     goalInfo.timeLine.forEach((time, goalIndex) => {
       const goalTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
@@ -154,13 +156,36 @@ export class EventSchedulerService {
 
     this.eventManager.updateInGameEventInfo(gameId, inGameEvent, index);
 
+    const previousVoice = this.eventManager.getVoiceForGame(gameId);
+    const previousInGameEvent = this.eventManager.getInGameEventForGame(gameId);
+    const firstHalfResult = this.eventManager.getPreviousResultForGame(gameId).join("");
     const timeline = inGameEvent?.timeLine ?? [];
     const eventName = inGameEvent?.eventName ?? [];
 
     const voices = generateVoiceWithEventTimeline({
       timeline,
       eventName,
+      previousVoices: previousVoice.voice,
+      previousTimelines: previousVoice.timeline,
+      previousEvents: previousInGameEvent.eventName,
+      previousVoiceTimelines: previousInGameEvent.timeline,
+      firstHalfScore: firstHalfResult,
     });
+    console.log("--- Prameters")
+    console.log("previous voices", previousVoice.voice);
+    console.log("previous timelines", previousVoice.timeline);
+    console.log("previous events", previousInGameEvent.eventName);
+    console.log("previous voice timelines", previousInGameEvent.timeline);
+    console.log("first half result", firstHalfResult);
+    console.log("events ", eventName);
+    console.log("timelines ", timeline);
+
+    this.eventManager.appendInGameEventForGame(gameId, inGameEvent, eventDetail.phase ?? index);
+    this.eventManager.appendVoiceForGame(gameId, voices.voice, voices.timeline, eventDetail.phase ?? index);
+  
+    console.log("--- Result")
+    console.log("voices events", voices.voice);
+    console.log("voices timelines", voices.timeline);
 
     voices.timeline.forEach((time, voiceIndex) => {
       const voiceTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);

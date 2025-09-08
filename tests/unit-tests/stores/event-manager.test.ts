@@ -3,6 +3,7 @@ import { mockContainer } from "../global-stubs";
 import { Event, EventDetail, JobName, GoalInfoData, EventStreamState, InGameEvent, VoiceConfig } from "../../../src/types";
 import { EventStore } from "../../../src/stores/event-store";
 import { idHelper } from "../../../src/helpers";
+import { appSettings } from "../../../src/app-settings";
 
 // Mock dependencies
 jest.mock("../../../src/helpers");
@@ -1138,6 +1139,215 @@ describe("EventManager", () => {
 
       // Assert
       expect(eventStore.setCurrentEventLiveScoresForGame).toHaveBeenCalledWith(gameId, ["2-1", "0:0"]);
+    });
+  });
+
+  describe("initializeGamePhaseWithResult", () => {
+    it("should initialize game phase with result", () => {
+      // Arrange
+      const gameId = "2001";
+      const result = ["goal", "assist", "save"];
+      const phaseIndex = 0;
+
+      jest.spyOn(eventStore, "updateResultForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeGamePhaseWithResult(gameId, result, phaseIndex);
+
+      // Assert
+      expect(eventStore.updateResultForGame).toHaveBeenCalledWith(gameId, result, phaseIndex);
+    });
+  });
+
+  describe("initializeGamePhaseWithGoalInfo", () => {
+    it("should initialize game phase with goal info", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalInfo = { length: 45, result: ["goal", "assist"], timeLine: [10, 20], frame: [100, 200] };
+      const phaseIndex = 1;
+
+      jest.spyOn(eventStore, "updateVideoLengthForGame").mockImplementation();
+      jest.spyOn(eventStore, "updateResultForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, phaseIndex);
+
+      // Assert
+      expect(eventStore.updateVideoLengthForGame).toHaveBeenCalledWith(gameId, 45, phaseIndex);
+      expect(eventStore.updateResultForGame).toHaveBeenCalledWith(gameId, ["goal", "assist"], phaseIndex);
+    });
+
+    it("should use app settings video length when goalInfo is null and app settings exists", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalInfo = null;
+      const phaseIndex = 0;
+      
+      // Mock appSettings to have videoLength for this gameId
+      Object.assign(appSettings, { videoLength: { [gameId]: 60 } });
+
+      jest.spyOn(eventStore, "updateVideoLengthForGame").mockImplementation();
+      jest.spyOn(eventStore, "updateResultForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, phaseIndex);
+
+      // Assert
+      expect(eventStore.updateVideoLengthForGame).toHaveBeenCalledWith(gameId, 60, phaseIndex);
+      expect(eventStore.updateResultForGame).toHaveBeenCalledWith(gameId, [], phaseIndex);
+    });
+
+    it("should use default video length when goalInfo is null and no app settings", () => {
+      // Arrange
+      const gameId = "2002";
+      const goalInfo = null;
+      const phaseIndex = 1;
+      
+      // Ensure no videoLength setting for this gameId
+      Object.assign(appSettings, { videoLength: {} });
+
+      jest.spyOn(eventStore, "updateVideoLengthForGame").mockImplementation();
+      jest.spyOn(eventStore, "updateResultForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, phaseIndex);
+
+      // Assert
+      expect(eventStore.updateVideoLengthForGame).toHaveBeenCalledWith(gameId, 30, phaseIndex); // DEFAULT_VIDEO_LENGTH = 30
+      expect(eventStore.updateResultForGame).toHaveBeenCalledWith(gameId, [], phaseIndex);
+    });
+
+    it("should handle goalInfo without length property", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalInfo = { result: ["save"], timeLine: [15], frame: [150] } as any; // Missing length
+      const phaseIndex = 0;
+      
+      // Mock appSettings
+      Object.assign(appSettings, { videoLength: { [gameId]: 50 } });
+
+      jest.spyOn(eventStore, "updateVideoLengthForGame").mockImplementation();
+      jest.spyOn(eventStore, "updateResultForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, phaseIndex);
+
+      // Assert
+      expect(eventStore.updateVideoLengthForGame).toHaveBeenCalledWith(gameId, 50, phaseIndex); // Falls back to appSettings
+      expect(eventStore.updateResultForGame).toHaveBeenCalledWith(gameId, ["save"], phaseIndex);
+    });
+
+    it("should handle goalInfo without result property", () => {
+      // Arrange
+      const gameId = "2001";
+      const goalInfo = { length: 40, timeLine: [12], frame: [120] } as any; // Missing result
+      const phaseIndex = 1;
+
+      jest.spyOn(eventStore, "updateVideoLengthForGame").mockImplementation();
+      jest.spyOn(eventStore, "updateResultForGame").mockImplementation();
+
+      // Act
+      eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, phaseIndex);
+
+      // Assert
+      expect(eventStore.updateVideoLengthForGame).toHaveBeenCalledWith(gameId, 40, phaseIndex);
+      expect(eventStore.updateResultForGame).toHaveBeenCalledWith(gameId, [], phaseIndex); // Falls back to empty array
+    });
+  });
+
+  describe("appendInGameEventForGame", () => {
+    it("should append in-game event for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const inGameEvent = { timeLine: [5, 15], eventName: ["kick", "goal"], frame: [50, 150] };
+      const phaseIndex = 0;
+
+      jest.spyOn(eventStore, "getPreviousVideoLengthForGame").mockReturnValue(10);
+      jest.spyOn(eventStore, "appendInGameEventForGame").mockImplementation();
+
+      // Act
+      eventManager.appendInGameEventForGame(gameId, inGameEvent, phaseIndex);
+
+      // Assert
+      expect(eventStore.appendInGameEventForGame).toHaveBeenCalledWith(
+        gameId, 
+        { timeline: [15, 25], eventName: ["kick", "goal"] }, 
+        phaseIndex
+      );
+    });
+  });
+
+  describe("appendVoiceForGame", () => {
+    it("should append voice for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const voice = ["voice1", "voice2"];
+      const timeline = [8, 18];
+      const phaseIndex = 1;
+
+      jest.spyOn(eventStore, "getPreviousVideoLengthForGame").mockReturnValue(5);
+      jest.spyOn(eventStore, "appendVoiceForGame").mockImplementation();
+
+      // Act
+      eventManager.appendVoiceForGame(gameId, voice, timeline, phaseIndex);
+
+      // Assert
+      expect(eventStore.appendVoiceForGame).toHaveBeenCalledWith(
+        gameId, 
+        { voice: ["voice1", "voice2"], timeline: [13, 23] }, 
+        phaseIndex
+      );
+    });
+  });
+
+  describe("getVoiceForGame", () => {
+    it("should get voice for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const expectedVoice = { voice: ["test_voice"], timeline: [12] };
+
+      jest.spyOn(eventStore, "getVoiceAndTimelineForGame").mockReturnValue(expectedVoice);
+
+      // Act
+      const result = eventManager.getVoiceForGame(gameId);
+
+      // Assert
+      expect(eventStore.getVoiceAndTimelineForGame).toHaveBeenCalledWith(gameId);
+      expect(result).toEqual(expectedVoice);
+    });
+  });
+
+  describe("getInGameEventForGame", () => {
+    it("should get in-game event for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const expectedEvent = { eventName: ["test_event"], timeline: [25] };
+
+      jest.spyOn(eventStore, "getInGameEventAndTimelineForGame").mockReturnValue(expectedEvent);
+
+      // Act
+      const result = eventManager.getInGameEventForGame(gameId);
+
+      // Assert
+      expect(eventStore.getInGameEventAndTimelineForGame).toHaveBeenCalledWith(gameId);
+      expect(result).toEqual(expectedEvent);
+    });
+  });
+
+  describe("getPreviousResultForGame", () => {
+    it("should get previous result for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const expectedResult = ["1", "0"];
+
+      jest.spyOn(eventStore, "getPreviousHalfResultForGame").mockReturnValue(expectedResult);
+
+      // Act
+      const result = eventManager.getPreviousResultForGame(gameId);
+
+      // Assert
+      expect(eventStore.getPreviousHalfResultForGame).toHaveBeenCalledWith(gameId);
+      expect(result).toEqual(expectedResult);
     });
   });
 });

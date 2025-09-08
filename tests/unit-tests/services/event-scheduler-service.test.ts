@@ -28,6 +28,7 @@ const createMockEventDetail = (eventId: number = 1, index: number = 0): EventDet
   result: "1-0",
   markets: [{ id: 1, name: "market1" }],
   inGameEventInfo: "in-game-event-info-1",
+  phase: index,
 });
 
 const createMockEvent = (eventId: number = 1, name: string = "Test Event"): Event => ({
@@ -55,13 +56,13 @@ const createMockInGameEvent = (): InGameEvent => ({
 
 describe("EventSchedulerService", () => {
   let eventSchedulerService: EventSchedulerService;
-  let mockJobScheduler: any;
-  let mockOddsFeedService: any;
-  let mockEventStreamService: any;
-  let mockEventManager: any;
-  let mockLogService: any;
-  let mockIdHelper: any;
-  let mockGenerateVoiceWithEventTimeline: any;
+  let mockJobScheduler: jest.Mocked<any>;
+  let mockOddsFeedService: jest.Mocked<any>;
+  let mockEventStreamService: jest.Mocked<any>;
+  let mockEventManager: jest.Mocked<any>;
+  let mockLogService: jest.Mocked<any>;
+  let mockIdHelper: jest.Mocked<any>;
+  let mockGenerateVoiceWithEventTimeline: jest.MockedFunction<any>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -86,6 +87,12 @@ describe("EventSchedulerService", () => {
       updateLiveScore: jest.fn(),
       incrementCurrentEventDetailIndex: jest.fn(),
       updateCurrentEventDetail: jest.fn(),
+      initializeGamePhaseWithGoalInfo: jest.fn(),
+      getVoiceForGame: jest.fn(),
+      getInGameEventForGame: jest.fn(),
+      getPreviousResultForGame: jest.fn(),
+      appendInGameEventForGame: jest.fn(),
+      appendVoiceForGame: jest.fn(),
     };
     mockLogService = {
       logError: jest.fn(),
@@ -105,10 +112,10 @@ describe("EventSchedulerService", () => {
     mockContainer.logService = mockLogService;
 
     // Mock helpers
-    (idHelper as any) = mockIdHelper;
+    Object.assign(idHelper, mockIdHelper);
 
     // Mock appSettings
-    (appSettings as any) = {
+    Object.assign(appSettings, {
       scheduleDelay: {
         "2001": 10000,
         "2002": 10000,
@@ -119,7 +126,7 @@ describe("EventSchedulerService", () => {
         "2002": 3000,
         "2003": 3000,
       },
-    };
+    });
 
     eventSchedulerService = new EventSchedulerService(mockContainer);
   });
@@ -456,22 +463,17 @@ describe("EventSchedulerService", () => {
       const givenGoalInfo = createMockGoalInfo();
       const mockEvent = createMockEvent(1001);
       const eventDetail = mockEvent.eventDetails[index];
-      const mockVoiceResult = {
-        timeline: [],
-        voice: [],
-      };
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockOddsFeedService.getInGameEvent.mockResolvedValue(null);
-      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
       await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
 
       // Assert
       expect(mockEventManager.updateGoalInfo).toHaveBeenCalledWith(gameId, givenGoalInfo, index);
+      expect(mockEventManager.initializeGamePhaseWithGoalInfo).toHaveBeenCalledWith(gameId, givenGoalInfo, eventDetail.phase ?? index);
       expect(mockOddsFeedService.getGoalInfo).not.toHaveBeenCalled();
-      // Should schedule jobs for each timeline entry (3 goal info jobs, no voice jobs)
+      // Should schedule jobs for each timeline entry (3 goal info jobs)
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
     });
 
@@ -482,15 +484,9 @@ describe("EventSchedulerService", () => {
       const mockGoalInfo = createMockGoalInfo();
       const mockEvent = createMockEvent(1001);
       const eventDetail = mockEvent.eventDetails[index];
-      const mockVoiceResult = {
-        timeline: [],
-        voice: [],
-      };
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
       mockOddsFeedService.getGoalInfo.mockResolvedValue(mockGoalInfo);
-      mockOddsFeedService.getInGameEvent.mockResolvedValue(null);
-      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
       await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index);
@@ -498,6 +494,7 @@ describe("EventSchedulerService", () => {
       // Assert
       expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(eventDetail.goalInfo);
       expect(mockEventManager.updateGoalInfo).toHaveBeenCalledWith(gameId, mockGoalInfo, index);
+      expect(mockEventManager.initializeGamePhaseWithGoalInfo).toHaveBeenCalledWith(gameId, mockGoalInfo, eventDetail.phase ?? index);
     });
 
     it("should handle goal info fetch failure", async () => {
@@ -572,13 +569,13 @@ describe("EventSchedulerService", () => {
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
       
       // Check that no voice jobs are scheduled
-      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
-        call[0].includes(JobName.UpdateVoice)
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any[]) => 
+        (call[0] as string).includes(JobName.UpdateVoice)
       );
       expect(voiceJobCalls).toHaveLength(0);
     });
 
-    it("should fetch goal info when not provided", async () => {
+    it("should fetch goal info when not provided and initialize game phase", async () => {
       // Arrange
       const gameId = "2001";
       const index = 0;
@@ -595,6 +592,7 @@ describe("EventSchedulerService", () => {
       // Assert
       expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(eventDetail.goalInfo);
       expect(mockEventManager.updateGoalInfo).toHaveBeenCalledWith(gameId, mockGoalInfo, index);
+      expect(mockEventManager.initializeGamePhaseWithGoalInfo).toHaveBeenCalledWith(gameId, mockGoalInfo, eventDetail.phase ?? index);
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
     });
 
@@ -630,29 +628,47 @@ describe("EventSchedulerService", () => {
       const index = 0;
       const givenInGameEvent = createMockInGameEvent();
       const mockEvent = createMockEvent(1001);
+      const eventDetail = mockEvent.eventDetails[index];
       const mockVoiceResult = {
         timeline: [10, 20],
         voice: ["voice1", "voice2"],
       };
+      const mockPreviousVoice = { voice: ["prev_voice"], timeline: [5] };
+      const mockPreviousInGameEvent = { eventName: ["prev_event"], timeline: [3] };
+      const mockPreviousResult = ["1", "0"];
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
       await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert
+      expect(mockEventManager.updateInGameEventInfo).toHaveBeenCalledWith(gameId, givenInGameEvent, index);
+      expect(mockEventManager.getVoiceForGame).toHaveBeenCalledWith(gameId);
+      expect(mockEventManager.getInGameEventForGame).toHaveBeenCalledWith(gameId);
+      expect(mockEventManager.getPreviousResultForGame).toHaveBeenCalledWith(gameId);
       expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalledWith({
         timeline: givenInGameEvent.timeLine,
         eventName: givenInGameEvent.eventName,
+        previousVoices: mockPreviousVoice.voice,
+        previousTimelines: mockPreviousVoice.timeline,
+        previousEvents: mockPreviousInGameEvent.eventName,
+        previousVoiceTimelines: mockPreviousInGameEvent.timeline,
+        firstHalfScore: "10",
       });
+      expect(mockEventManager.appendInGameEventForGame).toHaveBeenCalledWith(gameId, givenInGameEvent, eventDetail.phase ?? index);
+      expect(mockEventManager.appendVoiceForGame).toHaveBeenCalledWith(gameId, mockVoiceResult.voice, mockVoiceResult.timeline, eventDetail.phase ?? index);
       
       // Should schedule 2 voice jobs
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(2);
       
       // Check voice job scheduling
-      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
-        call[0].includes(JobName.UpdateVoice)
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any[]) => 
+        (call[0] as string).includes(JobName.UpdateVoice)
       );
       expect(voiceJobCalls).toHaveLength(2);
     });
@@ -668,16 +684,22 @@ describe("EventSchedulerService", () => {
         timeline: [10, 20],
         voice: ["voice1", "voice2"],
       };
+      const mockPreviousVoice = { voice: [], timeline: [] };
+      const mockPreviousInGameEvent = { eventName: [], timeline: [] };
+      const mockPreviousResult: string[] = [];
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
       await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert voice job scheduling
-      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
-        call[0].includes(JobName.UpdateVoice)
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any[]) => 
+        (call[0] as string).includes(JobName.UpdateVoice)
       );
 
       // Check first voice job - should include video delay (3000ms)
@@ -708,23 +730,34 @@ describe("EventSchedulerService", () => {
       const index = 0;
       const givenInGameEvent = createMockInGameEvent();
       const mockEvent = createMockEvent(1001);
+      const eventDetail = mockEvent.eventDetails[index];
       const mockVoiceResult = {
         timeline: [],
         voice: [],
       };
+      const mockPreviousVoice = { voice: [], timeline: [] };
+      const mockPreviousInGameEvent = { eventName: [], timeline: [] };
+      const mockPreviousResult: string[] = [];
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
       // Act
       await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert
+      expect(mockEventManager.updateInGameEventInfo).toHaveBeenCalledWith(gameId, givenInGameEvent, index);
+      expect(mockEventManager.appendInGameEventForGame).toHaveBeenCalledWith(gameId, givenInGameEvent, eventDetail.phase ?? index);
+      expect(mockEventManager.appendVoiceForGame).toHaveBeenCalledWith(gameId, mockVoiceResult.voice, mockVoiceResult.timeline, eventDetail.phase ?? index);
+      
       // Should not schedule any voice jobs
       expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
       
-      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
-        call[0].includes(JobName.UpdateVoice)
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any[]) => 
+        (call[0] as string).includes(JobName.UpdateVoice)
       );
       expect(voiceJobCalls).toHaveLength(0);
     });
@@ -740,8 +773,14 @@ describe("EventSchedulerService", () => {
         timeline: [10],
         voice: ["voice1"],
       };
+      const mockPreviousVoice = { voice: ["prev_voice"], timeline: [5] };
+      const mockPreviousInGameEvent = { eventName: ["prev_event"], timeline: [3] };
+      const mockPreviousResult = ["1", "0"];
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
       mockOddsFeedService.getInGameEvent.mockResolvedValue(mockInGameEvent);
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
 
@@ -754,7 +793,14 @@ describe("EventSchedulerService", () => {
       expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalledWith({
         timeline: mockInGameEvent.timeLine,
         eventName: mockInGameEvent.eventName,
+        previousVoices: mockPreviousVoice.voice,
+        previousTimelines: mockPreviousVoice.timeline,
+        previousEvents: mockPreviousInGameEvent.eventName,
+        previousVoiceTimelines: mockPreviousInGameEvent.timeline,
+        firstHalfScore: "10",
       });
+      expect(mockEventManager.appendInGameEventForGame).toHaveBeenCalledWith(gameId, mockInGameEvent, eventDetail.phase ?? index);
+      expect(mockEventManager.appendVoiceForGame).toHaveBeenCalledWith(gameId, mockVoiceResult.voice, mockVoiceResult.timeline, eventDetail.phase ?? index);
     });
 
     it("should handle in-game event fetch failure", async () => {
@@ -787,8 +833,14 @@ describe("EventSchedulerService", () => {
         timeline: [10, 20],
         voice: ["voice1", "voice2"],
       };
+      const mockPreviousVoice = { voice: [], timeline: [] };
+      const mockPreviousInGameEvent = { eventName: [], timeline: [] };
+      const mockPreviousResult: string[] = [];
 
       mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
       mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
       (appSettings as any).videoDelay = {}; // No video delay configured
 
@@ -796,8 +848,8 @@ describe("EventSchedulerService", () => {
       await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
 
       // Assert voice job scheduling
-      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any) => 
-        call[0].includes(JobName.UpdateVoice)
+      const voiceJobCalls = mockJobScheduler.scheduleJob.mock.calls.filter((call: any[]) => 
+        (call[0] as string).includes(JobName.UpdateVoice)
       );
 
       // Check first voice job - should use 0 delay when not configured
@@ -809,6 +861,27 @@ describe("EventSchedulerService", () => {
       expect(voiceJobCalls[1][0]).toBe(`${gameId}_${eventDetail.eventID}_${index}_${JobName.UpdateVoice}_1`);
       expect(voiceJobCalls[1][1]).toEqual(new Date(new Date(eventDetail.scheduleStartTs).getTime() + 20 * 1000 + 0));
       expect(voiceJobCalls[1][3]).toBe(true); // should be background job
+    });
+
+    it("should handle missing phase property in event detail", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const givenGoalInfo = createMockGoalInfo();
+      const mockEvent = createMockEvent(1001);
+      // Remove phase property from event detail
+      const eventDetailWithoutPhase = { ...mockEvent.eventDetails[index] };
+      delete eventDetailWithoutPhase.phase;
+      mockEvent.eventDetails[index] = eventDetailWithoutPhase;
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
+
+      // Assert
+      expect(mockEventManager.initializeGamePhaseWithGoalInfo).toHaveBeenCalledWith(gameId, givenGoalInfo, index);
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
     });
 
     it("should schedule goal info jobs with video delay", async () => {
@@ -835,6 +908,77 @@ describe("EventSchedulerService", () => {
           true
         );
       });
+    });
+
+    it("should handle missing phase property in voice scheduling", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const givenInGameEvent = createMockInGameEvent();
+      const mockEvent = createMockEvent(1001);
+      // Remove phase property from event detail
+      const eventDetailWithoutPhase = { ...mockEvent.eventDetails[index] };
+      delete eventDetailWithoutPhase.phase;
+      mockEvent.eventDetails[index] = eventDetailWithoutPhase;
+      
+      const mockVoiceResult = {
+        timeline: [10],
+        voice: ["voice1"],
+      };
+      const mockPreviousVoice = { voice: [], timeline: [] };
+      const mockPreviousInGameEvent = { eventName: [], timeline: [] };
+      const mockPreviousResult: string[] = [];
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
+      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
+
+      // Assert
+      expect(mockEventManager.appendInGameEventForGame).toHaveBeenCalledWith(gameId, givenInGameEvent, index);
+      expect(mockEventManager.appendVoiceForGame).toHaveBeenCalledWith(gameId, mockVoiceResult.voice, mockVoiceResult.timeline, index);
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle null values from previous voice and event data", async () => {
+      // Arrange
+      const gameId = "2001";
+      const index = 0;
+      const givenInGameEvent = createMockInGameEvent();
+      const mockEvent = createMockEvent(1001);
+      const mockVoiceResult = {
+        timeline: [15],
+        voice: ["voice_test"],
+      };
+      // Mock empty/null previous data
+      const mockPreviousVoice = { voice: [], timeline: [] };
+      const mockPreviousInGameEvent = { eventName: [], timeline: [] };
+      const mockPreviousResult: string[] = [];
+
+      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
+      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
+      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
+      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
+      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
+
+      // Act
+      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
+
+      // Assert
+      expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalledWith({
+        timeline: givenInGameEvent.timeLine,
+        eventName: givenInGameEvent.eventName,
+        previousVoices: [],
+        previousTimelines: [],
+        previousEvents: [],
+        previousVoiceTimelines: [],
+        firstHalfScore: "",
+      });
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(1);
     });
   });
 

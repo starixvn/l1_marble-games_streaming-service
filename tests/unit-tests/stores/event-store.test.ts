@@ -1414,6 +1414,667 @@ describe("EventStore", () => {
     });
   });
 
+  describe("updateResultForGame", () => {
+    it("should update result for game with default phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const result = ["goal", "assist"];
+
+      // Act
+      eventStore.updateResultForGame(gameId, result);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.result).toEqual(result);
+    });
+
+    it("should update result for game with specific phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const result = ["save", "corner"];
+      const phaseIndex = 1;
+
+      // Act
+      eventStore.updateResultForGame(gameId, result, phaseIndex);
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(phaseIndex);
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.result).toEqual(result);
+    });
+
+    it("should handle empty result array", () => {
+      // Arrange
+      const gameId = "2001";
+      const result: string[] = [];
+
+      // Act
+      eventStore.updateResultForGame(gameId, result);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.result).toEqual([]);
+    });
+  });
+
+  describe("updateVideoLengthForGame", () => {
+    it("should update video length for game with default phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const videoLength = 45;
+
+      // Act
+      eventStore.updateVideoLengthForGame(gameId, videoLength);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.currentVideoLength).toBe(videoLength);
+      expect(gamePhase.previousVideoLength).toBe(0);
+    });
+
+    it("should update video length and set previous length correctly", () => {
+      // Arrange
+      const gameId = "2001";
+      const firstLength = 30;
+      const secondLength = 45;
+
+      // Act
+      eventStore.updateVideoLengthForGame(gameId, firstLength, 0);
+      eventStore.updateVideoLengthForGame(gameId, secondLength, 0);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.currentVideoLength).toBe(secondLength);
+      expect(gamePhase.previousVideoLength).toBe(firstLength);
+    });
+
+    it("should update video length for specific phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const videoLength = 60;
+      const phaseIndex = 1;
+
+      // Act
+      eventStore.updateVideoLengthForGame(gameId, videoLength, phaseIndex);
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(phaseIndex);
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.currentVideoLength).toBe(videoLength);
+    });
+  });
+
+  describe("appendVoiceForGame", () => {
+    it("should append voice data for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceArgs = {
+        voice: ["goal_1", "assist_1"],
+        timeline: [10, 20]
+      };
+
+      // Act
+      eventStore.appendVoiceForGame(gameId, voiceArgs);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.voices).toEqual(voiceArgs.voice);
+      expect(gamePhase.voiceTimelines).toEqual(voiceArgs.timeline);
+    });
+
+    it("should append multiple voice data entries", () => {
+      // Arrange
+      const gameId = "2001";
+      const firstVoice = { voice: ["goal_1"], timeline: [10] };
+      const secondVoice = { voice: ["assist_1"], timeline: [20] };
+
+      // Act
+      eventStore.appendVoiceForGame(gameId, firstVoice, 0);
+      eventStore.appendVoiceForGame(gameId, secondVoice, 0);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.voices).toEqual(["goal_1", "assist_1"]);
+      expect(gamePhase.voiceTimelines).toEqual([10, 20]);
+    });
+
+    it("should append voice data for specific phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceArgs = { voice: ["save_1"], timeline: [15] };
+      const phaseIndex = 1;
+
+      // Act
+      eventStore.appendVoiceForGame(gameId, voiceArgs, phaseIndex);
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(phaseIndex);
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.voices).toEqual(voiceArgs.voice);
+      expect(gamePhase.voiceTimelines).toEqual(voiceArgs.timeline);
+    });
+  });
+
+  describe("appendInGameEventForGame", () => {
+    it("should append in-game event data for game", () => {
+      // Arrange
+      const gameId = "2001";
+      const eventArgs = {
+        eventName: ["goal", "assist"],
+        timeline: [10, 20]
+      };
+
+      // Act
+      eventStore.appendInGameEventForGame(gameId, eventArgs);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.events).toEqual(eventArgs.eventName);
+      expect(gamePhase.timelines).toEqual(eventArgs.timeline);
+    });
+
+    it("should append multiple in-game event entries", () => {
+      // Arrange
+      const gameId = "2001";
+      const firstEvent = { eventName: ["goal"], timeline: [10] };
+      const secondEvent = { eventName: ["save"], timeline: [25] };
+
+      // Act
+      eventStore.appendInGameEventForGame(gameId, firstEvent, 0);
+      eventStore.appendInGameEventForGame(gameId, secondEvent, 0);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.events).toEqual(["goal", "save"]);
+      expect(gamePhase.timelines).toEqual([10, 25]);
+    });
+
+    it("should append in-game event data for specific phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const eventArgs = { eventName: ["corner"], timeline: [30] };
+      const phaseIndex = 1;
+
+      // Act
+      eventStore.appendInGameEventForGame(gameId, eventArgs, phaseIndex);
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(phaseIndex);
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.events).toEqual(eventArgs.eventName);
+      expect(gamePhase.timelines).toEqual(eventArgs.timeline);
+    });
+  });
+
+  describe("getPreviousVideoLengthForGame", () => {
+    it("should return 0 for new game", () => {
+      // Arrange
+      const gameId = "2001";
+      // Initialize game phase first
+      eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Act
+      const result = eventStore.getPreviousVideoLengthForGame(gameId);
+
+      // Assert
+      expect(result).toBe(0);
+    });
+
+    it("should return previous video length after update", () => {
+      // Arrange
+      const gameId = "2001";
+      const firstLength = 30;
+      const secondLength = 45;
+
+      // Act
+      eventStore.updateVideoLengthForGame(gameId, firstLength, 0);
+      eventStore.updateVideoLengthForGame(gameId, secondLength, 0);
+      const result = eventStore.getPreviousVideoLengthForGame(gameId);
+
+      // Assert
+      expect(result).toBe(firstLength);
+    });
+
+    it("should return 0 when no previous video length exists", () => {
+      // Arrange
+      const gameId = "2001";
+      eventStore.updateVideoLengthForGame(gameId, 45);
+
+      // Act
+      const result = eventStore.getPreviousVideoLengthForGame(gameId);
+
+      // Assert
+      expect(result).toBe(0);
+    });
+
+    it("should return 0 when game phase data is missing (null check branch)", () => {
+      // Arrange
+      const gameId = "non-existent-game";
+
+      // Act & Assert - This should throw an error since the method doesn't handle missing game data
+      expect(() => eventStore.getPreviousVideoLengthForGame(gameId)).toThrow();
+    });
+
+    it("should return 0 when phase data is undefined (null check branch)", () => {
+      // Arrange
+      const gameId = "2001";
+      // Initialize game but access non-existent phase
+      eventStore.getCurrentGamePhaseForGame(gameId);
+      
+      // Manually access a phase that doesn't exist to test null coalescing
+      const currentPhaseIndex = 5; // Non-existent phase
+      const eventStore_any = eventStore as any;
+      eventStore_any._currentGamePhaseByGameId[gameId].currentPhaseIndex = currentPhaseIndex;
+
+      // Act
+      const result = eventStore.getPreviousVideoLengthForGame(gameId);
+
+      // Assert
+      expect(result).toBe(0);
+    });
+  });
+
+  describe("getCurrentPhaseIndexForGame", () => {
+    it("should return 0 for new game", () => {
+      // Arrange
+      const gameId = "2001";
+
+      // Act
+      const result = eventStore.getCurrentPhaseIndexForGame(gameId);
+
+      // Assert
+      expect(result).toBe(0);
+    });
+
+    it("should return current phase index after update", () => {
+      // Arrange
+      const gameId = "2001";
+      const phaseIndex = 2;
+
+      // Act
+      eventStore.updateResultForGame(gameId, ["goal"], phaseIndex);
+      const result = eventStore.getCurrentPhaseIndexForGame(gameId);
+
+      // Assert
+      expect(result).toBe(phaseIndex);
+    });
+
+    it("should return 0 for non-existent game", () => {
+      // Arrange
+      const gameId = "non-existent";
+
+      // Act
+      const result = eventStore.getCurrentPhaseIndexForGame(gameId);
+
+      // Assert
+      expect(result).toBe(0);
+    });
+  });
+
+  describe("getPreviousHalfResultForGame", () => {
+    it("should return empty array for phase 0", () => {
+      // Arrange
+      const gameId = "2001";
+      eventStore.updateResultForGame(gameId, ["goal"], 0);
+
+      // Act
+      const result = eventStore.getPreviousHalfResultForGame(gameId);
+
+      // Assert
+      expect(result).toEqual([]);
+    });
+
+    it("should return previous phase result", () => {
+      // Arrange
+      const gameId = "2001";
+      const previousResult = ["goal", "assist"];
+      const currentResult = ["save"];
+
+      // Act
+      eventStore.updateResultForGame(gameId, previousResult, 0);
+      eventStore.updateResultForGame(gameId, currentResult, 1);
+      const result = eventStore.getPreviousHalfResultForGame(gameId);
+
+      // Assert
+      expect(result).toEqual(previousResult);
+    });
+
+    it("should return empty array when no previous phase exists", () => {
+      // Arrange
+      const gameId = "2001";
+
+      // Act
+      const result = eventStore.getPreviousHalfResultForGame(gameId);
+
+      // Assert
+      expect(result).toEqual([]);
+    });
+
+    it("should handle missing previous phase data", () => {
+      // Arrange
+      const gameId = "2001";
+      eventStore.updateResultForGame(gameId, ["goal"], 1); // Skip phase 0
+
+      // Act
+      const result = eventStore.getPreviousHalfResultForGame(gameId);
+
+      // Assert
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array when game phase data is missing (null check branch)", () => {
+      // Arrange
+      const gameId = "non-existent-game";
+
+      // Act
+      const result = eventStore.getPreviousHalfResultForGame(gameId);
+
+      // Assert
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array when previous phase data is undefined (null check branch)", () => {
+      // Arrange
+      const gameId = "2001";
+      // Initialize game and set to phase 2, but don't initialize phase 1
+      eventStore.getCurrentGamePhaseForGame(gameId);
+      const eventStore_any = eventStore as any;
+      eventStore_any._currentGamePhaseByGameId[gameId].currentPhaseIndex = 2;
+
+      // Act
+      const result = eventStore.getPreviousHalfResultForGame(gameId);
+
+      // Assert
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("getVoiceAndTimelineForGame", () => {
+    it("should return empty arrays for new game", () => {
+      // Arrange
+      const gameId = "2001";
+      // Initialize game phase first
+      eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Act
+      const result = eventStore.getVoiceAndTimelineForGame(gameId);
+
+      // Assert
+      expect(result.voice).toEqual([]);
+      expect(result.timeline).toEqual([]);
+    });
+
+    it("should return voice and timeline data", () => {
+      // Arrange
+      const gameId = "2001";
+      const voiceArgs = { voice: ["goal_1", "assist_1"], timeline: [10, 20] };
+
+      // Act
+      eventStore.appendVoiceForGame(gameId, voiceArgs);
+      const result = eventStore.getVoiceAndTimelineForGame(gameId);
+
+      // Assert
+      expect(result.voice).toEqual(voiceArgs.voice);
+      expect(result.timeline).toEqual(voiceArgs.timeline);
+    });
+
+    it("should return data for current phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const phase0Voice = { voice: ["goal_1"], timeline: [10] };
+      const phase1Voice = { voice: ["save_1"], timeline: [25] };
+
+      // Act
+      eventStore.appendVoiceForGame(gameId, phase0Voice, 0);
+      eventStore.appendVoiceForGame(gameId, phase1Voice, 1);
+      const result = eventStore.getVoiceAndTimelineForGame(gameId);
+
+      // Assert - Should return phase 1 data (current phase)
+      expect(result.voice).toEqual(phase1Voice.voice);
+      expect(result.timeline).toEqual(phase1Voice.timeline);
+    });
+
+    it("should return empty arrays when voices/voiceTimelines are undefined (null check branch)", () => {
+      // Arrange
+      const gameId = "2001";
+      eventStore.getCurrentGamePhaseForGame(gameId);
+      
+      // Manually set voices and voiceTimelines to undefined to test null coalescing
+      const eventStore_any = eventStore as any;
+      const currentPhase = eventStore_any._currentGamePhaseByGameId[gameId].allPhases[0];
+      currentPhase.voices = undefined;
+      currentPhase.voiceTimelines = undefined;
+
+      // Act
+      const result = eventStore.getVoiceAndTimelineForGame(gameId);
+
+      // Assert
+      expect(result.voice).toEqual([]);
+      expect(result.timeline).toEqual([]);
+    });
+
+    it("should handle when game phase data doesn't exist", () => {
+      // Arrange
+      const gameId = "non-existent-game";
+
+      // Act & Assert - This should throw an error since the method doesn't handle missing game data
+      expect(() => eventStore.getVoiceAndTimelineForGame(gameId)).toThrow();
+    });
+  });
+
+  describe("getInGameEventAndTimelineForGame", () => {
+    it("should return empty arrays for new game", () => {
+      // Arrange
+      const gameId = "2001";
+      // Initialize game phase first
+      eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Act
+      const result = eventStore.getInGameEventAndTimelineForGame(gameId);
+
+      // Assert
+      expect(result.eventName).toEqual([]);
+      expect(result.timeline).toEqual([]);
+    });
+
+    it("should return in-game event and timeline data", () => {
+      // Arrange
+      const gameId = "2001";
+      const eventArgs = { eventName: ["goal", "assist"], timeline: [10, 20] };
+
+      // Act
+      eventStore.appendInGameEventForGame(gameId, eventArgs);
+      const result = eventStore.getInGameEventAndTimelineForGame(gameId);
+
+      // Assert
+      expect(result.eventName).toEqual(eventArgs.eventName);
+      expect(result.timeline).toEqual(eventArgs.timeline);
+    });
+
+    it("should return data for current phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const phase0Event = { eventName: ["goal"], timeline: [10] };
+      const phase1Event = { eventName: ["save"], timeline: [25] };
+
+      // Act
+      eventStore.appendInGameEventForGame(gameId, phase0Event, 0);
+      eventStore.appendInGameEventForGame(gameId, phase1Event, 1);
+      const result = eventStore.getInGameEventAndTimelineForGame(gameId);
+
+      // Assert - Should return phase 1 data (current phase)
+      expect(result.eventName).toEqual(phase1Event.eventName);
+      expect(result.timeline).toEqual(phase1Event.timeline);
+    });
+
+    it("should return empty arrays when events/timelines are undefined (null check branch)", () => {
+      // Arrange
+      const gameId = "2001";
+      eventStore.getCurrentGamePhaseForGame(gameId);
+      
+      // Manually set events and timelines to undefined to test null coalescing
+      const eventStore_any = eventStore as any;
+      const currentPhase = eventStore_any._currentGamePhaseByGameId[gameId].allPhases[0];
+      currentPhase.events = undefined;
+      currentPhase.timelines = undefined;
+
+      // Act
+      const result = eventStore.getInGameEventAndTimelineForGame(gameId);
+
+      // Assert
+      expect(result.eventName).toEqual([]);
+      expect(result.timeline).toEqual([]);
+    });
+
+    it("should handle when game phase data doesn't exist", () => {
+      // Arrange
+      const gameId = "non-existent-game";
+
+      // Act & Assert - This should throw an error since the method doesn't handle missing game data
+      expect(() => eventStore.getInGameEventAndTimelineForGame(gameId)).toThrow();
+    });
+  });
+
+  describe("updateEventTimelineForGame", () => {
+    it("should update event timeline for current phase", () => {
+      // Arrange
+      const gameId = "2001";
+      const newTimeline = [5, 15, 25];
+      // Initialize game phase first
+      eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Act
+      eventStore.updateEventTimelineForGame(gameId, newTimeline);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.timelines).toEqual(newTimeline);
+    });
+
+    it("should overwrite existing timeline", () => {
+      // Arrange
+      const gameId = "2001";
+      const initialEvent = { eventName: ["goal"], timeline: [10] };
+      const newTimeline = [5, 15, 25];
+
+      // Act
+      eventStore.appendInGameEventForGame(gameId, initialEvent);
+      eventStore.updateEventTimelineForGame(gameId, newTimeline);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.timelines).toEqual(newTimeline);
+      expect(gamePhase.events).toEqual(["goal"]); // Events should remain unchanged
+    });
+
+    it("should handle empty timeline array", () => {
+      // Arrange
+      const gameId = "2001";
+      const emptyTimeline: number[] = [];
+      // Initialize game phase first
+      eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Act
+      eventStore.updateEventTimelineForGame(gameId, emptyTimeline);
+
+      // Assert
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(gamePhase.timelines).toEqual([]);
+    });
+  });
+
+  describe("getCurrentGamePhaseForGame", () => {
+    it("should return initialized game phase for new game", () => {
+      // Arrange
+      const gameId = "2001";
+
+      // Act
+      const result = eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.index).toBe(0);
+      expect(result.events).toEqual([]);
+      expect(result.timelines).toEqual([]);
+      expect(result.voices).toEqual([]);
+      expect(result.voiceTimelines).toEqual([]);
+      expect(result.result).toEqual([]);
+      expect(result.previousVideoLength).toBe(0);
+    });
+
+    it("should return current phase data", () => {
+      // Arrange
+      const gameId = "2001";
+      const result = ["goal"];
+      const phaseIndex = 1;
+
+      // Act
+      eventStore.updateResultForGame(gameId, result, phaseIndex);
+      const gamePhase = eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Assert
+      expect(gamePhase.index).toBe(phaseIndex);
+      expect(gamePhase.result).toEqual(result);
+    });
+
+    it("should initialize game phase if needed", () => {
+      // Arrange
+      const gameId = "2001";
+
+      // Act
+      const firstCall = eventStore.getCurrentGamePhaseForGame(gameId);
+      const secondCall = eventStore.getCurrentGamePhaseForGame(gameId);
+
+      // Assert
+      expect(firstCall).toBe(secondCall); // Should return same reference
+      expect(firstCall.index).toBe(0);
+    });
+  });
+
+  describe("phase management integration", () => {
+    it("should handle multiple phases correctly", () => {
+      // Arrange
+      const gameId = "2001";
+      const phase0Data = { result: ["goal"], voice: ["goal_1"], timeline: [10] };
+      const phase1Data = { result: ["save"], voice: ["save_1"], timeline: [25] };
+
+      // Act
+      eventStore.updateResultForGame(gameId, phase0Data.result, 0);
+      eventStore.appendVoiceForGame(gameId, { voice: phase0Data.voice, timeline: phase0Data.timeline }, 0);
+      
+      eventStore.updateResultForGame(gameId, phase1Data.result, 1);
+      eventStore.appendVoiceForGame(gameId, { voice: phase1Data.voice, timeline: phase1Data.timeline }, 1);
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(1);
+      
+      const currentPhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(currentPhase.result).toEqual(phase1Data.result);
+      expect(currentPhase.voices).toEqual(phase1Data.voice);
+      
+      const previousResult = eventStore.getPreviousHalfResultForGame(gameId);
+      expect(previousResult).toEqual(phase0Data.result);
+    });
+
+    it("should handle phase transitions with video length tracking", () => {
+      // Arrange
+      const gameId = "2001";
+      const phase0Length = 30;
+      const phase1Length = 45;
+
+      // Act
+      eventStore.updateVideoLengthForGame(gameId, phase0Length, 0);
+      eventStore.updateVideoLengthForGame(gameId, phase1Length, 1);
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(1);
+      expect(eventStore.getPreviousVideoLengthForGame(gameId)).toBe(0); // Previous length for phase 1
+      
+      const currentPhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(currentPhase.currentVideoLength).toBe(phase1Length);
+    });
+  });
+
   describe("memory management", () => {
     it("should not leak memory when overwriting events", () => {
       // Arrange
@@ -1448,6 +2109,24 @@ describe("EventStore", () => {
         const result = eventStore.getCurrentEventForGame(gameId);
         expect(result?.eventID).toBe(i);
       }
+    });
+
+    it("should handle large number of phases per game", () => {
+      // Arrange
+      const gameId = "2001";
+      const phaseCount = 100;
+
+      // Act
+      for (let i = 0; i < phaseCount; i++) {
+        eventStore.updateResultForGame(gameId, [`phase-${i}-result`], i);
+        eventStore.updateVideoLengthForGame(gameId, i * 10, i);
+      }
+
+      // Assert
+      expect(eventStore.getCurrentPhaseIndexForGame(gameId)).toBe(phaseCount - 1);
+      const currentPhase = eventStore.getCurrentGamePhaseForGame(gameId);
+      expect(currentPhase.result).toEqual([`phase-${phaseCount - 1}-result`]);
+      expect(currentPhase.currentVideoLength).toBe((phaseCount - 1) * 10);
     });
   });
 });

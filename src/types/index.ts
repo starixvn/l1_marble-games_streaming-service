@@ -54,12 +54,14 @@ export type EventDetail = {
   result: string;
   markets: any;
   inGameEventInfo: string;
+  phase?: number;
 };
 
 export type GoalInfoData = {
   frame: number[];
   timeLine: number[];
   result: string[];
+  length?: number;
 };
 
 export type InGameEvent = {
