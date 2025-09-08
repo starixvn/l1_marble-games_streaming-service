@@ -44,6 +44,10 @@ export type EventTimelineArgs = {
     eventName: string[];
     firstHalfScore?: string;
     firstHalfVoices?: string[];
+    previousEvents?: string[];
+    previousTimelines?: number[];
+    previousVoices?: string[];
+    previousVoiceTimelines?: number[];
 }
 
 export type VoiceGenerationResult = {
@@ -145,7 +149,7 @@ export const DEFAULT_VOICE_DURATION_CONFIG: VoiceDurationConfig = {
 
 const TIME_WITHIN_TO_BE_CONSIDERED_AS_FAST_GOAL = 5;
 const GOAL_COUNT_TO_BE_CONSIDERED_AS_FAST_GOAL = 2;
-const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 25;
+    const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 25;
 
 export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: VoiceDurationConfig = DEFAULT_VOICE_DURATION_CONFIG): VoiceGenerationResult {
     const events = args.eventName;
@@ -153,7 +157,11 @@ export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: 
     const { initialVoice, initialTracker } = initVoiceEvents(args, config);
     let tracker = initialTracker;
     const { timeline, voice } = initialVoice;
-    const exclusion = new Set(args.firstHalfVoices ?? []);
+    const exclusionArr = [
+        ...(args.previousVoices ?? []),
+        ...(args.firstHalfVoices ?? [])
+    ]
+    const exclusion = new Set(exclusionArr);
     
     events.forEach((event, index) => {
         const eventTime = args.timeline[index];
@@ -216,14 +224,26 @@ export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: 
     }
 }
 
-function initTracker(firstHalfScoreSequence = "") {
+type TrackerOptions = {
+    firstHalfScoreSequence?: string;
+    previousEvents?: string[];
+    previousTimelines?: number[];
+    previousVoices?: string[];
+}
+
+function initTracker({
+    firstHalfScoreSequence = "",
+    previousEvents = [],
+    previousTimelines = [],
+    previousVoices = []
+}: TrackerOptions) {
     const tracker: TrackingStas = {
         totalGoal: 0,
         homeScore: 0,
         awayScore: 0,
         consecutiveGoal: 0,
         isFirstHalf: firstHalfScoreSequence === "",
-        totalGoalCurrentHalf: 0
+        totalGoalCurrentHalf: 0,
     }
 
     firstHalfScoreSequence.split("").forEach((score, index, scores) => {
@@ -239,7 +259,41 @@ function initTracker(firstHalfScoreSequence = "") {
         }
     });
 
-    return tracker;
+    let newTracker = { ...tracker };
+
+    previousEvents.forEach((eventName, index) => {
+        const nextEvent = previousEvents[index + 1] ? {
+            eventName: previousEvents[index + 1],
+            eventTime: previousTimelines[index + 1]
+        } : undefined;
+
+        newTracker = trackEventBeforeProcess(newTracker, {
+            eventName,
+            eventTime: previousTimelines[index]
+        }, nextEvent);
+
+        if (isGoalForEventName(eventName)) {
+            newTracker = trackGoal(newTracker, {
+                eventTime: previousTimelines[index],
+                eventName,
+            });
+        }
+    });
+
+    const previousVoiceDuration = Number(previousVoices[previousVoices.length - 1]?.split("_")[1] ?? 0);
+
+    if (previousEvents.length > 0) {
+        newTracker.currentEvent = {
+            eventName: previousEvents[previousEvents.length - 1],
+            eventTime: previousTimelines[previousEvents.length - 1]
+        }
+    }
+    
+    if (previousVoices.length > 0 && previousTimelines.length > 0) {
+        newTracker.previousVoiceEndTime = previousTimelines[previousTimelines.length - 1] + previousVoiceDuration;
+    }
+
+    return newTracker;
 }
 
 function trackGoal(tracker: TrackingStas, {
@@ -247,7 +301,8 @@ function trackGoal(tracker: TrackingStas, {
     eventName
 }: {
     eventTime: number,
-    eventName: string
+    eventName: string,
+    previousVoices?: string;
 }) {
     const newTracker = { ...tracker }
     newTracker.prevGoal = newTracker.currentGoal;
@@ -447,7 +502,12 @@ function initVoiceEvents(args: EventTimelineArgs, config: VoiceDurationConfig): 
     initialVoice: VoiceGenerationResult,
     initialTracker: TrackingStas
 } {
-    const tracker = initTracker(args.firstHalfScore);
+    const tracker = initTracker({
+        firstHalfScoreSequence: args.firstHalfScore,
+        previousEvents: args.previousEvents,
+        previousTimelines: args.previousTimelines,
+        previousVoices: args.previousVoices
+    });
 
     return {
         initialVoice: {
