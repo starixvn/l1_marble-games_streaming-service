@@ -1350,4 +1350,67 @@ describe("EventManager", () => {
       expect(result).toEqual(expectedResult);
     });
   });
+
+  describe("updateIntroTimeForCurrentEvent", () => {
+    it("should update intro time for current event", () => {
+      // Arrange
+      const gameId = "2001";
+      const introTime = new Date("2024-01-01T10:00:00Z");
+
+      jest.spyOn(eventStore, "setCurrentEventIntroTimeForGame").mockImplementation();
+
+      // Act
+      eventManager.updateIntroTimeForCurrentEvent(gameId, introTime);
+
+      // Assert
+      expect(eventStore.setCurrentEventIntroTimeForGame).toHaveBeenCalledWith(gameId, introTime);
+    });
+
+    it("should handle different game IDs", () => {
+      // Arrange
+      const gameId1 = "2001";
+      const gameId2 = "2002";
+      const introTime1 = new Date("2024-01-01T10:00:00Z");
+      const introTime2 = new Date("2024-01-01T10:05:00Z");
+
+      jest.spyOn(eventStore, "setCurrentEventIntroTimeForGame").mockImplementation();
+
+      // Act
+      eventManager.updateIntroTimeForCurrentEvent(gameId1, introTime1);
+      eventManager.updateIntroTimeForCurrentEvent(gameId2, introTime2);
+
+      // Assert
+      expect(eventStore.setCurrentEventIntroTimeForGame).toHaveBeenCalledTimes(2);
+      expect(eventStore.setCurrentEventIntroTimeForGame).toHaveBeenCalledWith(gameId1, introTime1);
+      expect(eventStore.setCurrentEventIntroTimeForGame).toHaveBeenCalledWith(gameId2, introTime2);
+    });
+
+    it("should handle future intro times", () => {
+      // Arrange
+      const gameId = "2001";
+      const futureTime = new Date(Date.now() + 60000); // 1 minute in the future
+
+      jest.spyOn(eventStore, "setCurrentEventIntroTimeForGame").mockImplementation();
+
+      // Act
+      eventManager.updateIntroTimeForCurrentEvent(gameId, futureTime);
+
+      // Assert
+      expect(eventStore.setCurrentEventIntroTimeForGame).toHaveBeenCalledWith(gameId, futureTime);
+    });
+
+    it("should handle past intro times", () => {
+      // Arrange
+      const gameId = "2001";
+      const pastTime = new Date(Date.now() - 60000); // 1 minute in the past
+
+      jest.spyOn(eventStore, "setCurrentEventIntroTimeForGame").mockImplementation();
+
+      // Act
+      eventManager.updateIntroTimeForCurrentEvent(gameId, pastTime);
+
+      // Assert
+      expect(eventStore.setCurrentEventIntroTimeForGame).toHaveBeenCalledWith(gameId, pastTime);
+    });
+  });
 });

@@ -45,7 +45,7 @@ export class EventSchedulerService {
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       await this.eventManager.initializeCurrentEvent(updateEvent);
-
+      this.schedulePlayIntroBeforeMatchStart(updateEvent, gameId);
       this.scheduleEventDetails(updateEvent);
 
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.ScheduleEvent, 0);
@@ -54,8 +54,12 @@ export class EventSchedulerService {
 
   scheduleEventDetails(event: Event) {
     const gameId = idHelper.extractGameId(event.eventID);
+    const phaseChangeIndex = event.eventDetails.length > 0 && event.eventDetails[0].phase !== undefined
+      ? undefined 
+      : this.getPhaseChangeIndex(event.eventDetails);
 
     event.eventDetails.forEach((eventDetail, index) => {
+      this.schedulePlayIntroBetweenPhases(eventDetail, gameId, index, phaseChangeIndex);
       this.scheduleUpdateOdds(eventDetail, index, gameId);
       this.scheduleUpdateVideoInfo(eventDetail, index, gameId);
       this.scheduleUpdateResult(eventDetail, index, gameId);
@@ -82,7 +86,6 @@ export class EventSchedulerService {
       await this.updateCurrentEventDetail(eventDetail.eventID, JobName.UpdatePreloadVideoInfo, index);
 
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdatePreloadVideoInfo, index);
-
       await this.scheduleBroadcastVideoInfo(eventDetail, index, gameId);
       await this.scheduleUpdateGoalInfo(gameId, index);
       await this.scheduleUpdateVoice(gameId, index);
@@ -101,6 +104,7 @@ export class EventSchedulerService {
         const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
         this.eventManager.updateCurrentEventDetail(currentEvent, JobName.UpdateVideoInfo, index);
         this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
+        console.log("playing video half ", index, " at ", scheduledDelay);
       },
       true
     );
@@ -136,7 +140,6 @@ export class EventSchedulerService {
         true
       );
     });
-
    
   }
 
@@ -171,21 +174,9 @@ export class EventSchedulerService {
       previousVoiceTimelines: previousInGameEvent.timeline,
       firstHalfScore: firstHalfResult,
     });
-    console.log("--- Prameters")
-    console.log("previous voices", previousVoice.voice);
-    console.log("previous timelines", previousVoice.timeline);
-    console.log("previous events", previousInGameEvent.eventName);
-    console.log("previous voice timelines", previousInGameEvent.timeline);
-    console.log("first half result", firstHalfResult);
-    console.log("events ", eventName);
-    console.log("timelines ", timeline);
 
     this.eventManager.appendInGameEventForGame(gameId, inGameEvent, eventDetail.phase ?? index);
     this.eventManager.appendVoiceForGame(gameId, voices.voice, voices.timeline, eventDetail.phase ?? index);
-  
-    console.log("--- Result")
-    console.log("voices events", voices.voice);
-    console.log("voices timelines", voices.timeline);
 
     voices.timeline.forEach((time, voiceIndex) => {
       const voiceTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
@@ -215,6 +206,47 @@ export class EventSchedulerService {
     });
   }
 
+  async schedulePlayIntroBeforeMatchStart(event: Event, gameId: string) {
+    const videoDelay = appSettings.videoDelay[gameId] || 0;
+
+    const scheduledTime = new Date(new Date(event.scheduleStartTs).getTime() + videoDelay);
+    const jobId = this.generateJobId(gameId, event.eventID, 0, JobName.PlayIntro);
+
+    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
+      this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, 0);
+      console.log("play intro before match start", scheduledTime);
+    });
+  }
+
+  async schedulePlayIntroBetweenPhases(eventDetail: EventDetail, gameId: string, index: number, phaseChangeIndex: Record<number, number> = {
+    0: 0,
+    1: 1
+  }) {
+    const introDuration = appSettings?.introDuration?.[gameId] ?? 0;
+    if (!introDuration || introDuration <= 0 || index === 0) {
+      return;
+    }
+
+    const phase = eventDetail.phase ?? index;
+    const phaseIndex = phaseChangeIndex[phase] ?? index;
+    if (index !== phaseIndex) {
+      return;
+    }
+
+    const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.PlayIntro);
+
+    // intro play before live streaming
+    const videoDelay = appSettings.videoDelay[gameId] || 0;
+    const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() - introDuration + videoDelay);
+
+    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
+      this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, index);
+      console.log("play intro between phases", scheduledTime);
+    });
+  }
+
   async updateCurrentEventDetail(eventID: number, phase: JobName, eventDetailIndex: number) {
     const validator = this.getValidatorForPhase(phase, eventDetailIndex);
     const updateEvent = await this.oddsFeedService.getEventDetailsWithRetry(eventID, validator);
@@ -240,5 +272,23 @@ export class EventSchedulerService {
       default:
         return () => true;
     }
+  }
+
+
+  private getPhaseChangeIndex(eventDetails: EventDetail[]) {
+    return eventDetails.reduce((acc, eventDetail, index) => {
+      if (index === 0) {
+        return acc;
+      }
+      if (eventDetail.phase !== eventDetails[index - 1].phase) {
+        return {
+          ...acc,
+          [eventDetail.phase ?? index]: index
+        };
+      }
+      return acc;
+    }, {
+      0:0
+    });
   }
 }

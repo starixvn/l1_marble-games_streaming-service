@@ -119,6 +119,10 @@ export class EventManager {
     this.eventStore.setCurrentEventPhaseForGame(gameId, phase);
   }
 
+  updateIntroTimeForCurrentEvent(gameId: string, introTime: Date) {
+    this.eventStore.setCurrentEventIntroTimeForGame(gameId, introTime);
+  }
+
   incrementCurrentEventDetailIndex(gameId: string): void {
     const currentEvent = this.eventStore.getCurrentEventForGame(gameId);
 

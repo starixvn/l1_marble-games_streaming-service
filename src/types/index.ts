@@ -79,6 +79,7 @@ export type EventStreamState = Event & {
   voices?: VoiceEvent;
   liveVoices: string[];
   voiceConfigDetail?: VoiceConfig;
+  introTime?: Date;
 };
 
 export type VoiceEvent = {
@@ -121,6 +122,7 @@ export interface EventStreamPayload {
   matchLiveTimeMs: number;
   currentPhase: JobName;
   message: string;
+  introTime?: number;
 }
 
 export enum JobName {
@@ -131,6 +133,7 @@ export enum JobName {
   UpdateGoalInfo = "UpdateGoalInfo",
   UpdateResult = "UpdateResult",
   UpdateVoice = "UpdateVoice",
+  PlayIntro = "PlayIntro",
 }
 
 export type StreamingClient = { res: Response; gameId: string };

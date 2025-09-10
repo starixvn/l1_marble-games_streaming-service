@@ -93,6 +93,7 @@ describe("EventSchedulerService", () => {
       getPreviousResultForGame: jest.fn(),
       appendInGameEventForGame: jest.fn(),
       appendVoiceForGame: jest.fn(),
+      updateIntroTimeForCurrentEvent: jest.fn(),
     };
     mockLogService = {
       logError: jest.fn(),
@@ -125,6 +126,10 @@ describe("EventSchedulerService", () => {
         "2001": 3000,
         "2002": 3000,
         "2003": 3000,
+      },
+      introDuration: {
+        "2000": 8000,
+        "2001": 5000,
       },
     });
 
@@ -229,6 +234,10 @@ describe("EventSchedulerService", () => {
       mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
       mockIdHelper.extractGameId.mockReturnValue(gameId);
 
+      // Spy on the new methods
+      const schedulePlayIntroBeforeMatchStartSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBeforeMatchStart').mockImplementation();
+      const scheduleEventDetailsSpy = jest.spyOn(eventSchedulerService, 'scheduleEventDetails').mockImplementation();
+
       // Act
       await eventSchedulerService.scheduleEvent(eventId);
 
@@ -240,11 +249,17 @@ describe("EventSchedulerService", () => {
 
       // Assert
       expect(mockEventManager.initializeCurrentEvent).toHaveBeenCalledWith(mockEvent);
+      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledWith(mockEvent, gameId);
+      expect(scheduleEventDetailsSpy).toHaveBeenCalledWith(mockEvent);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.ScheduleEvent,
         0
       );
+
+      // Cleanup
+      schedulePlayIntroBeforeMatchStartSpy.mockRestore();
+      scheduleEventDetailsSpy.mockRestore();
     });
   });
 
@@ -262,7 +277,8 @@ describe("EventSchedulerService", () => {
       // Assert
       expect(mockIdHelper.extractGameId).toHaveBeenCalledWith(event.eventID);
       // Should schedule 3 jobs per event detail (odds, video, result) * 2 details = 6 jobs
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(6);
+      // Plus 1 intro job for the second detail (index 1) = 7 jobs total
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(7);
     });
 
     it("should handle event with no details", () => {
@@ -982,6 +998,164 @@ describe("EventSchedulerService", () => {
     });
   });
 
+  describe("schedulePlayIntro (Legacy - Between Phases)", () => {
+    it("should not schedule intro job for index 0 (first phase)", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 0);
+      const gameId = "2001";
+      const index = 0;
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert - Index 0 should not schedule intro jobs
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+    it("should schedule intro job with correct timing for non-zero index", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 1;
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert
+      const introDuration = 5000; // from mocked appSettings
+      const videoDelay = 3000; // from mocked appSettings
+      const expectedScheduledTime = new Date(
+        new Date(eventDetail.scheduleStartTs).getTime() - introDuration + videoDelay
+      );
+      
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${eventDetail.eventID}_${index}_${JobName.PlayIntro}`,
+        expectedScheduledTime,
+        expect.any(Function)
+      );
+    });
+
+    it("should execute intro job callback correctly for non-zero index", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 1;
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Get the scheduled callback
+      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
+
+      // Execute the callback
+      await scheduledCallback();
+
+      // Assert
+      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
+        gameId,
+        JobName.PlayIntro,
+        index
+      );
+    });
+
+    it("should not schedule intro job when introDuration is not configured", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      const gameId = "2003"; // Game ID without introDuration configured
+      const index = 1;
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+    it("should not schedule intro job when introDuration is zero", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      const gameId = "2001";
+      const index = 1;
+
+      // Mock introDuration as 0
+      (appSettings as any).introDuration = { "2001": 0 };
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+    it("should not schedule intro job when introDuration is negative", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      const gameId = "2001";
+      const index = 1;
+
+      // Mock introDuration as negative
+      (appSettings as any).introDuration = { "2001": -1000 };
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+    it("should handle missing videoDelay configuration", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 1;
+
+      // Mock videoDelay as empty
+      (appSettings as any).videoDelay = {};
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert
+      const introDuration = 5000; // from mocked appSettings
+      const expectedScheduledTime = new Date(
+        new Date(eventDetail.scheduleStartTs).getTime() - introDuration + 0 // no video delay
+      );
+      
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${eventDetail.eventID}_${index}_${JobName.PlayIntro}`,
+        expectedScheduledTime,
+        expect.any(Function)
+      );
+    });
+
+    it("should handle gameId 2000 correctly", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2000";
+      const index = 1;
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Get the scheduled callback and execute it
+      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
+      await scheduledCallback();
+
+      // Assert
+      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
+        gameId,
+        JobName.PlayIntro,
+        index
+      );
+    });
+  });
+
   describe("scheduleUpdateResult", () => {
     it("should schedule result update job", async () => {
       // Arrange
@@ -1173,7 +1347,7 @@ describe("EventSchedulerService", () => {
         0
       );
       // Should schedule event details after initialization
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(7); // 1 for schedule + 6 for details (3 types × 2 details)
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(9); // 1 for schedule + 8 for details (4 types × 2 details)
     });
 
     it("should handle multiple events with different game IDs", async () => {
@@ -1234,6 +1408,426 @@ describe("EventSchedulerService", () => {
       // Should also schedule broadcast video info, goal info, and voice jobs
       // 1 for preload + 1 for broadcast + 3 for goal info timeline entries + voice jobs (if any)
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(5);
+    });
+  });
+
+  describe("schedulePlayIntroBeforeMatchStart", () => {
+    it("should schedule intro before match start", async () => {
+      // Arrange
+      const mockEvent = createMockEvent(1001);
+      const gameId = "2001";
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
+
+      // Assert
+      const videoDelay = appSettings.videoDelay[gameId] || 0;
+      const expectedScheduledTime = new Date(new Date(mockEvent.scheduleStartTs).getTime() + videoDelay);
+      
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${mockEvent.eventID}_0_${JobName.PlayIntro}`,
+        expectedScheduledTime,
+        expect.any(Function)
+      );
+    });
+
+    it("should execute intro before match start job callback correctly", async () => {
+      // Arrange
+      const mockEvent = createMockEvent(1001);
+      const gameId = "2001";
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
+
+      // Get the scheduled callback and execute it
+      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
+      await scheduledCallback();
+
+      // Assert
+      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
+        gameId,
+        JobName.PlayIntro,
+        0
+      );
+    });
+
+    it("should handle missing video delay configuration", async () => {
+      // Arrange
+      const mockEvent = createMockEvent(1001);
+      const gameId = "2001";
+      
+      // Mock empty video delay
+      (appSettings as any).videoDelay = {};
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
+
+      // Assert
+      const expectedScheduledTime = new Date(new Date(mockEvent.scheduleStartTs).getTime() + 0);
+      
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${mockEvent.eventID}_0_${JobName.PlayIntro}`,
+        expectedScheduledTime,
+        expect.any(Function)
+      );
+    });
+
+    it("should handle different game IDs", async () => {
+      // Arrange
+      const mockEvent1 = createMockEvent(1001);
+      const mockEvent2 = createMockEvent(1002);
+      const gameId1 = "2001";
+      const gameId2 = "2002";
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent1, gameId1);
+      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent2, gameId2);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(2);
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId1}_${mockEvent1.eventID}_0_${JobName.PlayIntro}`,
+        expect.any(Date),
+        expect.any(Function)
+      );
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId2}_${mockEvent2.eventID}_0_${JobName.PlayIntro}`,
+        expect.any(Date),
+        expect.any(Function)
+      );
+    });
+  });
+
+  describe("schedulePlayIntroBetweenPhases - Advanced Tests", () => {
+    it("should schedule intro between phases when conditions are met", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 1;
+      const phaseChangeIndex = { 0: 0, 1: 1 };
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index, phaseChangeIndex);
+
+      // Assert
+      const introDuration = appSettings.introDuration[gameId] || 0;
+      const videoDelay = appSettings.videoDelay[gameId] || 0;
+      const expectedScheduledTime = new Date(
+        new Date(eventDetail.scheduleStartTs).getTime() - introDuration + videoDelay
+      );
+
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
+        `${gameId}_${eventDetail.eventID}_${index}_${JobName.PlayIntro}`,
+        expectedScheduledTime,
+        expect.any(Function)
+      );
+    });
+
+    it("should not schedule when index does not match phaseIndex", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 2);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 2;
+      const phaseChangeIndex = { 0: 0, 1: 1 }; // phase 1 should start at index 1, not 2
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index, phaseChangeIndex);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
+    });
+
+    it("should use index as fallback when phase is undefined", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      delete eventDetail.phase;
+      const gameId = "2001";
+      const index = 1;
+      const phaseChangeIndex = { 0: 0, 1: 1 };
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index, phaseChangeIndex);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalled();
+    });
+
+    it("should handle default phaseChangeIndex parameters", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 1;
+
+      // Act (without providing phaseChangeIndex)
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Assert
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalled();
+    });
+
+    it("should execute callback correctly", async () => {
+      // Arrange
+      const eventDetail = createMockEventDetail(1001, 1);
+      eventDetail.phase = 1;
+      const gameId = "2001";
+      const index = 1;
+
+      // Act
+      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
+
+      // Get and execute callback
+      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
+      await scheduledCallback();
+
+      // Assert
+      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
+        gameId,
+        JobName.PlayIntro,
+        index
+      );
+    });
+  });
+
+  describe("getPhaseChangeIndex", () => {
+    it("should return correct phase change indices", () => {
+      // Arrange
+      const eventDetails = [
+        { ...createMockEventDetail(1001, 0), phase: 0 },
+        { ...createMockEventDetail(1001, 1), phase: 0 }, // Same phase
+        { ...createMockEventDetail(1001, 2), phase: 1 }, // Phase change
+        { ...createMockEventDetail(1001, 3), phase: 1 }, // Same phase
+        { ...createMockEventDetail(1001, 4), phase: 2 }  // Phase change
+      ];
+
+      // Act
+      const result = (eventSchedulerService as any).getPhaseChangeIndex(eventDetails);
+
+      // Assert
+      expect(result).toEqual({
+        0: 0,  // Default
+        1: 2,  // Phase 1 starts at index 2
+        2: 4   // Phase 2 starts at index 4
+      });
+    });
+
+    it("should handle eventDetails with undefined phases", () => {
+      // Arrange
+      const eventDetails = [
+        createMockEventDetail(1001, 0), // No phase property
+        createMockEventDetail(1001, 1), // No phase property
+        { ...createMockEventDetail(1001, 2), phase: 2 } // Has phase
+      ];
+
+      // Act
+      const result = (eventSchedulerService as any).getPhaseChangeIndex(eventDetails);
+
+      // Assert
+      expect(result).toEqual({
+        0: 0,  // Default
+        1: 1,  // Index 1 fallback when phase is undefined
+        2: 2   // Phase 2 starts at index 2
+      });
+    });
+
+    it("should handle single event detail", () => {
+      // Arrange
+      const eventDetails = [
+        { ...createMockEventDetail(1001, 0), phase: 0 }
+      ];
+
+      // Act
+      const result = (eventSchedulerService as any).getPhaseChangeIndex(eventDetails);
+
+      // Assert
+      expect(result).toEqual({
+        0: 0
+      });
+    });
+
+    it("should handle empty event details", () => {
+      // Arrange
+      const eventDetails: any[] = [];
+
+      // Act
+      const result = (eventSchedulerService as any).getPhaseChangeIndex(eventDetails);
+
+      // Assert
+      expect(result).toEqual({
+        0: 0
+      });
+    });
+
+    it("should handle consecutive phase changes", () => {
+      // Arrange
+      const eventDetails = [
+        { ...createMockEventDetail(1001, 0), phase: 0 },
+        { ...createMockEventDetail(1001, 1), phase: 1 },
+        { ...createMockEventDetail(1001, 2), phase: 2 },
+        { ...createMockEventDetail(1001, 3), phase: 3 }
+      ];
+
+      // Act
+      const result = (eventSchedulerService as any).getPhaseChangeIndex(eventDetails);
+
+      // Assert
+      expect(result).toEqual({
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3
+      });
+    });
+  });
+
+  describe("scheduleEventDetails - Updated Integration", () => {
+    it("should call schedulePlayIntroBetweenPhases for each event detail", () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      // Event details from createMockEventDetail have predefined phases (0 and 1)
+      // So phaseChangeIndex will be undefined
+      event.eventDetails = [
+        createMockEventDetail(1001, 0),  // phase: 0
+        createMockEventDetail(1001, 1)   // phase: 1
+      ];
+      
+      const schedulePlayIntroBetweenPhasesSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBetweenPhases').mockImplementation();
+      const scheduleUpdateOddsSpy = jest.spyOn(eventSchedulerService, 'scheduleUpdateOdds').mockImplementation();
+      const scheduleUpdateVideoInfoSpy = jest.spyOn(eventSchedulerService, 'scheduleUpdateVideoInfo').mockImplementation();
+      const scheduleUpdateResultSpy = jest.spyOn(eventSchedulerService, 'scheduleUpdateResult').mockImplementation();
+
+      mockIdHelper.extractGameId.mockReturnValue("2001");
+
+      // Act
+      eventSchedulerService.scheduleEventDetails(event);
+
+      // Assert
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledTimes(2);
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[0], 
+        "2001", 
+        0, 
+        undefined  // phaseChangeIndex is undefined when phases are predefined
+      );
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[1], 
+        "2001", 
+        1, 
+        undefined  // phaseChangeIndex is undefined when phases are predefined
+      );
+
+      // Cleanup
+      schedulePlayIntroBetweenPhasesSpy.mockRestore();
+      scheduleUpdateOddsSpy.mockRestore();
+      scheduleUpdateVideoInfoSpy.mockRestore();
+      scheduleUpdateResultSpy.mockRestore();
+    });
+
+    it("should handle event details with predefined phases", () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      event.eventDetails = [
+        { ...createMockEventDetail(1001, 0), phase: 0 },
+        { ...createMockEventDetail(1001, 1), phase: 0 }
+      ];
+      
+      const schedulePlayIntroBetweenPhasesSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBetweenPhases').mockImplementation();
+
+      mockIdHelper.extractGameId.mockReturnValue("2001");
+
+      // Act
+      eventSchedulerService.scheduleEventDetails(event);
+
+      // Assert - Should pass undefined for phaseChangeIndex when phases are predefined
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[0], 
+        "2001", 
+        0, 
+        undefined
+      );
+
+      // Cleanup
+      schedulePlayIntroBetweenPhasesSpy.mockRestore();
+    });
+
+    it("should calculate phaseChangeIndex when event details have no phase property", () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      // Create event details without phase property to trigger calculation
+      event.eventDetails = [
+        { ...createMockEventDetail(1001, 0) },
+        { ...createMockEventDetail(1001, 1) }
+      ];
+      // Remove phase properties to trigger phaseChangeIndex calculation
+      delete event.eventDetails[0].phase;
+      delete event.eventDetails[1].phase;
+      
+      const schedulePlayIntroBetweenPhasesSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBetweenPhases').mockImplementation();
+
+      mockIdHelper.extractGameId.mockReturnValue("2001");
+
+      // Act
+      eventSchedulerService.scheduleEventDetails(event);
+
+      // Assert - Should calculate and pass phaseChangeIndex when phases are not predefined
+      // When phases are undefined, getPhaseChangeIndex only returns { 0: 0 } because
+      // undefined !== undefined is false, so no phase changes are detected
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[0], 
+        "2001", 
+        0, 
+        { 0: 0 }  // Only default phase change index when phases are undefined
+      );
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[1], 
+        "2001", 
+        1, 
+        { 0: 0 }  // Only default phase change index when phases are undefined
+      );
+
+      // Cleanup
+      schedulePlayIntroBetweenPhasesSpy.mockRestore();
+    });
+
+    it("should calculate phaseChangeIndex correctly with mixed phase values", () => {
+      // Arrange
+      const event = createMockEvent(1001);
+      // Create event details with mixed phase values to trigger proper calculation
+      event.eventDetails = [
+        { ...createMockEventDetail(1001, 0), phase: 0 },  // phase 0, index 0
+        { ...createMockEventDetail(1001, 1), phase: 0 },  // phase 0, index 1 (no change)
+        { ...createMockEventDetail(1001, 2), phase: 1 },  // phase 1, index 2 (change!)
+        { ...createMockEventDetail(1001, 3), phase: 2 }   // phase 2, index 3 (change!)
+      ];
+      
+      const schedulePlayIntroBetweenPhasesSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBetweenPhases').mockImplementation();
+
+      mockIdHelper.extractGameId.mockReturnValue("2001");
+
+      // Act
+      eventSchedulerService.scheduleEventDetails(event);
+
+      // Assert - Should pass undefined because phases are predefined
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledTimes(4);
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[0], "2001", 0, undefined
+      );
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[1], "2001", 1, undefined
+      );
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[2], "2001", 2, undefined
+      );
+      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
+        event.eventDetails[3], "2001", 3, undefined
+      );
+
+      // Cleanup
+      schedulePlayIntroBetweenPhasesSpy.mockRestore();
     });
   });
 });

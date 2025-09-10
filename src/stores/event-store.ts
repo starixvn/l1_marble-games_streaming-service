@@ -168,6 +168,10 @@ export class  EventStore {
     this._currentEvents[gameId].inGameEvents[index] = inGameEvent;
   }
 
+  setCurrentEventIntroTimeForGame(gameId: string, introTime: Date): void {
+    this._currentEvents[gameId].introTime = introTime;
+  }
+
   private updatePhaseIndexIfNeededAndGetCurrentPhaseIndex(gameId: string, phaseIndex?: number) {
     this.initializeGamePhaseForGameIfNeeded(gameId);
     const currentPhaseIndex = phaseIndex ?? this._currentGamePhaseByGameId[gameId].currentPhaseIndex;

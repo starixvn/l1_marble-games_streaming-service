@@ -42,6 +42,8 @@ export class EventStreamService {
       return acc + Math.min(videoLiveTimeMs, appSettings.videoLength[gameId] * 1000);
     }, 0);
 
+    const introTime = currentEvent.introTime ? Date.now() - currentEvent.introTime.getTime() : 0;
+
     const payload: EventStreamPayload = {
       gameId: gameId,
       voiceConfigDetail: currentEvent.voiceConfigDetail,
@@ -56,9 +58,9 @@ export class EventStreamService {
       matchLiveTimeMs: matchLiveTimeMs,
       currentPhase: currentEvent.currentPhase,
       message: "",
+      introTime,
       ...additionalPayload,
     };
-    console.log(`game ${gameId} payload voice config detail`, payload?.voiceConfigDetail);
 
     return payload;
   }

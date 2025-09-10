@@ -22,4 +22,8 @@ export const appSettings = {
     "2002": 3 * 1000,
     "2003": 3 * 1000,
   } as Record<string, number>,
+  introDuration: {
+    // in milliseconds
+    "2000": 8 * 1000
+  } as Record<string, number>,
 };

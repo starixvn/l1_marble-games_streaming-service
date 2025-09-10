@@ -2129,4 +2129,22 @@ describe("EventStore", () => {
       expect(currentPhase.currentVideoLength).toBe((phaseCount - 1) * 10);
     });
   });
+
+  describe("setCurrentEventIntroTimeForGame", () => {
+    it("should set intro time for a game", () => {
+      // Arrange
+      const gameId = "2001";
+      const introTime = new Date("2024-01-01T10:00:00Z");
+      const mockEvent = createMockEventStreamState(gameId);
+
+      eventStore.setCurrentEventForGame(gameId, mockEvent);
+
+      // Act
+      eventStore.setCurrentEventIntroTimeForGame(gameId, introTime);
+
+      // Assert
+      const result = eventStore.getCurrentEventForGame(gameId);
+      expect(result.introTime).toBe(introTime);
+    });
+  });
 });
