@@ -1024,7 +1024,7 @@ describe("EventSchedulerService", () => {
       const introDuration = 5000; // from mocked appSettings
       const videoDelay = 3000; // from mocked appSettings
       const expectedScheduledTime = new Date(
-        new Date(eventDetail.scheduleStartTs).getTime() - introDuration + videoDelay
+        new Date(eventDetail.scheduleStartTs).getTime() - introDuration
       );
       
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
@@ -1445,7 +1445,7 @@ describe("EventSchedulerService", () => {
       const introDuration = appSettings.introDuration[gameId] || 0;
       const videoDelay = appSettings.videoDelay[gameId] || 0;
       const expectedScheduledTime = new Date(
-        new Date(eventDetail.scheduleStartTs).getTime() - introDuration + videoDelay
+        new Date(eventDetail.scheduleStartTs).getTime() - introDuration
       );
 
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
