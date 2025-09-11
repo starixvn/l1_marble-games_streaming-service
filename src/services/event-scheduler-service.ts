@@ -42,10 +42,10 @@ export class EventSchedulerService {
       new Date(updateEvent.scheduleStartTs).getTime() + (appSettings.scheduleDelay[gameId] || 0)
     );
     const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
-    this.schedulePlayIntroBeforeMatchStart(updateEvent, gameId);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       await this.eventManager.initializeCurrentEvent(updateEvent);
+      this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
       this.scheduleEventDetails(updateEvent);
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.ScheduleEvent, 0);
     });
@@ -204,19 +204,6 @@ export class EventSchedulerService {
     });
   }
 
-  async schedulePlayIntroBeforeMatchStart(event: Event, gameId: string) {
-
-    const scheduledTime = new Date(new Date(event.scheduleStartTs).getTime());
-    const jobId = this.generateJobId(gameId, event.eventID, 0, JobName.PlayIntro);
-
-    this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
-      this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
-      console.log("play intro before match start", scheduledTime);
-
-      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, 0);
-    });
-  }
-
   async schedulePlayIntroBetweenPhases(eventDetail: EventDetail, gameId: string, index: number, phaseChangeIndex: Record<number, number> = {
     0: 0,
     1: 1
@@ -241,6 +228,7 @@ export class EventSchedulerService {
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
       console.log("play intro between phases", scheduledTime);
+      await this.updateCurrentEventDetail(eventDetail.eventID, JobName.PlayIntro, index);
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, index);
     });
   }

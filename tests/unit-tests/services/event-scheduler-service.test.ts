@@ -235,14 +235,10 @@ describe("EventSchedulerService", () => {
       mockIdHelper.extractGameId.mockReturnValue(gameId);
 
       // Spy on the methods
-      const schedulePlayIntroBeforeMatchStartSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBeforeMatchStart').mockImplementation();
       const scheduleEventDetailsSpy = jest.spyOn(eventSchedulerService, 'scheduleEventDetails').mockImplementation();
 
       // Act
       await eventSchedulerService.scheduleEvent(eventId);
-
-      // Assert that schedulePlayIntroBeforeMatchStart is called immediately (outside callback)
-      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledWith(mockEvent, gameId);
 
       // Get the scheduled callback
       const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
@@ -250,8 +246,9 @@ describe("EventSchedulerService", () => {
       // Execute the callback
       await scheduledCallback();
 
-      // Assert callback execution - schedulePlayIntroBeforeMatchStart should NOT be called again in callback
+      // Assert callback execution
       expect(mockEventManager.initializeCurrentEvent).toHaveBeenCalledWith(mockEvent);
+      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
       expect(scheduleEventDetailsSpy).toHaveBeenCalledWith(mockEvent);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
@@ -259,11 +256,7 @@ describe("EventSchedulerService", () => {
         0
       );
 
-      // schedulePlayIntroBeforeMatchStart should be called only once (outside callback)
-      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledTimes(1);
-
       // Cleanup
-      schedulePlayIntroBeforeMatchStartSpy.mockRestore();
       scheduleEventDetailsSpy.mockRestore();
     });
   });
@@ -1047,6 +1040,10 @@ describe("EventSchedulerService", () => {
       eventDetail.phase = 1;
       const gameId = "2001";
       const index = 1;
+      const mockEvent = createMockEvent(1001);
+
+      // Mock the updateCurrentEventDetail method
+      mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
 
       // Act
       await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
@@ -1059,6 +1056,7 @@ describe("EventSchedulerService", () => {
 
       // Assert
       expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventManager.updateCurrentEventDetail).toHaveBeenCalledWith(mockEvent, JobName.PlayIntro, index);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.PlayIntro,
@@ -1147,12 +1145,17 @@ describe("EventSchedulerService", () => {
       // Act
       await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
 
+      // Mock the updateCurrentEventDetail method
+      const mockEvent = createMockEvent(1001);
+      mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
+
       // Get the scheduled callback and execute it
       const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
       await scheduledCallback();
 
       // Assert
       expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventManager.updateCurrentEventDetail).toHaveBeenCalledWith(mockEvent, JobName.PlayIntro, index);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.PlayIntro,
@@ -1338,14 +1341,10 @@ describe("EventSchedulerService", () => {
       mockIdHelper.extractGameId.mockReturnValue(gameId);
 
       // Spy on the methods to verify they are called
-      const schedulePlayIntroBeforeMatchStartSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBeforeMatchStart').mockImplementation();
       const scheduleEventDetailsSpy = jest.spyOn(eventSchedulerService, 'scheduleEventDetails').mockImplementation();
 
       // Act
       await eventSchedulerService.scheduleEvent(eventId);
-
-      // Assert that schedulePlayIntroBeforeMatchStart is called immediately (outside callback)
-      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledWith(mockEvent, gameId);
 
       // Get the scheduled callback and execute it
       const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
@@ -1353,6 +1352,7 @@ describe("EventSchedulerService", () => {
 
       // Assert callback execution
       expect(mockEventManager.initializeCurrentEvent).toHaveBeenCalledWith(mockEvent);
+      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
       expect(scheduleEventDetailsSpy).toHaveBeenCalledWith(mockEvent);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
@@ -1360,12 +1360,10 @@ describe("EventSchedulerService", () => {
         0
       );
 
-      // Should schedule main event job (1) + intro job (1) = 2 jobs initially
-      // But since we're mocking schedulePlayIntroBeforeMatchStart, it won't actually schedule the intro job
+      // Should schedule only the main event job
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(1);
 
       // Cleanup
-      schedulePlayIntroBeforeMatchStartSpy.mockRestore();
       scheduleEventDetailsSpy.mockRestore();
     });
 
@@ -1390,8 +1388,8 @@ describe("EventSchedulerService", () => {
 
       // Assert
       expect(mockOddsFeedService.getEventDetailsWithRetry).toHaveBeenCalledTimes(3);
-      // Each event should schedule one job initially
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(6);
+      // Each event should schedule one job initially (main schedule job only)
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
     });
 
     it("should handle video info scheduling flow correctly", async () => {
@@ -1430,92 +1428,6 @@ describe("EventSchedulerService", () => {
     });
   });
 
-  describe("schedulePlayIntroBeforeMatchStart", () => {
-    it("should schedule intro before match start", async () => {
-      // Arrange
-      const mockEvent = createMockEvent(1001);
-      const gameId = "2001";
-
-      // Act
-      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
-
-      // Assert
-      const expectedScheduledTime = new Date(new Date(mockEvent.scheduleStartTs).getTime());
-      
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
-        `${gameId}_${mockEvent.eventID}_0_${JobName.PlayIntro}`,
-        expectedScheduledTime,
-        expect.any(Function)
-      );
-    });
-
-    it("should execute intro before match start job callback correctly", async () => {
-      // Arrange
-      const mockEvent = createMockEvent(1001);
-      const gameId = "2001";
-
-      // Act
-      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
-
-      // Get the scheduled callback and execute it
-      const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
-      await scheduledCallback();
-
-      // Assert
-      expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
-      expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
-        gameId,
-        JobName.PlayIntro,
-        0
-      );
-    });
-
-    it("should handle missing video delay configuration", async () => {
-      // Arrange
-      const mockEvent = createMockEvent(1001);
-      const gameId = "2001";
-      
-      // Mock empty video delay
-      (appSettings as any).videoDelay = {};
-
-      // Act
-      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
-
-      // Assert
-      const expectedScheduledTime = new Date(new Date(mockEvent.scheduleStartTs).getTime() + 0);
-      
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
-        `${gameId}_${mockEvent.eventID}_0_${JobName.PlayIntro}`,
-        expectedScheduledTime,
-        expect.any(Function)
-      );
-    });
-
-    it("should handle different game IDs", async () => {
-      // Arrange
-      const mockEvent1 = createMockEvent(1001);
-      const mockEvent2 = createMockEvent(1002);
-      const gameId1 = "2001";
-      const gameId2 = "2002";
-
-      // Act
-      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent1, gameId1);
-      await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent2, gameId2);
-
-      // Assert
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(2);
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
-        `${gameId1}_${mockEvent1.eventID}_0_${JobName.PlayIntro}`,
-        expect.any(Date),
-        expect.any(Function)
-      );
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
-        `${gameId2}_${mockEvent2.eventID}_0_${JobName.PlayIntro}`,
-        expect.any(Date),
-        expect.any(Function)
-      );
-    });
-  });
 
   describe("schedulePlayIntroBetweenPhases - Advanced Tests", () => {
     it("should schedule intro between phases when conditions are met", async () => {
@@ -1593,6 +1505,10 @@ describe("EventSchedulerService", () => {
       eventDetail.phase = 1;
       const gameId = "2001";
       const index = 1;
+      const mockEvent = createMockEvent(1001);
+
+      // Mock the updateCurrentEventDetail method
+      mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
 
       // Act
       await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index);
@@ -1603,6 +1519,7 @@ describe("EventSchedulerService", () => {
 
       // Assert
       expect(mockEventManager.updateIntroTimeForCurrentEvent).toHaveBeenCalledWith(gameId, expect.any(Date));
+      expect(mockEventManager.updateCurrentEventDetail).toHaveBeenCalledWith(mockEvent, JobName.PlayIntro, index);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.PlayIntro,
