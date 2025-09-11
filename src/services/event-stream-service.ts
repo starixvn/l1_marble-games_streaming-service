@@ -42,7 +42,9 @@ export class EventStreamService {
       return acc + Math.min(videoLiveTimeMs, appSettings.videoLength[gameId] * 1000);
     }, 0);
 
-    const introTime = currentEvent.introTime ? Date.now() - currentEvent.introTime.getTime() : 0;
+    const introTime = currentEvent.introTime 
+    ? Date.now() - currentEvent.introTime.getTime() 
+    : -1;
 
     const payload: EventStreamPayload = {
       gameId: gameId,
