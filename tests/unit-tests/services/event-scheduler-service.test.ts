@@ -1421,8 +1421,7 @@ describe("EventSchedulerService", () => {
       await eventSchedulerService.schedulePlayIntroBeforeMatchStart(mockEvent, gameId);
 
       // Assert
-      const videoDelay = appSettings.videoDelay[gameId] || 0;
-      const expectedScheduledTime = new Date(new Date(mockEvent.scheduleStartTs).getTime() + videoDelay);
+      const expectedScheduledTime = new Date(new Date(mockEvent.scheduleStartTs).getTime());
       
       expect(mockJobScheduler.scheduleJob).toHaveBeenCalledWith(
         `${gameId}_${mockEvent.eventID}_0_${JobName.PlayIntro}`,

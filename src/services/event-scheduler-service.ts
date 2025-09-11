@@ -207,9 +207,8 @@ export class EventSchedulerService {
   }
 
   async schedulePlayIntroBeforeMatchStart(event: Event, gameId: string) {
-    const videoDelay = appSettings.videoDelay[gameId] || 0;
 
-    const scheduledTime = new Date(new Date(event.scheduleStartTs).getTime() + videoDelay);
+    const scheduledTime = new Date(new Date(event.scheduleStartTs).getTime());
     const jobId = this.generateJobId(gameId, event.eventID, 0, JobName.PlayIntro);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
