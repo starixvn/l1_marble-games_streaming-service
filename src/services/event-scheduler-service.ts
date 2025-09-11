@@ -220,9 +220,9 @@ export class EventSchedulerService {
     }
 
     const jobId = this.generateJobId(gameId, eventDetail.eventID, index, JobName.PlayIntro);
-
+    const videoDelay = appSettings?.videoDelay?.[gameId] ?? 0;
     // intro play before live streaming
-    const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() - introDuration);
+    const scheduledTime = new Date(new Date(eventDetail.scheduleStartTs).getTime() - introDuration + videoDelay);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
