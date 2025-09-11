@@ -43,7 +43,7 @@ export class EventStreamService {
     }, 0);
 
     const introTime = currentEvent.introTime 
-    ? Date.now() - currentEvent.introTime.getTime() 
+    ? now - currentEvent.introTime.getTime() 
     : -1;
 
     const payload: EventStreamPayload = {

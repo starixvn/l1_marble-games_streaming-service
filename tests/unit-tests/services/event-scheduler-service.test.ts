@@ -234,12 +234,15 @@ describe("EventSchedulerService", () => {
       mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
       mockIdHelper.extractGameId.mockReturnValue(gameId);
 
-      // Spy on the new methods
+      // Spy on the methods
       const schedulePlayIntroBeforeMatchStartSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBeforeMatchStart').mockImplementation();
       const scheduleEventDetailsSpy = jest.spyOn(eventSchedulerService, 'scheduleEventDetails').mockImplementation();
 
       // Act
       await eventSchedulerService.scheduleEvent(eventId);
+
+      // Assert that schedulePlayIntroBeforeMatchStart is called immediately (outside callback)
+      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledWith(mockEvent, gameId);
 
       // Get the scheduled callback
       const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
@@ -247,15 +250,17 @@ describe("EventSchedulerService", () => {
       // Execute the callback
       await scheduledCallback();
 
-      // Assert
+      // Assert callback execution - schedulePlayIntroBeforeMatchStart should NOT be called again in callback
       expect(mockEventManager.initializeCurrentEvent).toHaveBeenCalledWith(mockEvent);
-      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledWith(mockEvent, gameId);
       expect(scheduleEventDetailsSpy).toHaveBeenCalledWith(mockEvent);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.ScheduleEvent,
         0
       );
+
+      // schedulePlayIntroBeforeMatchStart should be called only once (outside callback)
+      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledTimes(1);
 
       // Cleanup
       schedulePlayIntroBeforeMatchStartSpy.mockRestore();
@@ -1332,22 +1337,36 @@ describe("EventSchedulerService", () => {
       mockOddsFeedService.getEventDetailsWithRetry.mockResolvedValue(mockEvent);
       mockIdHelper.extractGameId.mockReturnValue(gameId);
 
+      // Spy on the methods to verify they are called
+      const schedulePlayIntroBeforeMatchStartSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBeforeMatchStart').mockImplementation();
+      const scheduleEventDetailsSpy = jest.spyOn(eventSchedulerService, 'scheduleEventDetails').mockImplementation();
+
       // Act
       await eventSchedulerService.scheduleEvent(eventId);
+
+      // Assert that schedulePlayIntroBeforeMatchStart is called immediately (outside callback)
+      expect(schedulePlayIntroBeforeMatchStartSpy).toHaveBeenCalledWith(mockEvent, gameId);
 
       // Get the scheduled callback and execute it
       const scheduledCallback = mockJobScheduler.scheduleJob.mock.calls[0][2];
       await scheduledCallback();
 
-      // Assert
+      // Assert callback execution
       expect(mockEventManager.initializeCurrentEvent).toHaveBeenCalledWith(mockEvent);
+      expect(scheduleEventDetailsSpy).toHaveBeenCalledWith(mockEvent);
       expect(mockEventStreamService.broadcastUpdateEventDataToClients).toHaveBeenCalledWith(
         gameId,
         JobName.ScheduleEvent,
         0
       );
-      // Should schedule event details after initialization
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(9); // 1 for schedule + 8 for details (4 types × 2 details)
+
+      // Should schedule main event job (1) + intro job (1) = 2 jobs initially
+      // But since we're mocking schedulePlayIntroBeforeMatchStart, it won't actually schedule the intro job
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(1);
+
+      // Cleanup
+      schedulePlayIntroBeforeMatchStartSpy.mockRestore();
+      scheduleEventDetailsSpy.mockRestore();
     });
 
     it("should handle multiple events with different game IDs", async () => {
@@ -1372,7 +1391,7 @@ describe("EventSchedulerService", () => {
       // Assert
       expect(mockOddsFeedService.getEventDetailsWithRetry).toHaveBeenCalledTimes(3);
       // Each event should schedule one job initially
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
+      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(6);
     });
 
     it("should handle video info scheduling flow correctly", async () => {

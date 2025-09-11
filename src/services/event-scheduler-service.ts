@@ -42,12 +42,11 @@ export class EventSchedulerService {
       new Date(updateEvent.scheduleStartTs).getTime() + (appSettings.scheduleDelay[gameId] || 0)
     );
     const jobId = this.generateJobId(gameId, eventID, 0, JobName.ScheduleEvent);
+    this.schedulePlayIntroBeforeMatchStart(updateEvent, gameId);
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       await this.eventManager.initializeCurrentEvent(updateEvent);
-      this.schedulePlayIntroBeforeMatchStart(updateEvent, gameId);
       this.scheduleEventDetails(updateEvent);
-
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.ScheduleEvent, 0);
     });
   }
@@ -104,7 +103,6 @@ export class EventSchedulerService {
         const currentEvent = this.eventManager.getCurrentEventForGame(gameId);
         this.eventManager.updateCurrentEventDetail(currentEvent, JobName.UpdateVideoInfo, index);
         this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.UpdateVideoInfo, index);
-        console.log("playing video half ", index, " at ", scheduledDelay);
       },
       true
     );
@@ -213,8 +211,9 @@ export class EventSchedulerService {
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
-      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, 0);
       console.log("play intro before match start", scheduledTime);
+
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, 0);
     });
   }
 
@@ -241,8 +240,8 @@ export class EventSchedulerService {
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
-      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, index);
       console.log("play intro between phases", scheduledTime);
+      this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, index);
     });
   }
 
