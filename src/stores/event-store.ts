@@ -80,8 +80,7 @@ export class  EventStore {
     if (currentPhaseIndex === 0) {
       return []; 
     }
-    const result = this._currentGamePhaseByGameId[gameId].allPhases[currentPhaseIndex - 1]?.result ?? [];
-    return result;
+    return this._currentGamePhaseByGameId[gameId].allPhases[currentPhaseIndex - 1]?.result ?? [];
   }
 
   getVoiceAndTimelineForGame(gameId: string) {
