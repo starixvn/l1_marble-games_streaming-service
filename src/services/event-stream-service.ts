@@ -45,8 +45,6 @@ export class EventStreamService {
     const introTime = currentEvent.introTime 
     ? now - currentEvent.introTime.getTime() 
     : -1;
-    console.log("current phase ", currentEvent.currentPhase);
-    console.log("collected intro time ", introTime);
 
     const payload: EventStreamPayload = {
       gameId: gameId,

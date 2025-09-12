@@ -121,7 +121,6 @@ export class EventSchedulerService {
     this.eventManager.updateGoalInfo(gameId, goalInfo, index);
     
     this.eventManager.initializeGamePhaseWithGoalInfo(gameId, goalInfo, eventDetail.phase ?? index);
-    console.log("update goal info and result", goalInfo.result, " phase index ", eventDetail.phase ?? index);
 
     goalInfo.timeLine.forEach((time, goalIndex) => {
       const goalTime = time * 1000 + (appSettings.videoDelay[gameId] || 0);
@@ -226,7 +225,6 @@ export class EventSchedulerService {
 
     this.jobScheduler.scheduleJob(jobId, scheduledTime, async () => {
       this.eventManager.updateIntroTimeForCurrentEvent(gameId, scheduledTime);
-      console.log("play intro between phases", scheduledTime);
       await this.updateCurrentEventDetail(eventDetail.eventID, JobName.PlayIntro, index);
       this.eventStreamService.broadcastUpdateEventDataToClients(gameId, JobName.PlayIntro, index);
     });

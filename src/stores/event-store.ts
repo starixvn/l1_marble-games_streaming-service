@@ -43,7 +43,6 @@ export class  EventStore {
   }
 
   updateResultForGame(gameId: string, result: string[], phaseIndex?: number): void {
-    console.log(`update result game id ${gameId} result ${result} phase index ${phaseIndex}`);
     const currentPhaseIndex = this.updatePhaseIndexIfNeededAndGetCurrentPhaseIndex(gameId, phaseIndex);
     this._currentGamePhaseByGameId[gameId].allPhases[currentPhaseIndex].result = result;
   }
@@ -82,7 +81,6 @@ export class  EventStore {
       return []; 
     }
     const result = this._currentGamePhaseByGameId[gameId].allPhases[currentPhaseIndex - 1]?.result ?? [];
-    console.log(`get previous half result game id ${gameId} result ${result} phase index ${currentPhaseIndex - 1}`);
     return result;
   }
 
