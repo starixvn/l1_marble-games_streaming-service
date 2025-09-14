@@ -1166,6 +1166,13 @@
   dependencies:
     undici-types "~7.8.0"
 
+"@types/node@^24.4.0":
+  version "24.4.0"
+  resolved "http://npm.lumigame.com/@types/node/-/node-24.4.0.tgz#4ca9168c016a55ab15b7765ad1674ab807489600"
+  integrity sha512-gUuVEAK4/u6F9wRLznPUU4WGUacSEBDPoC2TrBkw3GAnOLHBL45QdfHOXp1kJ4ypBGLxTOB+t7NJLpKoC3gznQ==
+  dependencies:
+    undici-types "~7.11.0"
+
 "@types/normalize-package-data@^2.4.0":
   version "2.4.4"
   resolved "http://npm.lumigame.com/@types/normalize-package-data/-/normalize-package-data-2.4.4.tgz#56e2cc26c397c038fab0e3a917a12d5c5909e901"
