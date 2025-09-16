@@ -1,8 +1,7 @@
 import { GameFlowService, GameFlow } from "../../../../src/features/game-flow/game-flow-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification } from "../../../../src/features/odd-feed-data";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
 import { Scheduler } from "../../../../src/features/scheduler/scheduler";
-import { CurrentEventService } from "../../../../src/features/current-event/current-event-service";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { Event } from "../../../../src/types";
 import { idHelper } from "../../../../src/helpers";
@@ -14,8 +13,6 @@ const mockOddFeedEventSource = {
     unregisterEventListener: jest.fn(),
     registerEventDetailEventListener: jest.fn(),
     unregisterEventDetailEventListener: jest.fn(),
-    registerSystemDataCleanupEventListener: jest.fn(),
-    unregisterSystemDataCleanupEventListener: jest.fn(),
 } as unknown as jest.Mocked<OddFeedEventSource>;
 
 const mockScheduler = {
@@ -26,10 +23,6 @@ const mockDelayHandlingService = {
     getDelayedTime: jest.fn(),
     getDelayedTimeWithVideoDelay: jest.fn(),
 } as unknown as jest.Mocked<DelayHandlingService>;
-
-const mockCurrentEventService = {
-    getCurrentEventByGameId: jest.fn(),
-} as unknown as jest.Mocked<CurrentEventService>;
 
 const mockGameBoardcastService = {
     broadcastToAllClientByGameId: jest.fn(),
@@ -100,16 +93,12 @@ const mockPhaseSwitchingNotification: EventDetailNotification = {
     index: 0 // Phase switches from 1 to 2
 };
 
-const mockSystemNotification: SystemNotification = {
-    eventID: TEST_EVENT_ID
-};
 
 // Helper functions for test setup
 const createContainer = () => ({
     oddFeedEventSource: mockOddFeedEventSource,
     scheduler: mockScheduler,
     delayHandlingService: mockDelayHandlingService,
-    currentEventService: mockCurrentEventService,
     gameBoardcastService: mockGameBoardcastService,
 });
 
@@ -117,7 +106,6 @@ const setupMocks = () => {
     jest.clearAllMocks();
     mockDelayHandlingService.getDelayedTime.mockReturnValue(TEST_DELAYED_TIME);
     mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(TEST_DELAYED_TIME);
-    mockCurrentEventService.getCurrentEventByGameId.mockReturnValue(TEST_EVENT_ID);
     mockIsLastEventDetail.mockReturnValue(false);
     mockIsPhaseSwitching.mockReturnValue(false);
     
@@ -148,12 +136,10 @@ describe('GameFlowService', () => {
             expect(service['oddFeedEventSource']).toBe(mockOddFeedEventSource);
             expect(service['scheduler']).toBe(mockScheduler);
             expect(service['delayHandlingService']).toBe(mockDelayHandlingService);
-            expect(service['currentEventService']).toBe(mockCurrentEventService);
             expect(service['gameBoardcastService']).toBe(mockGameBoardcastService);
             expect(service['boundHandleEventStart']).toBeInstanceOf(Function);
             expect(service['boundHandleResultAvailable']).toBeInstanceOf(Function);
             expect(service['boundHandleEventDetailScheduleStart']).toBeInstanceOf(Function);
-            expect(service['boundCleanupEvent']).toBeInstanceOf(Function);
         });
 
         it('should initialize empty game flow and track point tracking objects', () => {
@@ -185,9 +171,6 @@ describe('GameFlowService', () => {
                     OddFeedEventName.EventDetailStart,
                     gameFlowService['boundHandleEventDetailScheduleStart']
                 );
-                expect(mockOddFeedEventSource.registerSystemDataCleanupEventListener).toHaveBeenCalledWith(
-                    gameFlowService['boundCleanupEvent']
-                );
             });
         });
 
@@ -209,9 +192,6 @@ describe('GameFlowService', () => {
                     OddFeedEventName.EventDetailStart,
                     gameFlowService['boundHandleEventDetailScheduleStart']
                 );
-                expect(mockOddFeedEventSource.unregisterSystemDataCleanupEventListener).toHaveBeenCalledWith(
-                    gameFlowService['boundCleanupEvent']
-                );
             });
         });
     });
@@ -219,26 +199,25 @@ describe('GameFlowService', () => {
     describe('Game Flow State Management', () => {
         beforeEach(() => {
             // Set up some test game flow state
-            gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID] = GameFlow.Streaming;
+            gameFlowService['_gameFlowByGameId'][TEST_GAME_ID] = GameFlow.Streaming;
         });
 
         describe('getCurrentGameFlow', () => {
             it('should return game flow for existing game with current event', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
+                gameFlowService['_gameFlowByGameId'][gameId] = GameFlow.Streaming;
 
                 // Act
                 const result = gameFlowService.getCurrentGameFlow(gameId);
 
                 // Assert
-                expect(mockCurrentEventService.getCurrentEventByGameId).toHaveBeenCalledWith(gameId);
                 expect(result).toBe(GameFlow.Streaming);
             });
 
             it('should return undefined when no current event exists', () => {
                 // Arrange
-                const gameId = TEST_GAME_ID;
-                mockCurrentEventService.getCurrentEventByGameId.mockReturnValue(undefined as any);
+                const gameId = '999'; // Non-existing game (not set up in beforeEach)
 
                 // Act
                 const result = gameFlowService.getCurrentGameFlow(gameId);
@@ -249,9 +228,7 @@ describe('GameFlowService', () => {
 
             it('should return undefined when current event has no game flow', () => {
                 // Arrange
-                const gameId = TEST_GAME_ID;
-                const nonExistentEventId = 999999;
-                mockCurrentEventService.getCurrentEventByGameId.mockReturnValue(nonExistentEventId);
+                const gameId = '888'; // Different non-existing game
 
                 // Act
                 const result = gameFlowService.getCurrentGameFlow(gameId);
@@ -265,6 +242,7 @@ describe('GameFlowService', () => {
             it('should return game flow wrapped in object', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
+                gameFlowService['_gameFlowByGameId'][gameId] = GameFlow.Streaming;
 
                 // Act
                 const result = gameFlowService.getCurrentByGameId(gameId);
@@ -330,7 +308,7 @@ describe('GameFlowService', () => {
                 scheduledFunction();
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Prebet);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Prebet);
                 expect(gameFlowService['_trackPointByGameId'][TEST_GAME_ID]).toBe(1000000);
             });
         });
@@ -411,7 +389,7 @@ describe('GameFlowService', () => {
                 scheduledFunction();
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Result);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Result);
             });
 
             it('should execute scheduled switch to half time correctly', () => {
@@ -427,7 +405,7 @@ describe('GameFlowService', () => {
                 scheduledFunction();
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.HalfTime);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.HalfTime);
             });
         });
 
@@ -457,36 +435,10 @@ describe('GameFlowService', () => {
                 scheduledFunction();
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Streaming);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Streaming);
             });
         });
 
-        describe('cleanupEvent', () => {
-            it('should remove game flow for the specified event ID', () => {
-                // Arrange
-                gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID] = GameFlow.Result;
-
-                // Act
-                gameFlowService.cleanupEvent(mockSystemNotification);
-
-                // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBeUndefined();
-            });
-
-            it('should not affect other events when cleaning up', () => {
-                // Arrange
-                const otherEventId = 999999;
-                gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID] = GameFlow.Result;
-                gameFlowService['_gameFlowByGameId'][otherEventId] = GameFlow.Streaming;
-
-                // Act
-                gameFlowService.cleanupEvent(mockSystemNotification);
-
-                // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBeUndefined();
-                expect(gameFlowService['_gameFlowByGameId'][otherEventId]).toBe(GameFlow.Streaming);
-            });
-        });
     });
 
     describe('Game Flow Transitions', () => {
@@ -501,7 +453,7 @@ describe('GameFlowService', () => {
                 gameFlowService['switchToPrebet']({ eventId: TEST_EVENT_ID });
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Prebet);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Prebet);
                 expect(gameFlowService['_trackPointByGameId'][TEST_GAME_ID]).toBe(1000000);
             });
         });
@@ -512,7 +464,7 @@ describe('GameFlowService', () => {
                 gameFlowService['switchToStreaming']({ eventId: TEST_EVENT_ID });
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Streaming);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Streaming);
             });
         });
 
@@ -522,7 +474,7 @@ describe('GameFlowService', () => {
                 gameFlowService['switchToHalfTime']({ eventId: TEST_EVENT_ID });
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.HalfTime);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.HalfTime);
             });
         });
 
@@ -532,7 +484,7 @@ describe('GameFlowService', () => {
                 gameFlowService['switchToResult']({ eventId: TEST_EVENT_ID });
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Result);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Result);
             });
         });
 
@@ -542,7 +494,7 @@ describe('GameFlowService', () => {
                 gameFlowService['switchGameFlow']({ eventId: TEST_EVENT_ID, gameFlow: GameFlow.Streaming });
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Streaming);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Streaming);
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                     TEST_GAME_ID,
                     {
@@ -562,7 +514,7 @@ describe('GameFlowService', () => {
 
                 // Assert
                 expect(extractGameIdSpy).toHaveBeenCalledWith(TEST_EVENT_ID);
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Result);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Result);
 
                 extractGameIdSpy.mockRestore();
             });
@@ -593,7 +545,6 @@ describe('GameFlowService', () => {
                 const boundHandleEventStart = gameFlowService['boundHandleEventStart'];
                 const boundHandleResultAvailable = gameFlowService['boundHandleResultAvailable'];
                 const boundHandleEventDetailScheduleStart = gameFlowService['boundHandleEventDetailScheduleStart'];
-                const boundCleanupEvent = gameFlowService['boundCleanupEvent'];
 
                 mockIsLastEventDetail.mockReturnValue(true);
 
@@ -601,11 +552,9 @@ describe('GameFlowService', () => {
                 boundHandleEventStart(mockEventNotification);
                 boundHandleResultAvailable(mockLastEventDetailNotification);
                 boundHandleEventDetailScheduleStart(mockEventDetailNotification);
-                boundCleanupEvent(mockSystemNotification);
 
                 // Assert
                 expect(mockScheduler.schedule).toHaveBeenCalledTimes(3);
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBeUndefined();
             });
         });
 
@@ -614,14 +563,14 @@ describe('GameFlowService', () => {
                 // Arrange
                 const event1 = TEST_EVENT_ID;
                 const event2 = TEST_EVENT_ID + 1;
+                const gameId = TEST_GAME_ID; // Both events belong to same game
 
                 // Act
                 gameFlowService['switchGameFlow']({ eventId: event1, gameFlow: GameFlow.Prebet });
                 gameFlowService['switchGameFlow']({ eventId: event2, gameFlow: GameFlow.Streaming });
 
-                // Assert
-                expect(gameFlowService['_gameFlowByGameId'][event1]).toBe(GameFlow.Prebet);
-                expect(gameFlowService['_gameFlowByGameId'][event2]).toBe(GameFlow.Streaming);
+                // Assert - Both events update the same game's flow state (latest wins)
+                expect(gameFlowService['_gameFlowByGameId'][gameId]).toBe(GameFlow.Streaming);
             });
 
             it('should handle multiple games independently', () => {
@@ -640,8 +589,8 @@ describe('GameFlowService', () => {
                 gameFlowService['switchGameFlow']({ eventId: game2EventId, gameFlow: GameFlow.Result });
 
                 // Assert
-                expect(gameFlowService['_gameFlowByGameId'][game1EventId]).toBe(GameFlow.Streaming);
-                expect(gameFlowService['_gameFlowByGameId'][game2EventId]).toBe(GameFlow.Result);
+                expect(gameFlowService['_gameFlowByGameId'][game1Id]).toBe(GameFlow.Streaming);
+                expect(gameFlowService['_gameFlowByGameId'][game2Id]).toBe(GameFlow.Result);
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(game1Id, expect.any(Object));
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(game2Id, expect.any(Object));
             });
@@ -682,7 +631,7 @@ describe('GameFlowService', () => {
 
                 // Assert - Should not throw and should handle NaN gracefully
                 expect(consoleSpy).toHaveBeenCalled();
-                expect(gameFlowService['_gameFlowByGameId'][TEST_EVENT_ID]).toBe(GameFlow.Streaming);
+                expect(gameFlowService['_gameFlowByGameId'][TEST_GAME_ID]).toBe(GameFlow.Streaming);
 
                 consoleSpy.mockRestore();
             });
