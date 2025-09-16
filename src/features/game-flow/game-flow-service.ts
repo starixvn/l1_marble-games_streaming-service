@@ -1,6 +1,6 @@
 import { idHelper } from "../../helpers";
 import { DelayHandlingService } from "../delay/delay-handling-service";
-import { OddFeedEventName, OddFeedEventSource, EventNotification, EventDetailNotification, SystemNotification } from "../odd-feed-data";
+import { OddFeedEventName, OddFeedEventSource, EventNotification, EventDetailNotification } from "../odd-feed-data";
 import { Scheduler } from "../scheduler/scheduler";
 import { CurrentEventService } from "../current-event/current-event-service";
 import { isLastEventDetail, isPhaseSwitching } from "../../helpers/phase-helper";
@@ -17,7 +17,6 @@ interface GameFlowServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
     scheduler: Scheduler;
     delayHandlingService: DelayHandlingService;
-    currentEventService: CurrentEventService;
     gameBoardcastService: GameBroadcastService;
 }
 
@@ -25,28 +24,24 @@ export class GameFlowService {
     private readonly oddFeedEventSource: OddFeedEventSource;
     private readonly scheduler: Scheduler;
     private readonly delayHandlingService: DelayHandlingService;
-    private readonly currentEventService: CurrentEventService;
     private readonly gameBoardcastService: GameBroadcastService;
 
-    private _gameFlowByGameId: Record<number, GameFlow> = {};
+    private _gameFlowByGameId: Record<string, GameFlow> = {};
     private _trackPointByGameId: Record<string, number> = {};
 
     private readonly boundHandleEventStart: (notification: EventNotification) => void;
     private readonly boundHandleResultAvailable: (notification: EventDetailNotification) => void;
     private readonly boundHandleEventDetailScheduleStart: (notification: EventDetailNotification) => void;
-    private readonly boundCleanupEvent: (notification: SystemNotification) => void;
     
     constructor(container: GameFlowServiceContainer) {
         this.oddFeedEventSource = container.oddFeedEventSource;
         this.scheduler = container.scheduler;
         this.delayHandlingService = container.delayHandlingService;
-        this.currentEventService = container.currentEventService;
         this.gameBoardcastService = container.gameBoardcastService;
 
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleResultAvailable = this.handleResultAvailable.bind(this);
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
-        this.boundCleanupEvent = this.cleanupEvent.bind(this);
     }
 
     public initEvent() {
@@ -62,14 +57,10 @@ export class GameFlowService {
             OddFeedEventName.EventDetailStart,
             this.boundHandleEventDetailScheduleStart
         );
-        this.oddFeedEventSource.registerSystemDataCleanupEventListener(
-            this.boundCleanupEvent
-        );
     }   
 
     public getCurrentGameFlow(gameId: string) {
-        const currentEventId = this.currentEventService.getCurrentEventByGameId(gameId);
-        return this._gameFlowByGameId[currentEventId];
+        return this._gameFlowByGameId[gameId];
     }
 
     public dispose() {
@@ -84,9 +75,6 @@ export class GameFlowService {
         this.oddFeedEventSource.unregisterEventDetailEventListener(
             OddFeedEventName.EventDetailStart,
             this.boundHandleEventDetailScheduleStart
-        );
-        this.oddFeedEventSource.unregisterSystemDataCleanupEventListener(
-            this.boundCleanupEvent
         );
     }
 
@@ -121,10 +109,6 @@ export class GameFlowService {
         return this._trackPointByGameId[gameId];
     }
 
-    public cleanupEvent({ eventID }: SystemNotification) {
-        delete this._gameFlowByGameId[eventID];
-    }
-
     private switchToPrebet({ eventId }: { eventId: number }) {
         this._trackPointByGameId[idHelper.extractGameId(eventId)] = Date.now();
         this.switchGameFlow({ eventId, gameFlow: GameFlow.Prebet });
@@ -147,7 +131,7 @@ export class GameFlowService {
         const diffInSecond = (Date.now() - this._trackPointByGameId[gameId]) / 1000;
         
         this.log(`switch to \x1b[32m${gameFlow}\x1b[37m for game ${gameId} track time: ${diffInSecond}`);
-        this._gameFlowByGameId[eventId] = gameFlow;
+        this._gameFlowByGameId[gameId] = gameFlow;
         this.gameBoardcastService.broadcastToAllClientByGameId(gameId, { 
             gameFlow: {
                 gameFlow,

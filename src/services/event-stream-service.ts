@@ -95,9 +95,8 @@ export class EventStreamService {
     }
 
     this.clientManager.addClient(res, gameId);
-
     const currentFeaturePayload = this.inGameConsumer.getCurrentByGameId(gameId);
-    const payload = this.buildCurrentEventDetailsPayload(gameId, -1, currentFeaturePayload);
+    const payload = this.buildCurrentEventDetailsPayload(gameId);
 
 
     if (!payload) {
@@ -107,6 +106,6 @@ export class EventStreamService {
 
     payload.message = "First connection";
 
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    res.write(`data: ${JSON.stringify({ ...payload, ...currentFeaturePayload })}\n\n`);
   }
 }
