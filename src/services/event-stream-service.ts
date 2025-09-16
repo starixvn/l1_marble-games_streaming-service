@@ -4,20 +4,24 @@ import { Response } from "express";
 import { appSettings } from "../app-settings";
 import { logger } from "sc-common";
 import { ClientManager } from "../managers/client-manager";
+import { InGameConsumer } from "../features/in-game-consumer/in-game-consumer";
 
 interface AdditionalPayload {
   voice?: string;
+  [key: string]: any;
 }
 
 export class EventStreamService {
   private readonly clientManager: ClientManager;
   private readonly eventStore: EventStore;
   private readonly logService: typeof logger;
+  private readonly inGameConsumer: InGameConsumer;
 
-  constructor(container: AppContainer) {
+  constructor(container: AppContainer & { inGameConsumer: InGameConsumer }) {
     this.eventStore = container.eventStore;
     this.logService = container.logService;
     this.clientManager = container.clientManager;
+    this.inGameConsumer = container.inGameConsumer;
   }
 
   buildCurrentEventDetailsPayload(gameId: string, updatedIndex = -1, additionalPayload: AdditionalPayload = {}) {
@@ -92,7 +96,8 @@ export class EventStreamService {
 
     this.clientManager.addClient(res, gameId);
 
-    const payload = this.buildCurrentEventDetailsPayload(gameId);
+    const currentFeaturePayload = this.inGameConsumer.getCurrentByGameId(gameId);
+    const payload = this.buildCurrentEventDetailsPayload(gameId, -1, currentFeaturePayload);
 
 
     if (!payload) {

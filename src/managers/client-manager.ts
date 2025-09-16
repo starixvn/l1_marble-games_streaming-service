@@ -81,7 +81,6 @@ export class ClientManager {
 
   destroy(): void {
     clearInterval(this.cleanupInterval);
-
     for (const [, clients] of this.clients) {
       for (const client of clients) {
         if (!client.destroyed && !client.writableEnded) {

@@ -1,7 +1,7 @@
-import { SchedulerConsumer } from "../../../../src/features/scheduler/scheduler";
+import { Scheduler } from "../../../../src/features/scheduler/scheduler";
 
-describe("SchedulerConsumer", () => {
-    let scheduler: SchedulerConsumer;
+describe("Scheduler", () => {
+    let scheduler: Scheduler;
     let originalSetTimeout: typeof setTimeout;
     let originalClearTimeout: typeof clearTimeout;
     let setTimeoutMock: jest.Mock;
@@ -11,7 +11,7 @@ describe("SchedulerConsumer", () => {
     const FIXED_TIME = 1000000;
 
     beforeEach(() => {
-        scheduler = new SchedulerConsumer();
+        scheduler = new Scheduler();
         setTimeoutMock = jest.fn().mockReturnValue("timeout-id");
         clearTimeoutMock = jest.fn();
         originalSetTimeout = global.setTimeout;
@@ -504,6 +504,226 @@ describe("SchedulerConsumer", () => {
             expect(() => processedCallback()).toThrow("test error");
             const tasks = (scheduler as any).tasks;
             expect(tasks["test-error"]).toBeUndefined();
+        });
+    });
+
+    describe("dispose", () => {
+        it("should cancel all scheduled tasks", () => {
+            // Arrange
+            const callback1 = jest.fn();
+            const callback2 = jest.fn();
+            const callback3 = jest.fn();
+            const futureTime = new Date(Date.now() + 1000);
+            
+            scheduler.schedule(futureTime, callback1, { keyOverride: "task1" });
+            scheduler.schedule(futureTime, callback2, { keyOverride: "task2" });
+            scheduler.schedule(futureTime, callback3, { keyOverride: "task3" });
+
+            // Verify tasks are scheduled
+            const tasksBefore = (scheduler as any).tasks;
+            expect(Object.keys(tasksBefore)).toHaveLength(3);
+            expect(tasksBefore["task1"]).toBeDefined();
+            expect(tasksBefore["task2"]).toBeDefined();
+            expect(tasksBefore["task3"]).toBeDefined();
+
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(3);
+            expect(clearTimeoutMock).toHaveBeenNthCalledWith(1, "timeout-id");
+            expect(clearTimeoutMock).toHaveBeenNthCalledWith(2, "timeout-id");
+            expect(clearTimeoutMock).toHaveBeenNthCalledWith(3, "timeout-id");
+
+            const tasksAfter = (scheduler as any).tasks;
+            expect(Object.keys(tasksAfter)).toHaveLength(0);
+            expect(tasksAfter["task1"]).toBeUndefined();
+            expect(tasksAfter["task2"]).toBeUndefined();
+            expect(tasksAfter["task3"]).toBeUndefined();
+        });
+
+        it("should handle dispose with no scheduled tasks", () => {
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            expect(clearTimeoutMock).not.toHaveBeenCalled();
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should handle dispose with single scheduled task", () => {
+            // Arrange
+            const callback = jest.fn();
+            const futureTime = new Date(Date.now() + 1000);
+            scheduler.schedule(futureTime, callback, { keyOverride: "single-task" });
+
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(1);
+            expect(clearTimeoutMock).toHaveBeenCalledWith("timeout-id");
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should handle dispose with mix of regular and keyOverride tasks", () => {
+            // Arrange
+            const callback1 = jest.fn();
+            const callback2 = jest.fn();
+            const futureTime1 = new Date(Date.now() + 1000);
+            const futureTime2 = new Date(Date.now() + 2000);
+            
+            // Schedule one task with key, one with keyOverride
+            scheduler.schedule(futureTime1, callback1, { key: "regular-key" });
+            scheduler.schedule(futureTime2, callback2, { keyOverride: "override-key" });
+
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(2);
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should handle dispose after some tasks have already been cancelled", () => {
+            // Arrange
+            const callback1 = jest.fn();
+            const callback2 = jest.fn();
+            const callback3 = jest.fn();
+            const futureTime = new Date(Date.now() + 1000);
+            
+            scheduler.schedule(futureTime, callback1, { keyOverride: "task1" });
+            scheduler.schedule(futureTime, callback2, { keyOverride: "task2" });
+            scheduler.schedule(futureTime, callback3, { keyOverride: "task3" });
+
+            // Cancel one task manually
+            scheduler.cancel("task2");
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(1);
+
+            // Act
+            scheduler.dispose();
+
+            // Assert - Only 2 more tasks should be cancelled (task1 and task3)
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(3); // 1 from manual cancel + 2 from dispose
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should handle dispose after some tasks have already executed", () => {
+            // Arrange
+            const callback1 = jest.fn();
+            const callback2 = jest.fn();
+            const futureTime = new Date(Date.now() + 1000);
+            
+            scheduler.schedule(futureTime, callback1, { keyOverride: "task1" });
+            scheduler.schedule(futureTime, callback2, { keyOverride: "task2" });
+
+            // Execute one task (simulating timeout completion)
+            const processedCallback = setTimeoutMock.mock.calls[0][0];
+            processedCallback(); // This should remove task1 from internal storage
+
+            // Verify task1 was removed but task2 remains
+            const tasksBeforeDispose = (scheduler as any).tasks;
+            expect(Object.keys(tasksBeforeDispose)).toHaveLength(1);
+            expect(tasksBeforeDispose["task2"]).toBeDefined();
+
+            // Act
+            scheduler.dispose();
+
+            // Assert - Only task2 should be cancelled
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(1); // Only task2 gets cancelled
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should handle multiple dispose calls gracefully", () => {
+            // Arrange
+            const callback = jest.fn();
+            const futureTime = new Date(Date.now() + 1000);
+            scheduler.schedule(futureTime, callback, { keyOverride: "task1" });
+
+            // Act
+            scheduler.dispose();
+            scheduler.dispose(); // Second dispose call
+
+            // Assert - clearTimeout should only be called once
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(1);
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should handle dispose with tasks scheduled using callback names", () => {
+            // Arrange
+            const namedCallback = jest.fn();
+            Object.defineProperty(namedCallback, 'name', { value: 'namedFunction', writable: true });
+            const futureTime = new Date(Date.now() + 1000);
+            
+            scheduler.schedule(futureTime, namedCallback); // Uses callback name as key
+
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(1);
+            const tasks = (scheduler as any).tasks;
+            expect(Object.keys(tasks)).toHaveLength(0);
+        });
+
+        it("should properly clear internal tasks record", () => {
+            // Arrange
+            const callback1 = jest.fn();
+            const callback2 = jest.fn();
+            const futureTime = new Date(Date.now() + 1000);
+            
+            scheduler.schedule(futureTime, callback1, { keyOverride: "task1" });
+            scheduler.schedule(futureTime, callback2, { keyOverride: "task2" });
+
+            // Verify tasks exist before dispose
+            const tasksBefore = (scheduler as any).tasks;
+            expect(Object.keys(tasksBefore)).toHaveLength(2);
+
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            const tasksAfter = (scheduler as any).tasks;
+            expect(tasksAfter).toEqual({});
+            expect(Object.keys(tasksAfter)).toHaveLength(0);
+            
+            // Verify we can schedule new tasks after dispose
+            scheduler.schedule(futureTime, callback1, { keyOverride: "new-task" });
+            const tasksAfterNewSchedule = (scheduler as any).tasks;
+            expect(Object.keys(tasksAfterNewSchedule)).toHaveLength(1);
+            expect(tasksAfterNewSchedule["new-task"]).toBeDefined();
+        });
+
+        it("should handle dispose with large number of tasks", () => {
+            // Arrange
+            const callbacks: jest.Mock[] = [];
+            const futureTime = new Date(Date.now() + 1000);
+            const taskCount = 100;
+
+            // Schedule many tasks
+            for (let i = 0; i < taskCount; i++) {
+                const callback = jest.fn();
+                callbacks.push(callback);
+                scheduler.schedule(futureTime, callback, { keyOverride: `task-${i}` });
+            }
+
+            // Verify all tasks are scheduled
+            const tasksBefore = (scheduler as any).tasks;
+            expect(Object.keys(tasksBefore)).toHaveLength(taskCount);
+
+            // Act
+            scheduler.dispose();
+
+            // Assert
+            expect(clearTimeoutMock).toHaveBeenCalledTimes(taskCount);
+            const tasksAfter = (scheduler as any).tasks;
+            expect(Object.keys(tasksAfter)).toHaveLength(0);
         });
     });
 });

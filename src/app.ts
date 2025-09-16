@@ -9,11 +9,9 @@ import { errorHandler } from "./middlewares/error-handler";
 const run = async () => {
   const configuration = new Configuration();
   await configuration.configureDatabaseAndSentry(appConfigs);
-  const container = new ContainerRegistry().register();
-  const eventManagementService = container.resolve("eventManagementService");
-  const clientManager = container.resolve("clientManager");
-
-  await eventManagementService.start();
+  const containerRegistry = new ContainerRegistry();
+  const container = containerRegistry.register();
+  containerRegistry.init();
   const app = express();
   app.use(express.json());
   app.use(corsMiddleware);
@@ -30,13 +28,10 @@ const run = async () => {
   });
 
   // Graceful shutdown
-  const gracefulShutdown = (signal: string) => {
+  const gracefulShutdown = async (signal: string) => {
     console.log(`Received ${signal}. Starting graceful shutdown...`);
 
-    // Clean up broadcast jobs
-    eventManagementService.cleanup();
-
-    clientManager.destroy();
+    await container.dispose();
 
     server.close(() => {
       console.log("HTTP server closed");
@@ -51,8 +46,8 @@ const run = async () => {
   };
 
   // Handle shutdown signals
-  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  process.on("SIGTERM", async () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", async () => gracefulShutdown("SIGINT"));
 };
 
 run().catch((error) => {

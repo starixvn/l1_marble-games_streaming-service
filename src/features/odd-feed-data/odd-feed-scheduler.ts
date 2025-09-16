@@ -1,6 +1,6 @@
 import { logger } from "sc-common";
 import { AppContainer, Event as OddFeedEvent } from "../../types";
-import { SchedulerConsumer } from "../scheduler/scheduler";
+import { Scheduler } from "../scheduler/scheduler";
 import { OddFeedEventName, OddFeedEventSource } from "./odd-feed-event-source";
 import { OddFeedPullService } from "./odd-feed-pull-service";
 import { OddFeedStore } from "./odd-feed-store";
@@ -8,7 +8,7 @@ import { idHelper } from "../../helpers";
 
 interface OddFeedSchedulerContainer extends AppContainer {
     oddFeedEventSource: OddFeedEventSource;
-    scheduler: SchedulerConsumer;
+    scheduler: Scheduler;
     oddFeedPullService: OddFeedPullService;
     logService: typeof logger;
     oddFeedStore: OddFeedStore;
@@ -16,7 +16,7 @@ interface OddFeedSchedulerContainer extends AppContainer {
 
 export class OddFeedScheduler {
     private readonly oddFeedEventSource: OddFeedEventSource;
-    private readonly scheduler: SchedulerConsumer;
+    private readonly scheduler: Scheduler;
     private readonly oddFeedPullService: OddFeedPullService;
     private readonly logService: typeof logger;
     private readonly oddFeedStore: OddFeedStore;
@@ -29,15 +29,12 @@ export class OddFeedScheduler {
         this.oddFeedStore = container.oddFeedStore;
     }
 
+    public scheduleEventUpcoming(event: OddFeedEvent) {
+        this.oddFeedEventSource.onEventUpcoming(event);
+    }
 
     public scheduleEvent(event: OddFeedEvent) {
-        console.log(
-            `--- SCHEDULE EVENT ---
-            Game ID :${idHelper.extractGameId(event.eventID)}
-            Event ID :${event.eventID}
-            Round Id:${idHelper.extractRoundId(event.eventID)}
-            `
-        )
+        this.scheduleEventUpcoming(event);
         this.scheduleEventStart(event);
         event.eventDetails.forEach((_, index) => {
             this.scheduleEventDetailStart(event, index);
