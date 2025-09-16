@@ -3,7 +3,7 @@ interface TimedCallback {
     timeoutId: NodeJS.Timeout;
 }
 
-export class SchedulerConsumer {
+export class Scheduler {
     private readonly tasks: Record<string, TimedCallback> = {};
 
     public schedule(
@@ -14,27 +14,26 @@ export class SchedulerConsumer {
             keyOverride?: string;
             ignorePast?: boolean;
         }
-    ): void {
+    ): string {
         const now = new Date();
         const diff = time.getTime() - now.getTime();
         const key = options?.key ?? callback.name;
         const id = options?.keyOverride ?? this.composeKeyWithTime(key, time);
         if (this.tasks[id]) {
-            console.log(`Scheduler: Task ${id} already scheduled, ignoring it`);
-            return;
+            this.log(`Task ${id} already scheduled, ignoring it`);
+            return id;
         }
-        if (diff >= 0) {
-            const timeoutId = setTimeout(this.processCallback(callback, id), diff);
-            this.tasks[id] = { callback, timeoutId: timeoutId as unknown as NodeJS.Timeout };
-        } else {
-            if (options?.ignorePast) {
-                return;
-            }
-            console.log(`Scheduler: Task ${id} is in the past, ignoring it`);
-            const timeoutId = setTimeout(this.processCallback(callback, id), 0);
-            this.tasks[id] = { callback, timeoutId: timeoutId as unknown as NodeJS.Timeout };
+
+        if (diff < 0 && options?.ignorePast) {
+            return id;
         }
-        console.log(`Scheduler: Scheduled task ${id} at ${time}`);
+
+        const actualDiff = diff >= 0 ? diff : 0;
+
+        const timeoutId = setTimeout(this.processCallback(callback, id), actualDiff);
+        this.tasks[id] = { callback, timeoutId: timeoutId as unknown as NodeJS.Timeout };
+        this.log(`Scheduled task ${id} at ${time}`);
+        return id;
     }
 
     public cancel(id: string) {
@@ -43,6 +42,10 @@ export class SchedulerConsumer {
             clearTimeout(task.timeoutId);
             delete this.tasks[id];
         }
+    }
+
+    public dispose() {
+        Object.keys(this.tasks).forEach(task => this.cancel(task));
     }
 
     private processCallback(callback: Function, id: string) {
@@ -57,5 +60,9 @@ export class SchedulerConsumer {
 
     private composeKeyWithTime(key: string, time: Date) {
         return `${key}-${time.getTime().toString()}`;
+    }
+
+    private log(message: string) {
+        console.log(`\x1b[32m [Scheduler] \x1b[37m: ${message}`);
     }
 }

@@ -19,12 +19,12 @@ export class JobScheduler {
     const delay = time.getTime() - Date.now();
 
     if (delay < 0 && !force) {
-      console.log(`Scheduled time is in the past for job ${name}`);
+      this.log(`Scheduled time is in the past for job ${name}`);
       return;
     }
 
     if (this.jobs.has(name)) {
-      console.log(`Job already exists, ignoring it: ${name}`);
+      this.log(`Job already exists, ignoring it: ${name}`);
       return;
     }
 
@@ -73,5 +73,9 @@ export class JobScheduler {
 
   getRemainingJobs(): string[] {
     return Array.from(this.jobs.keys());
+  }
+
+  private log(message: string) {
+    // console.log(`\x1b[32m [JobScheduler] \x1b[37m: ${message}`);
   }
 }

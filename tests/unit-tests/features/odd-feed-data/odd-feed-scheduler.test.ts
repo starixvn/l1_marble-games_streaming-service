@@ -72,6 +72,7 @@ describe("OddFeedScheduler", () => {
     jest.clearAllMocks();
 
     mockOddFeedEventSource = {
+      onEventUpcoming: jest.fn(),
       onEventStart: jest.fn(),
       onEventDetailStart: jest.fn(),
       onEventDetailOddsAvailable: jest.fn(),
@@ -127,9 +128,36 @@ describe("OddFeedScheduler", () => {
     });
   });
 
-  describe("scheduleEvent", () => {
-    it("should schedule all event details", () => {
+  describe("scheduleEventUpcoming", () => {
+    it("should call oddFeedEventSource.onEventUpcoming with the event", () => {
+      // Act
+      oddFeedScheduler.scheduleEventUpcoming(mockEvent);
+
+      // Assert
+      expect(mockOddFeedEventSource.onEventUpcoming).toHaveBeenCalledWith(mockEvent);
+    });
+
+    it("should correctly trigger the odd feed event source onEventUpcoming method", () => {
       // Arrange
+      const testEvent = {
+        ...mockEvent,
+        eventNameAKey: "Test Team A",
+        eventNameBKey: "Test Team B"
+      };
+
+      // Act
+      oddFeedScheduler.scheduleEventUpcoming(testEvent);
+
+      // Assert
+      expect(mockOddFeedEventSource.onEventUpcoming).toHaveBeenCalledTimes(1);
+      expect(mockOddFeedEventSource.onEventUpcoming).toHaveBeenCalledWith(testEvent);
+    });
+  });
+
+  describe("scheduleEvent", () => {
+    it("should schedule all event details including upcoming", () => {
+      // Arrange
+      const scheduleEventUpcomingSpy = jest.spyOn(oddFeedScheduler, "scheduleEventUpcoming");
       const scheduleEventStartSpy = jest.spyOn(oddFeedScheduler as any, "scheduleEventStart");
       const scheduleEventDetailStartSpy = jest.spyOn(oddFeedScheduler as any, "scheduleEventDetailStart");
       const scheduleEventDetailOddsAvailableSpy = jest.spyOn(oddFeedScheduler as any, "scheduleEventDetailOddsAvailable");
@@ -139,6 +167,7 @@ describe("OddFeedScheduler", () => {
       oddFeedScheduler.scheduleEvent(mockEvent);
 
       // Assert
+      expect(scheduleEventUpcomingSpy).toHaveBeenCalledWith(mockEvent);
       expect(scheduleEventStartSpy).toHaveBeenCalledWith(mockEvent);
       expect(scheduleEventDetailStartSpy).toHaveBeenCalledTimes(2);
       expect(scheduleEventDetailStartSpy).toHaveBeenCalledWith(mockEvent, 0);
@@ -156,6 +185,7 @@ describe("OddFeedScheduler", () => {
     it("should handle event with single event detail", () => {
       // Arrange
       const singleDetailEvent = { ...mockEvent, eventDetails: [mockEvent.eventDetails[0]] };
+      const scheduleEventUpcomingSpy = jest.spyOn(oddFeedScheduler, "scheduleEventUpcoming");
       const scheduleEventStartSpy = jest.spyOn(oddFeedScheduler as any, "scheduleEventStart");
       const scheduleEventDetailStartSpy = jest.spyOn(oddFeedScheduler as any, "scheduleEventDetailStart");
 
@@ -163,6 +193,7 @@ describe("OddFeedScheduler", () => {
       oddFeedScheduler.scheduleEvent(singleDetailEvent);
 
       // Assert
+      expect(scheduleEventUpcomingSpy).toHaveBeenCalledWith(singleDetailEvent);
       expect(scheduleEventStartSpy).toHaveBeenCalledWith(singleDetailEvent);
       expect(scheduleEventDetailStartSpy).toHaveBeenCalledTimes(1);
       expect(scheduleEventDetailStartSpy).toHaveBeenCalledWith(singleDetailEvent, 0);
@@ -259,7 +290,7 @@ describe("OddFeedScheduler", () => {
       expect(result).toBe(updatedEvent);
     });
 
-    it("should return undefined when pull fails", async () => {
+    it("should return undefined and log error when pull fails", async () => {
       // Arrange
       mockOddFeedPullService.pullEventWithEventDetails.mockResolvedValue(null);
 
@@ -268,6 +299,7 @@ describe("OddFeedScheduler", () => {
 
       // Assert
       expect(mockOddFeedPullService.pullEventWithEventDetails).toHaveBeenCalledWith(TEST_EVENT_ID);
+      expect(mockLogService.logError).toHaveBeenCalledWith(`Failed to get event details for event ${TEST_EVENT_ID}`);
       expect(idHelper.extractGameId).not.toHaveBeenCalled();
       expect(mockOddFeedStore.setEventByGameId).not.toHaveBeenCalled();
       expect(result).toBeUndefined();

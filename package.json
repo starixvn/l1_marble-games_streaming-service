@@ -11,7 +11,7 @@
   "main": "./build/app.js",
   "type": "module",
   "scripts": {
-    "start": "node ./build/app.js",
+    "start": "node --experimental-loader=extensionless ./build/app.js",
     "dev": "cross-env NODE_ENV=development tsx watch ./src/app.ts",
     "reg": "npm set registry http://npm.lumigame.com",
     "build": "tsc",

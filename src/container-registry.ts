@@ -14,6 +14,7 @@ import { JobScheduler } from "./services/job-scheduler";
 import { EventSchedulerService } from "./services/event-scheduler-service";
 import { EventManager } from "./stores/event-manager";
 import { ClientManager } from "./managers/client-manager";
+import { initContainer, OddFeedDataContainer, registerContainer } from "./features/container-registry";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -28,7 +29,10 @@ export class ContainerRegistry {
     this.container.register({
       eventStore: asClass(EventStore).singleton(),
       eventManager: asClass(EventManager).singleton(),
-      clientManager: asClass(ClientManager).singleton(),
+      clientManager: 
+        asClass(ClientManager)
+        .singleton()
+        .disposer((service) => service.destroy()),
     });
 
     this.container.register({
@@ -36,7 +40,10 @@ export class ContainerRegistry {
       authenticateService: asClass(AuthenticateService).singleton(),
       oddsFeedService: asClass(OddsFeedService).singleton(),
       logService: asValue(logger),
-      eventManagementService: asClass(EventManagementService).singleton(),
+      eventManagementService: 
+        asClass(EventManagementService)
+        .singleton()
+        .disposer((service) => service.cleanup()),
       jobScheduler: asClass(JobScheduler).singleton(),
       eventSchedulerService: asClass(EventSchedulerService).singleton(),
     });
@@ -48,6 +55,13 @@ export class ContainerRegistry {
       monitorController: asClass(MonitorController).singleton(),
     });
 
+    registerContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
+
     return this.container;
+  }
+
+  init() {
+    initContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
+    this.container.resolve("eventManagementService").start();
   }
 }
