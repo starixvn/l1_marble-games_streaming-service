@@ -23,9 +23,10 @@ export class InGameConsumer {
     
     public getCurrentByGameId(gameId: string) {
         return {
-            ...this.gameFlowService.getCurrentByGameId(gameId),
-            ...this.currentEventService.getCurrentByGameId(gameId),
-            ...this.videoStreamingService.getCurrentByGameId(gameId),
+            [this.gameFlowService.eventName]: this.gameFlowService.getCurrentByGameId(gameId),
+            [this.currentEventService.eventName]: this.currentEventService.getCurrentByGameId(gameId),
+            [this.videoStreamingService.streamingEventName]: this.videoStreamingService.getCurrentVideoStateByGameId(gameId),
+            [this.videoStreamingService.preloadEventName]: this.videoStreamingService.getCurrentPreloadVideoStateByGameId(gameId),
         }
     }
 }

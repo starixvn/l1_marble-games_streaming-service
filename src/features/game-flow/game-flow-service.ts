@@ -20,6 +20,7 @@ interface GameFlowServiceContainer {
 }
 
 export class GameFlowService {
+
     private readonly oddFeedEventSource: OddFeedEventSource;
     private readonly scheduler: Scheduler;
     private readonly delayHandlingService: DelayHandlingService;
@@ -42,6 +43,8 @@ export class GameFlowService {
         this.boundHandleResultAvailable = this.handleResultAvailable.bind(this);
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
     }
+
+    public readonly eventName = "gameFlow";
 
     public initEvent() {
         this.oddFeedEventSource.registerEventListener(
@@ -100,7 +103,7 @@ export class GameFlowService {
 
     public getCurrentByGameId(gameId: string) {
         return {
-            gameFlow: this.getCurrentGameFlow(gameId),
+            state: this.getCurrentGameFlow(gameId),
         }
     }
 
@@ -132,10 +135,8 @@ export class GameFlowService {
         this.log(`switch to \x1b[32m${gameFlow}\x1b[37m for game ${gameId} track time: ${diffInSecond}`);
         this._gameFlowByGameId[gameId] = gameFlow;
         this.gameBoardcastService.broadcastToAllClientByGameId(gameId, { 
-            gameFlow: {
-                gameFlow,
-            }
-         });
+            state: gameFlow,
+        }, this.eventName);
     }
 
     private delayedEventDetailResultAvailable({ event, index }: EventDetailNotification) {
