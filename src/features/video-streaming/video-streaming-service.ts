@@ -1,4 +1,5 @@
 import { idHelper } from "../../helpers";
+import { Event } from "../../types";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { EventDetailNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
 import { Scheduler } from "../scheduler/scheduler";
@@ -68,15 +69,15 @@ export class VideoStreamingService {
     }
 
     public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
-        const timeToStream = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
-        const timeToPreload = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
+        const timeToStream = this.getTimeToStream(event, index);
+        const timeToPreload = this.getTimeToPreload(event, index);
         this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }));
         this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }));
     }
 
     onLiveStreamStart({ event, index }: EventDetailNotification) {
         const gameId = idHelper.extractGameId(event.eventID);
-        const timeToStream = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
+        const timeToStream = this.getTimeToStream(event, index);
         this._currentVideoStateByGameId[gameId] = {
             videoLink: event.eventDetails[index].playlist,
             timeToStream: timeToStream.getTime(),
@@ -116,5 +117,13 @@ export class VideoStreamingService {
 
     private log(message: string) {
         console.log(`\x1b[35m[VideoStreamingService] \x1b[37m: ${message}`);
+    }
+
+    private getTimeToStream(event: Event, index: number) {
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
+    }
+
+    private getTimeToPreload(event: Event, index: number) {
+        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
     }
 }
