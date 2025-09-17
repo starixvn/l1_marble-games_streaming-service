@@ -12,10 +12,10 @@ export class GameBroadcastService {
         this.clientManager = container.clientManager;
     }
 
-    public broadcastToAllClientByGameId(gameId: string, payload: object): void {
+    public broadcastToAllClientByGameId(gameId: string, payload: object, eventName?: string): void {
         const clientsToBroadcast = this.clientManager.getClientSetForGame(gameId);
         for (const client of clientsToBroadcast) {
-          client.write(`data: ${JSON.stringify({ ...payload, message: "FeatureBoardCast" })}\n\n`);
+          client.write(`data: ${JSON.stringify({ [eventName ?? "data"]: payload, message: "FeatureBoardCast" })}\n\n`);
         }
     }
 }

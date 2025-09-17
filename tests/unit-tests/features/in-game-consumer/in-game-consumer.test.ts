@@ -6,14 +6,19 @@ import { VideoStreamingService } from "../../../../src/features/video-streaming/
 // Mock dependencies
 const mockGameFlowService = {
     getCurrentByGameId: jest.fn(),
+    eventName: "gameFlow",
 } as unknown as jest.Mocked<GameFlowService>;
 
 const mockCurrentEventService = {
     getCurrentByGameId: jest.fn(),
+    eventName: "currentEvent",
 } as unknown as jest.Mocked<CurrentEventService>;
 
 const mockVideoStreamingService = {
-    getCurrentByGameId: jest.fn(),
+    getCurrentVideoStateByGameId: jest.fn(),
+    getCurrentPreloadVideoStateByGameId: jest.fn(),
+    streamingEventName: "videoStreaming",
+    preloadEventName: "preloadVideo",
 } as unknown as jest.Mocked<VideoStreamingService>;
 
 // Test constants
@@ -22,26 +27,23 @@ const TEST_EVENT_ID = 4294967298;
 
 // Test data
 const mockGameFlowData = {
-    gameFlow: GameFlow.Streaming
+    state: GameFlow.Streaming
 };
 
 const mockCurrentEventData = {
-    currentEvent: {
-        event: TEST_EVENT_ID,
-        eventDetailIndex: 2,
-    }
+    event: TEST_EVENT_ID,
+    eventDetailIndex: 2,
 };
 
 const mockVideoStreamingData = {
-    preloadVideo: {
-        videoLink: "https://example.com/preload.m3u8"
-    },
-    videoStreaming: {
-        videoLink: "https://example.com/stream.m3u8",
-        timeToStream: 1640995200000,
-        currentTime: 45000,
-        phaseIndex: 1
-    }
+    videoLink: "https://example.com/stream.m3u8",
+    timeToStream: 1640995200000,
+    currentTime: 45000,
+    phaseIndex: 1
+};
+
+const mockPreloadVideoData = {
+    videoLink: "https://example.com/preload.m3u8"
 };
 
 // Helper functions for test setup
@@ -55,7 +57,8 @@ const setupMocks = () => {
     jest.clearAllMocks();
     mockGameFlowService.getCurrentByGameId.mockReturnValue(mockGameFlowData);
     mockCurrentEventService.getCurrentByGameId.mockReturnValue(mockCurrentEventData);
-    mockVideoStreamingService.getCurrentByGameId.mockReturnValue(mockVideoStreamingData);
+    mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(mockVideoStreamingData);
+    mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(mockPreloadVideoData);
 };
 
 describe('InGameConsumer', () => {
@@ -96,13 +99,14 @@ describe('InGameConsumer', () => {
                 // Assert
                 expect(mockGameFlowService.getCurrentByGameId).toHaveBeenCalledWith(gameId);
                 expect(mockCurrentEventService.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-                expect(mockVideoStreamingService.getCurrentByGameId).toHaveBeenCalledWith(gameId);
+                expect(mockVideoStreamingService.getCurrentVideoStateByGameId).toHaveBeenCalledWith(gameId);
+                expect(mockVideoStreamingService.getCurrentPreloadVideoStateByGameId).toHaveBeenCalledWith(gameId);
 
                 expect(result).toEqual({
-                    gameFlow: mockGameFlowData.gameFlow,
-                    currentEvent: mockCurrentEventData.currentEvent,
-                    preloadVideo: mockVideoStreamingData.preloadVideo,
-                    videoStreaming: mockVideoStreamingData.videoStreaming,
+                    gameFlow: mockGameFlowData,
+                    currentEvent: mockCurrentEventData,
+                    videoStreaming: mockVideoStreamingData,
+                    preloadVideo: mockPreloadVideoData,
                 });
             });
 
@@ -116,7 +120,8 @@ describe('InGameConsumer', () => {
                 // Assert
                 expect(mockGameFlowService.getCurrentByGameId).toHaveBeenCalledTimes(1);
                 expect(mockCurrentEventService.getCurrentByGameId).toHaveBeenCalledTimes(1);
-                expect(mockVideoStreamingService.getCurrentByGameId).toHaveBeenCalledTimes(1);
+                expect(mockVideoStreamingService.getCurrentVideoStateByGameId).toHaveBeenCalledTimes(1);
+                expect(mockVideoStreamingService.getCurrentPreloadVideoStateByGameId).toHaveBeenCalledTimes(1);
             });
 
             it('should pass the correct game ID to all services', () => {
@@ -129,34 +134,32 @@ describe('InGameConsumer', () => {
                 // Assert
                 expect(mockGameFlowService.getCurrentByGameId).toHaveBeenCalledWith(gameId);
                 expect(mockCurrentEventService.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-                expect(mockVideoStreamingService.getCurrentByGameId).toHaveBeenCalledWith(gameId);
+                expect(mockVideoStreamingService.getCurrentVideoStateByGameId).toHaveBeenCalledWith(gameId);
+                expect(mockVideoStreamingService.getCurrentPreloadVideoStateByGameId).toHaveBeenCalledWith(gameId);
             });
 
-            it('should spread video streaming service data correctly', () => {
+            it('should handle video streaming service data correctly', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
-                const videoData = {
-                    preloadVideo: { videoLink: "test-preload.m3u8" },
-                    videoStreaming: { 
-                        videoLink: "test-stream.m3u8",
-                        timeToStream: 1000000,
-                        currentTime: 30000,
-                        phaseIndex: 0
-                    },
-                    additionalProperty: "should be included"
+                const customVideoData = {
+                    videoLink: "test-stream.m3u8",
+                    timeToStream: 1000000,
+                    currentTime: 30000,
+                    phaseIndex: 0
                 };
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(videoData as any);
+                const customPreloadData = { videoLink: "test-preload.m3u8" };
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(customVideoData);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(customPreloadData);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
 
                 // Assert
                 expect(result).toEqual({
-                    gameFlow: mockGameFlowData.gameFlow,
-                    currentEvent: mockCurrentEventData.currentEvent,
-                    preloadVideo: videoData.preloadVideo,
-                    videoStreaming: videoData.videoStreaming,
-                    additionalProperty: videoData.additionalProperty,
+                    gameFlow: mockGameFlowData,
+                    currentEvent: mockCurrentEventData,
+                    videoStreaming: customVideoData,
+                    preloadVideo: customPreloadData,
                 });
             });
         });
@@ -167,14 +170,14 @@ describe('InGameConsumer', () => {
             it('should handle different game flow states', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
-                const prebetFlowData = { gameFlow: GameFlow.Prebet };
+                const prebetFlowData = { state: GameFlow.Prebet };
                 mockGameFlowService.getCurrentByGameId.mockReturnValue(prebetFlowData);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
 
                 // Assert
-                expect(result.gameFlow).toBe(prebetFlowData.gameFlow);
+                expect(result.gameFlow).toEqual(prebetFlowData);
             });
 
             it('should handle undefined game flow data', () => {
@@ -195,10 +198,8 @@ describe('InGameConsumer', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
                 const differentEventData = {
-                    currentEvent: {
-                        event: 999999,
-                        eventDetailIndex: 0,
-                    }
+                    event: 999999,
+                    eventDetailIndex: 0,
                 };
                 mockCurrentEventService.getCurrentByGameId.mockReturnValue(differentEventData);
 
@@ -206,7 +207,7 @@ describe('InGameConsumer', () => {
                 const result = inGameConsumer.getCurrentByGameId(gameId);
 
                 // Assert
-                expect(result.currentEvent).toEqual(differentEventData.currentEvent);
+                expect(result.currentEvent).toEqual(differentEventData);
             });
 
             it('should handle undefined current event data', () => {
@@ -227,31 +228,30 @@ describe('InGameConsumer', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
                 const differentVideoData = {
-                    preloadVideo: {
-                        videoLink: "https://different.com/preload.m3u8"
-                    },
-                    videoStreaming: {
-                        videoLink: "https://different.com/stream.m3u8",
-                        timeToStream: 1640998800000,
-                        currentTime: 120000,
-                        phaseIndex: 2
-                    }
+                    videoLink: "https://different.com/stream.m3u8",
+                    timeToStream: 1640998800000,
+                    currentTime: 120000,
+                    phaseIndex: 2
                 };
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(differentVideoData as any);
+                const differentPreloadData = {
+                    videoLink: "https://different.com/preload.m3u8"
+                };
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(differentVideoData);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(differentPreloadData);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
 
                 // Assert
-                expect(result.preloadVideo).toEqual(differentVideoData.preloadVideo);
-                expect(result.videoStreaming).toEqual(differentVideoData.videoStreaming);
+                expect(result.preloadVideo).toEqual(differentPreloadData);
+                expect(result.videoStreaming).toEqual(differentVideoData);
             });
 
             it('should handle empty video streaming data', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
-                const emptyVideoData = {};
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(emptyVideoData as any);
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(undefined as any);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(undefined as any);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
@@ -264,7 +264,8 @@ describe('InGameConsumer', () => {
             it('should handle undefined video streaming data', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(undefined as any);
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(undefined as any);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(undefined as any);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
@@ -307,7 +308,7 @@ describe('InGameConsumer', () => {
             it('should handle VideoStreamingService throwing an error', () => {
                 // Arrange
                 const gameId = TEST_GAME_ID;
-                mockVideoStreamingService.getCurrentByGameId.mockImplementation(() => {
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockImplementation(() => {
                     throw new Error('VideoStreamingService error');
                 });
 
@@ -324,15 +325,19 @@ describe('InGameConsumer', () => {
                 const gameId = TEST_GAME_ID;
                 mockGameFlowService.getCurrentByGameId.mockReturnValue(null as any);
                 mockCurrentEventService.getCurrentByGameId.mockReturnValue(null as any);
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(null as any);
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(null as any);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(null as any);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
 
                 // Assert
-                expect(result).toEqual({});
-                expect(result).not.toHaveProperty('gameFlow');
-                expect(result).not.toHaveProperty('currentEvent');
+                expect(result).toEqual({
+                    gameFlow: null,
+                    currentEvent: null,
+                    videoStreaming: null,
+                    preloadVideo: null,
+                });
             });
 
             it('should handle mixed valid and invalid service responses', () => {
@@ -340,16 +345,18 @@ describe('InGameConsumer', () => {
                 const gameId = TEST_GAME_ID;
                 mockGameFlowService.getCurrentByGameId.mockReturnValue(mockGameFlowData);
                 mockCurrentEventService.getCurrentByGameId.mockReturnValue(null as any);
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(mockVideoStreamingData as any);
+                mockVideoStreamingService.getCurrentVideoStateByGameId.mockReturnValue(mockVideoStreamingData);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId.mockReturnValue(mockPreloadVideoData);
 
                 // Act
                 const result = inGameConsumer.getCurrentByGameId(gameId);
 
                 // Assert
                 expect(result).toEqual({
-                    gameFlow: mockGameFlowData.gameFlow,
-                    preloadVideo: mockVideoStreamingData.preloadVideo,
-                    videoStreaming: mockVideoStreamingData.videoStreaming,
+                    gameFlow: mockGameFlowData,
+                    currentEvent: null,
+                    videoStreaming: mockVideoStreamingData,
+                    preloadVideo: mockPreloadVideoData,
                 });
             });
         });
@@ -360,8 +367,8 @@ describe('InGameConsumer', () => {
                 const gameId1 = 'game-1';
                 const gameId2 = 'game-2';
                 
-                const gameFlowData1 = { gameFlow: GameFlow.Prebet };
-                const gameFlowData2 = { gameFlow: GameFlow.Result };
+                const gameFlowData1 = { state: GameFlow.Prebet };
+                const gameFlowData2 = { state: GameFlow.Result };
                 
                 mockGameFlowService.getCurrentByGameId
                     .mockReturnValueOnce(gameFlowData1)
@@ -370,63 +377,22 @@ describe('InGameConsumer', () => {
                 mockCurrentEventService.getCurrentByGameId
                     .mockReturnValue(mockCurrentEventData);
                     
-                mockVideoStreamingService.getCurrentByGameId
-                    .mockReturnValue(mockVideoStreamingData as any);
+                mockVideoStreamingService.getCurrentVideoStateByGameId
+                    .mockReturnValue(mockVideoStreamingData);
+                mockVideoStreamingService.getCurrentPreloadVideoStateByGameId
+                    .mockReturnValue(mockPreloadVideoData);
 
                 // Act
                 const result1 = inGameConsumer.getCurrentByGameId(gameId1);
                 const result2 = inGameConsumer.getCurrentByGameId(gameId2);
 
                 // Assert
-                expect(result1.gameFlow).toBe(gameFlowData1.gameFlow);
-                expect(result2.gameFlow).toBe(gameFlowData2.gameFlow);
+                expect(result1.gameFlow).toEqual(gameFlowData1);
+                expect(result2.gameFlow).toEqual(gameFlowData2);
                 expect(mockGameFlowService.getCurrentByGameId).toHaveBeenCalledWith(gameId1);
                 expect(mockGameFlowService.getCurrentByGameId).toHaveBeenCalledWith(gameId2);
             });
         });
 
-        describe('Object spread behavior', () => {
-            it('should handle object spread with conflicting properties', () => {
-                // Arrange
-                const gameId = TEST_GAME_ID;
-                const videoDataWithConflict = {
-                    gameFlow: "conflicting-game-flow", // This should override the gameFlow property
-                    currentEvent: "conflicting-current-event", // This should override the currentEvent property
-                    preloadVideo: mockVideoStreamingData.preloadVideo,
-                    videoStreaming: mockVideoStreamingData.videoStreaming,
-                };
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(videoDataWithConflict as any);
-
-                // Act
-                const result = inGameConsumer.getCurrentByGameId(gameId);
-
-                // Assert
-                // The spread operator should override the earlier properties
-                expect(result.gameFlow).toBe("conflicting-game-flow");
-                expect(result.currentEvent).toBe("conflicting-current-event");
-                expect(result.preloadVideo).toEqual(mockVideoStreamingData.preloadVideo);
-                expect(result.videoStreaming).toEqual(mockVideoStreamingData.videoStreaming);
-            });
-
-            it('should preserve all properties from video streaming service', () => {
-                // Arrange
-                const gameId = TEST_GAME_ID;
-                const videoDataWithExtra = {
-                    ...mockVideoStreamingData,
-                    extraProperty1: "value1",
-                    extraProperty2: { nested: "value2" },
-                    extraProperty3: 12345,
-                };
-                mockVideoStreamingService.getCurrentByGameId.mockReturnValue(videoDataWithExtra as any);
-
-                // Act
-                const result = inGameConsumer.getCurrentByGameId(gameId);
-
-                // Assert
-                expect((result as any).extraProperty1).toBe("value1");
-                expect((result as any).extraProperty2).toEqual({ nested: "value2" });
-                expect((result as any).extraProperty3).toBe(12345);
-            });
-        });
     });
 });

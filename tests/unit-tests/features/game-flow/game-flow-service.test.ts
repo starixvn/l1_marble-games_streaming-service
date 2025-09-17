@@ -249,7 +249,7 @@ describe('GameFlowService', () => {
 
                 // Assert
                 expect(result).toEqual({
-                    gameFlow: GameFlow.Streaming
+                    state: GameFlow.Streaming
                 });
             });
         });
@@ -498,10 +498,9 @@ describe('GameFlowService', () => {
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                     TEST_GAME_ID,
                     {
-                        gameFlow: {
-                            gameFlow: GameFlow.Streaming,
-                        }
-                    }
+                        state: GameFlow.Streaming,
+                    },
+                    gameFlowService.eventName
                 );
             });
 
@@ -591,8 +590,8 @@ describe('GameFlowService', () => {
                 // Assert
                 expect(gameFlowService['_gameFlowByGameId'][game1Id]).toBe(GameFlow.Streaming);
                 expect(gameFlowService['_gameFlowByGameId'][game2Id]).toBe(GameFlow.Result);
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(game1Id, expect.any(Object));
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(game2Id, expect.any(Object));
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(game1Id, { state: GameFlow.Streaming }, gameFlowService.eventName);
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(game2Id, { state: GameFlow.Result }, gameFlowService.eventName);
             });
         });
 

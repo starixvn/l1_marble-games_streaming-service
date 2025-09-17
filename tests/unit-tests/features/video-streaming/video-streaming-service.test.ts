@@ -311,6 +311,21 @@ describe("VideoStreamingService", () => {
 
                 consoleSpy.mockRestore();
             });
+
+            it("should broadcast video streaming state to clients", () => {
+                // Arrange
+                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
+
+                // Act
+                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                    TEST_GAME_ID_1,
+                    videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1),
+                    videoStreamingService.streamingEventName
+                );
+            });
         });
 
         describe("onLiveStreamPreload", () => {
@@ -337,13 +352,12 @@ describe("VideoStreamingService", () => {
 
                 // Assert
                 const expectedBroadcastData = {
-                    preloadVideo: {
-                        videoLink: mockEvent1.eventDetails[TEST_INDEX].playlist,
-                    }
+                    videoLink: mockEvent1.eventDetails[TEST_INDEX].playlist,
                 };
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                     TEST_GAME_ID_1,
-                    expectedBroadcastData
+                    expectedBroadcastData,
+                    videoStreamingService.preloadEventName
                 );
             });
 
@@ -365,8 +379,8 @@ describe("VideoStreamingService", () => {
                 expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
                 expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_2]).toBeDefined();
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(1, TEST_GAME_ID_1, expect.any(Object));
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(2, TEST_GAME_ID_2, expect.any(Object));
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(1, TEST_GAME_ID_1, expect.any(Object), videoStreamingService.preloadEventName);
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(2, TEST_GAME_ID_2, expect.any(Object), videoStreamingService.preloadEventName);
             });
         });
     });
@@ -434,47 +448,6 @@ describe("VideoStreamingService", () => {
             });
         });
 
-        describe("getCurrentByGameId", () => {
-            it("should return combined preload and video streaming state", () => {
-                // Arrange
-                const currentTime = 1640995260000;
-                jest.spyOn(Date, 'now').mockReturnValue(currentTime);
-
-                // Act
-                const result = videoStreamingService.getCurrentByGameId(TEST_GAME_ID_1);
-
-                // Assert
-                expect(result).toEqual({
-                    preloadVideo: {
-                        videoLink: TEST_PLAYLIST_URL_1,
-                    },
-                    videoStreaming: {
-                        videoLink: TEST_PLAYLIST_URL_1,
-                        timeToStream: 1640995200000,
-                        currentTime: 60000,
-                        phaseIndex: TEST_INDEX,
-                    }
-                });
-            });
-
-            it("should throw error when video streaming state does not exist", () => {
-                // Act & Assert
-                expect(() => {
-                    videoStreamingService.getCurrentByGameId("non-existent-game");
-                }).toThrow();
-            });
-
-            it("should throw error when video state is missing but preload state exists", () => {
-                // Arrange
-                // Remove video state but keep preload state
-                delete videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1];
-
-                // Act & Assert
-                expect(() => {
-                    videoStreamingService.getCurrentByGameId(TEST_GAME_ID_1);
-                }).toThrow();
-            });
-        });
     });
 
     describe("Edge Cases and Integration", () => {
@@ -562,7 +535,7 @@ describe("VideoStreamingService", () => {
                 // Assert
                 expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
                 expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(1);
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2); // Once for preload, once for stream start
             });
         });
 
@@ -609,7 +582,8 @@ describe("VideoStreamingService", () => {
                 videoStreamingService.handleEventDetailScheduleStart(mockEventDetailNotification1);
                 videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
                 videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-                const currentState = videoStreamingService.getCurrentByGameId(TEST_GAME_ID_1);
+                const currentVideoState = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
+                const currentPreloadState = videoStreamingService.getCurrentPreloadVideoStateByGameId(TEST_GAME_ID_1);
                 videoStreamingService.dispose();
 
                 // Assert - All dependencies should have been called
@@ -620,7 +594,8 @@ describe("VideoStreamingService", () => {
                 expect(mockGameFlowService.getTrackPointByGameId).toHaveBeenCalled();
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalled();
                 expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalled();
-                expect(currentState).toBeDefined();
+                expect(currentVideoState).toBeDefined();
+                expect(currentPreloadState).toBeDefined();
             });
         });
     });

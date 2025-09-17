@@ -33,6 +33,8 @@ export class CurrentEventService {
         this.boundHandleEventDetailResultAvailable = this.handleEventDetailResultAvailable.bind(this);
     }
 
+    public readonly eventName = "currentEvent";
+
     public getCurrentEventByGameId(gameId: string) {
         return this._currentEventByGameId[gameId];
     }
@@ -43,10 +45,8 @@ export class CurrentEventService {
 
     public getCurrentByGameId(gameId: string) {
         return {
-            currentEvent: {
-                event: this.getCurrentEventByGameId(gameId),
-                eventDetailIndex: this.getCurrentEventDetailIndexByGameId(gameId),
-            },
+            event: this.getCurrentEventByGameId(gameId),
+            eventDetailIndex: this.getCurrentEventDetailIndexByGameId(gameId),
         }
     }
 
@@ -85,6 +85,11 @@ export class CurrentEventService {
 
         this._currentEventDetailIndexByGameId[gameId] = index + 1;
         this.log(`event index increment for game ${gameId} with event ${event.eventID} to ${index + 1}`);
+        this.notifyClient({
+            gameId,
+            eventID: event.eventID,
+            index: index + 1,
+        });
     }
 
     public handleEventIndexReset({ event }: EventNotification) {
@@ -92,12 +97,11 @@ export class CurrentEventService {
         this._currentEventDetailIndexByGameId[gameId] = 0;
         this._currentEventByGameId[gameId] = event.eventID;
         this.log(`event index reset for game ${gameId} and set current event to ${event.eventID}`);
-        this.gameBoardcastService.broadcastToAllClientByGameId(gameId, { 
-            currentEvent: {
-                event: event.eventID,
-                eventDetailIndex: 0,
-            }
-         });
+        this.notifyClient({
+            gameId,
+            eventID: event.eventID,
+            index: 0,
+        });
     }
     
     public handleEventDetailStart({ event, index }: EventDetailNotification) {
@@ -107,5 +111,24 @@ export class CurrentEventService {
 
     private log(message: string) {
         console.log(`\x1b[34m[CurrentEventService] \x1b[37m: ${message}`);
+    }
+
+    private notifyClient({
+        gameId,
+        eventID,
+        index,
+    }: {
+        gameId: string,
+        eventID: number,
+        index: number,
+    }) {
+        this.gameBoardcastService.broadcastToAllClientByGameId(
+            gameId,
+            { 
+                event: eventID,
+                eventDetailIndex: index,
+            },
+            this.eventName
+        );
     }
 }

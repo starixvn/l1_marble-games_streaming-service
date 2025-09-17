@@ -26,6 +26,7 @@ export interface PreloadVideoState {
 }
 
 export class VideoStreamingService {
+
     private readonly oddFeedEventSource: OddFeedEventSource;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
@@ -46,7 +47,11 @@ export class VideoStreamingService {
         this.gameBoardcastService = container.gameBoardcastService;
 
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
-        }
+    }
+
+    
+    public readonly streamingEventName = "videoStreaming";
+    public readonly preloadEventName = "preloadVideo"
 
     public initEvent() {
         this.oddFeedEventSource.registerEventDetailEventListener(
@@ -80,6 +85,10 @@ export class VideoStreamingService {
         };
         const diffInSecond = (Date.now() - this.gameFlowService.getTrackPointByGameId(gameId)) / 1000;
         this.log(`video streaming started for game ${gameId} with event ${event.eventID} and index ${index} track time: ${diffInSecond} `);
+        this.gameBoardcastService.broadcastToAllClientByGameId(
+            gameId, 
+            this.getCurrentVideoStateByGameId(gameId),
+            this.streamingEventName);
     }
 
     onLiveStreamPreload({ event, index }: EventDetailNotification) {
@@ -88,11 +97,10 @@ export class VideoStreamingService {
             videoLink: event.eventDetails[index].playlist,
         };
 
-        this.gameBoardcastService.broadcastToAllClientByGameId(gameId, { 
-            preloadVideo: {
-                ...this.getCurrentPreloadVideoStateByGameId(gameId),
-            }
-         });
+        this.gameBoardcastService.broadcastToAllClientByGameId(
+            gameId, 
+            this.getCurrentPreloadVideoStateByGameId(gameId),
+            this.preloadEventName);
     }
 
     getCurrentVideoStateByGameId(gameId: string) {
@@ -104,17 +112,6 @@ export class VideoStreamingService {
 
     getCurrentPreloadVideoStateByGameId(gameId: string) {
         return this._preloadVideoStateByGameId[gameId];
-    }
-
-    getCurrentByGameId(gameId: string) {
-        return {
-            preloadVideo: {
-                ...this.getCurrentPreloadVideoStateByGameId(gameId),
-            },
-            videoStreaming: {
-                ...this.getCurrentVideoStateByGameId(gameId),
-            }
-        }
     }
 
     private log(message: string) {

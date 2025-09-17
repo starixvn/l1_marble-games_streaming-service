@@ -192,10 +192,8 @@ describe('CurrentEventService', () => {
 
                 // Assert
                 expect(result).toEqual({
-                    currentEvent: {
-                        event: 4294967298,
-                        eventDetailIndex: 2,
-                    }
+                    event: 4294967298,
+                    eventDetailIndex: 2,
                 });
             });
 
@@ -208,10 +206,8 @@ describe('CurrentEventService', () => {
 
                 // Assert
                 expect(result).toEqual({
-                    currentEvent: {
-                        event: undefined,
-                        eventDetailIndex: undefined,
-                    }
+                    event: undefined,
+                    eventDetailIndex: undefined,
                 });
             });
         });
@@ -347,6 +343,25 @@ describe('CurrentEventService', () => {
                 expect(currentEventService['_currentEventDetailIndexByGameId'][gameId]).toBe(1);
             });
 
+            it('should broadcast updated event detail index when not at last index', () => {
+                // Arrange
+                const gameId = TEST_GAME_ID;
+                currentEventService['_currentEventDetailIndexByGameId'][gameId] = 0;
+
+                // Act
+                currentEventService.handleEventDetailIndexIncrement(mockEventDetailNotification);
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                    gameId,
+                    {
+                        event: mockEvent.eventID,
+                        eventDetailIndex: 1,
+                    },
+                    currentEventService.eventName
+                );
+            });
+
             it('should not increment when at last index', () => {
                 // Arrange
                 const lastIndexNotification: EventDetailNotification = {
@@ -361,6 +376,22 @@ describe('CurrentEventService', () => {
 
                 // Assert
                 expect(currentEventService['_currentEventDetailIndexByGameId'][gameId]).toBe(1);
+            });
+
+            it('should not broadcast when at last index', () => {
+                // Arrange
+                const lastIndexNotification: EventDetailNotification = {
+                    event: mockEvent,
+                    index: 1 // Last index (eventDetails.length - 1)
+                };
+                const gameId = TEST_GAME_ID;
+                currentEventService['_currentEventDetailIndexByGameId'][gameId] = 1;
+
+                // Act
+                currentEventService.handleEventDetailIndexIncrement(lastIndexNotification);
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).not.toHaveBeenCalled();
             });
 
             it('should extract correct game ID using idHelper', () => {
@@ -405,11 +436,10 @@ describe('CurrentEventService', () => {
                 expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                     gameId,
                     {
-                        currentEvent: {
-                            event: mockEvent.eventID,
-                            eventDetailIndex: 0,
-                        }
-                    }
+                        event: mockEvent.eventID,
+                        eventDetailIndex: 0,
+                    },
+                    currentEventService.eventName
                 );
             });
 
@@ -462,6 +492,105 @@ describe('CurrentEventService', () => {
                 expect(currentEventService['_currentEventDetailIndexByGameId'][gameId]).toBe(2);
                 
                 extractGameIdSpy.mockRestore();
+            });
+        });
+    });
+
+    describe('Private Methods', () => {
+        describe('notifyClient', () => {
+            it('should broadcast to all clients for the specified game', () => {
+                // Arrange
+                const gameId = TEST_GAME_ID;
+                const eventID = 123456;
+                const index = 2;
+
+                // Act
+                currentEventService['notifyClient']({ gameId, eventID, index });
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                    gameId,
+                    {
+                        event: eventID,
+                        eventDetailIndex: index,
+                    },
+                    currentEventService.eventName
+                );
+            });
+
+            it('should handle different game IDs correctly', () => {
+                // Arrange
+                const gameId1 = '1';
+                const gameId2 = '2';
+                const eventID1 = 111111;
+                const eventID2 = 222222;
+                const index1 = 0;
+                const index2 = 3;
+
+                // Act
+                currentEventService['notifyClient']({ gameId: gameId1, eventID: eventID1, index: index1 });
+                currentEventService['notifyClient']({ gameId: gameId2, eventID: eventID2, index: index2 });
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
+                    1,
+                    gameId1,
+                    {
+                        event: eventID1,
+                        eventDetailIndex: index1,
+                    },
+                    currentEventService.eventName
+                );
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
+                    2,
+                    gameId2,
+                    {
+                        event: eventID2,
+                        eventDetailIndex: index2,
+                    },
+                    currentEventService.eventName
+                );
+            });
+
+            it('should handle zero index correctly', () => {
+                // Arrange
+                const gameId = TEST_GAME_ID;
+                const eventID = 999999;
+                const index = 0;
+
+                // Act
+                currentEventService['notifyClient']({ gameId, eventID, index });
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                    gameId,
+                    {
+                        event: eventID,
+                        eventDetailIndex: index,
+                    },
+                    currentEventService.eventName
+                );
+            });
+
+            it('should handle large event IDs and indices', () => {
+                // Arrange
+                const gameId = TEST_GAME_ID;
+                const eventID = 4294967295; // Large event ID
+                const index = 999; // Large index
+
+                // Act
+                currentEventService['notifyClient']({ gameId, eventID, index });
+
+                // Assert
+                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                    gameId,
+                    {
+                        event: eventID,
+                        eventDetailIndex: index,
+                    },
+                    currentEventService.eventName
+                );
             });
         });
     });
