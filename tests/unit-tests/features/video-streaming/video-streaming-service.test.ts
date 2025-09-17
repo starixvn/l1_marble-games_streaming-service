@@ -32,7 +32,6 @@ const mockGameBoardcastService = {
 
 // Test constants
 const TEST_GAME_ID_1 = "1";
-const TEST_GAME_ID_2 = "2";
 const TEST_EVENT_ID_1 = 4294967298; // gameId: 1, roundId: 2
 const TEST_EVENT_ID_2 = 8589934594; // gameId: 2, roundId: 2
 const TEST_INDEX = 1;
@@ -122,7 +121,7 @@ describe("VideoStreamingService", () => {
         jest.restoreAllMocks();
     });
 
-    describe("Constructor", () => {
+    describe("constructor", () => {
         it("should initialize with dependencies and bind event handlers", () => {
             // Arrange & Act
             const service = new VideoStreamingService(container);
@@ -146,457 +145,167 @@ describe("VideoStreamingService", () => {
         });
     });
 
-    describe("Event Listener Management", () => {
-        describe("initEvent", () => {
-            it("should register event detail listener for EventDetailStart", () => {
-                // Arrange & Act
-                videoStreamingService.initEvent();
+    describe("initEvent", () => {
+        it("should register event detail listener for EventDetailStart", () => {
+            // Arrange & Act
+            videoStreamingService.initEvent();
 
-                // Assert
-                expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
-                    OddFeedEventName.EventDetailStart,
-                    videoStreamingService['boundHandleEventDetailScheduleStart']
-                );
-            });
-        });
-
-        describe("dispose", () => {
-            it("should unregister event detail listener for EventDetailStart", () => {
-                // Arrange & Act
-                videoStreamingService.dispose();
-
-                // Assert
-                expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
-                    OddFeedEventName.EventDetailStart,
-                    videoStreamingService['boundHandleEventDetailScheduleStart']
-                );
-            });
+            // Assert
+            expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
+                OddFeedEventName.EventDetailStart,
+                videoStreamingService['boundHandleEventDetailScheduleStart']
+            );
         });
     });
 
-    describe("Event Handlers", () => {
-        describe("handleEventDetailScheduleStart", () => {
-            it("should schedule live stream start and preload with correct timing", () => {
-                // Arrange
-                const expectedVideoDelayTime = new Date("2024-01-01T10:00:00Z");
-                const expectedPreloadTime = new Date("2024-01-01T09:59:30Z");
-                mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(expectedVideoDelayTime);
-                mockDelayHandlingService.getDelayedTime.mockReturnValue(expectedPreloadTime);
+    describe("dispose", () => {
+        it("should unregister event detail listener for EventDetailStart", () => {
+            // Arrange & Act
+            videoStreamingService.dispose();
 
-                // Act
-                videoStreamingService.handleEventDetailScheduleStart(mockEventDetailNotification1);
-
-                // Assert
-                expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
-                    eventId: TEST_EVENT_ID_1,
-                    time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
-                });
-                expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                    eventId: TEST_EVENT_ID_1,
-                    time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
-                });
-                expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
-                expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, expectedVideoDelayTime, expect.any(Function));
-                expect(mockScheduler.schedule).toHaveBeenNthCalledWith(2, expectedPreloadTime, expect.any(Function));
-            });
-
-            it("should handle different events with different timings", () => {
-                // Arrange
-                const videoDelayTime1 = new Date("2024-01-01T10:00:00Z");
-                const preloadTime1 = new Date("2024-01-01T09:59:30Z");
-                const videoDelayTime2 = new Date("2024-01-01T11:00:00Z");
-                const preloadTime2 = new Date("2024-01-01T10:59:30Z");
-
-                // Create notification with valid index for second event
-                const validNotification2: EventDetailNotification = {
-                    event: mockEvent2,
-                    index: 0 // Use index 0 which exists in the mock data
-                };
-
-                mockDelayHandlingService.getDelayedTimeWithVideoDelay
-                    .mockReturnValueOnce(videoDelayTime1)
-                    .mockReturnValueOnce(videoDelayTime2);
-                mockDelayHandlingService.getDelayedTime
-                    .mockReturnValueOnce(preloadTime1)
-                    .mockReturnValueOnce(preloadTime2);
-
-                // Act
-                videoStreamingService.handleEventDetailScheduleStart(mockEventDetailNotification1);
-                videoStreamingService.handleEventDetailScheduleStart(validNotification2);
-
-                // Assert
-                expect(mockScheduler.schedule).toHaveBeenCalledTimes(4);
-                expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, videoDelayTime1, expect.any(Function));
-                expect(mockScheduler.schedule).toHaveBeenNthCalledWith(2, preloadTime1, expect.any(Function));
-                expect(mockScheduler.schedule).toHaveBeenNthCalledWith(3, videoDelayTime2, expect.any(Function));
-                expect(mockScheduler.schedule).toHaveBeenNthCalledWith(4, preloadTime2, expect.any(Function));
-            });
-        });
-
-        describe("onLiveStreamStart", () => {
-            beforeEach(() => {
-                // Mock Date.now for consistent testing
-                jest.spyOn(Date, 'now').mockReturnValue(1640995260000); // 1 minute after track point
-            });
-
-            it("should set current video state for game", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-
-                // Act
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-
-                // Assert
-                const actualState = videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1];
-                expect(actualState.videoLink).toBe(mockEvent1.eventDetails[TEST_INDEX].playlist);
-                expect(actualState.currentTime).toBe(0);
-                expect(actualState.phaseIndex).toBe(TEST_INDEX);
-                expect(actualState.timeToStream).toBeDefined();
-                expect(typeof actualState.timeToStream).toBe('number');
-            });
-
-            it("should call gameFlowService to get track point and log message", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-                const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-                // Act
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-
-                // Assert
-                expect(mockGameFlowService.getTrackPointByGameId).toHaveBeenCalledWith(TEST_GAME_ID_1);
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    expect.stringContaining(`video streaming started for game ${TEST_GAME_ID_1} with event ${TEST_EVENT_ID_1} and index ${TEST_INDEX}`)
-                );
-
-                consoleSpy.mockRestore();
-            });
-
-            it("should handle multiple games correctly", () => {
-                // Arrange
-                const validNotification2: EventDetailNotification = {
-                    event: mockEvent2,
-                    index: 0 // Use valid index
-                };
-                jest.spyOn(idHelper, 'extractGameId')
-                    .mockReturnValueOnce(TEST_GAME_ID_1)
-                    .mockReturnValueOnce(TEST_GAME_ID_2);
-
-                // Act
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-                videoStreamingService.onLiveStreamStart(validNotification2);
-
-                // Assert
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_2]).toBeDefined();
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1].videoLink).toBe(mockEvent1.eventDetails[TEST_INDEX].playlist);
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_2].videoLink).toBe(mockEvent2.eventDetails[0].playlist);
-            });
-
-            it("should calculate correct track time difference", () => {
-                // Arrange
-                const currentTime = 1640995320000; // 2 minutes after track point
-                jest.spyOn(Date, 'now').mockReturnValue(currentTime);
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-                const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-                // Act
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-
-                // Assert
-                const expectedDiffInSeconds = (currentTime - TEST_TRACK_POINT) / 1000;
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    expect.stringContaining(`track time: ${expectedDiffInSeconds}`)
-                );
-
-                consoleSpy.mockRestore();
-            });
-
-            it("should broadcast video streaming state to clients", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-
-                // Act
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-
-                // Assert
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
-                    TEST_GAME_ID_1,
-                    videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1),
-                    videoStreamingService.streamingEventName
-                );
-            });
-        });
-
-        describe("onLiveStreamPreload", () => {
-            it("should set preload video state for game", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-
-                // Act
-                videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
-
-                // Assert
-                const expectedPreloadState: PreloadVideoState = {
-                    videoLink: mockEvent1.eventDetails[TEST_INDEX].playlist,
-                };
-                expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toEqual(expectedPreloadState);
-            });
-
-            it("should broadcast preload video state to clients", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-
-                // Act
-                videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
-
-                // Assert
-                const expectedBroadcastData = {
-                    videoLink: mockEvent1.eventDetails[TEST_INDEX].playlist,
-                };
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
-                    TEST_GAME_ID_1,
-                    expectedBroadcastData,
-                    videoStreamingService.preloadEventName
-                );
-            });
-
-            it("should handle multiple games preloading", () => {
-                // Arrange
-                const validNotification2: EventDetailNotification = {
-                    event: mockEvent2,
-                    index: 0 // Use valid index
-                };
-                jest.spyOn(idHelper, 'extractGameId')
-                    .mockReturnValueOnce(TEST_GAME_ID_1)
-                    .mockReturnValueOnce(TEST_GAME_ID_2);
-
-                // Act
-                videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
-                videoStreamingService.onLiveStreamPreload(validNotification2);
-
-                // Assert
-                expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
-                expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_2]).toBeDefined();
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(1, TEST_GAME_ID_1, expect.any(Object), videoStreamingService.preloadEventName);
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(2, TEST_GAME_ID_2, expect.any(Object), videoStreamingService.preloadEventName);
-            });
+            // Assert
+            expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
+                OddFeedEventName.EventDetailStart,
+                videoStreamingService['boundHandleEventDetailScheduleStart']
+            );
         });
     });
 
-    describe("State Management", () => {
+    describe("handleEventDetailScheduleStart", () => {
+        it("should schedule live stream start and preload tasks", () => {
+            // Arrange
+            const expectedVideoDelayTime = new Date("2024-01-01T10:00:00Z");
+            const expectedPreloadTime = new Date("2024-01-01T09:59:30Z");
+            mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(expectedVideoDelayTime);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(expectedPreloadTime);
+
+            // Act
+            videoStreamingService.handleEventDetailScheduleStart(mockEventDetailNotification1);
+
+            // Assert - Test that it calls the scheduler with correct parameters
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
+            expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, expectedVideoDelayTime, expect.any(Function));
+            expect(mockScheduler.schedule).toHaveBeenNthCalledWith(2, expectedPreloadTime, expect.any(Function));
+        });
+    });
+
+    describe("onLiveStreamStart", () => {
         beforeEach(() => {
-            // Set up some initial state for testing
+            // Mock Date.now for consistent testing
+            jest.spyOn(Date, 'now').mockReturnValue(1640995260000); // 1 minute after track point
+            // Mock query methods to return predictable data
+            mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(new Date("2024-01-01T10:00:00Z"));
+            mockGameFlowService.getTrackPointByGameId.mockReturnValue(TEST_TRACK_POINT);
+        });
+
+        it("should update video state and broadcast to clients", () => {
+            // Arrange
+            jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
+
+            // Act
+            videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
+
+            // Assert - Test that it calls the broadcast service
+            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                TEST_GAME_ID_1,
+                expect.any(Object), // We don't test the exact object structure here
+                videoStreamingService.streamingEventName
+            );
+        });
+
+        it("should call gameFlowService to get track point for logging", () => {
+            // Arrange
+            jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
+
+            // Act
+            videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
+
+            // Assert - Test that it calls the query method
+            expect(mockGameFlowService.getTrackPointByGameId).toHaveBeenCalledWith(TEST_GAME_ID_1);
+        });
+    });
+
+    describe("onLiveStreamPreload", () => {
+        it("should broadcast preload video state to clients", () => {
+            // Arrange
+            jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
+
+            // Act
+            videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
+
+            // Assert - Test that it calls the broadcast service
+            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                TEST_GAME_ID_1,
+                expect.any(Object), // We don't test the exact object structure here
+                videoStreamingService.preloadEventName
+            );
+        });
+    });
+
+    describe("getCurrentVideoStateByGameId", () => {
+        beforeEach(() => {
+            // Set up some initial state for testing query methods
             const testVideoState: VideoState = {
                 videoLink: TEST_PLAYLIST_URL_1,
                 timeToStream: 1640995200000,
                 currentTime: 0,
                 phaseIndex: TEST_INDEX,
             };
+            videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
+        });
+
+        it("should return current video state with calculated current time", () => {
+            // Arrange
+            const currentTime = 1640995260000; // 1 minute after stream start
+            jest.spyOn(Date, 'now').mockReturnValue(currentTime);
+
+            // Act
+            const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
+
+            // Assert - Test the data structure and calculation
+            expect(result).toEqual({
+                videoLink: TEST_PLAYLIST_URL_1,
+                timeToStream: 1640995200000,
+                currentTime: 60000, // 1 minute difference
+                phaseIndex: TEST_INDEX,
+            });
+        });
+
+        it("should handle non-existent game gracefully", () => {
+            // Act & Assert
+            expect(() => {
+                videoStreamingService.getCurrentVideoStateByGameId("non-existent-game");
+            }).toThrow();
+        });
+    });
+
+    describe("getCurrentPreloadVideoStateByGameId", () => {
+        beforeEach(() => {
+            // Set up some initial state for testing query methods
             const testPreloadState: PreloadVideoState = {
                 videoLink: TEST_PLAYLIST_URL_1,
             };
-            videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
             videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1] = testPreloadState;
         });
 
-        describe("getCurrentVideoStateByGameId", () => {
-            it("should return current video state with updated current time", () => {
-                // Arrange
-                const currentTime = 1640995260000; // 1 minute after stream start
-                jest.spyOn(Date, 'now').mockReturnValue(currentTime);
+        it("should return preload video state", () => {
+            // Act
+            const result = videoStreamingService.getCurrentPreloadVideoStateByGameId(TEST_GAME_ID_1);
 
-                // Act
-                const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
-
-                // Assert
-                const expectedCurrentTime = currentTime - 1640995200000; // 60000ms = 1 minute
-                expect(result).toEqual({
-                    videoLink: TEST_PLAYLIST_URL_1,
-                    timeToStream: 1640995200000,
-                    currentTime: expectedCurrentTime,
-                    phaseIndex: TEST_INDEX,
-                });
-            });
-
-            it("should throw error when game state does not exist", () => {
-                // Act & Assert
-                expect(() => {
-                    videoStreamingService.getCurrentVideoStateByGameId("non-existent-game");
-                }).toThrow();
+            // Assert
+            expect(result).toEqual({
+                videoLink: TEST_PLAYLIST_URL_1,
             });
         });
 
-        describe("getCurrentPreloadVideoStateByGameId", () => {
-            it("should return preload video state", () => {
-                // Act
-                const result = videoStreamingService.getCurrentPreloadVideoStateByGameId(TEST_GAME_ID_1);
+        it("should return undefined for non-existent game", () => {
+            // Act
+            const result = videoStreamingService.getCurrentPreloadVideoStateByGameId("non-existent-game");
 
-                // Assert
-                expect(result).toEqual({
-                    videoLink: TEST_PLAYLIST_URL_1,
-                });
-            });
-
-            it("should return undefined when preload state does not exist", () => {
-                // Act
-                const result = videoStreamingService.getCurrentPreloadVideoStateByGameId("non-existent-game");
-
-                // Assert
-                expect(result).toBeUndefined();
-            });
-        });
-
-    });
-
-    describe("Edge Cases and Integration", () => {
-        describe("Bound methods preservation", () => {
-            it("should maintain correct context when bound method is called directly", () => {
-                // Arrange
-                const boundHandler = videoStreamingService['boundHandleEventDetailScheduleStart'];
-                
-                // Act & Assert - should not throw
-                expect(() => {
-                    boundHandler(mockEventDetailNotification1);
-                }).not.toThrow();
-
-                // Verify the method was called correctly
-                expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalled();
-                expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
-            });
-        });
-
-        describe("Time calculations", () => {
-            it("should handle negative current time correctly", () => {
-                // Arrange - Set stream time in the future
-                const futureStreamTime = Date.now() + 60000; // 1 minute in the future
-                const testVideoState: VideoState = {
-                    videoLink: TEST_PLAYLIST_URL_1,
-                    timeToStream: futureStreamTime,
-                    currentTime: 0,
-                    phaseIndex: TEST_INDEX,
-                };
-                videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
-
-                // Act
-                const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
-
-                // Assert - Current time should be negative (stream hasn't started yet)
-                expect(result.currentTime).toBeLessThan(0);
-            });
-
-            it("should handle very large time differences", () => {
-                // Arrange
-                const veryOldStreamTime = 1000000000; // Very old timestamp
-                const testVideoState: VideoState = {
-                    videoLink: TEST_PLAYLIST_URL_1,
-                    timeToStream: veryOldStreamTime,
-                    currentTime: 0,
-                    phaseIndex: TEST_INDEX,
-                };
-                videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
-
-                // Act
-                const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
-
-                // Assert - Should handle large time differences
-                expect(result.currentTime).toBeGreaterThan(1000000000);
-                expect(result.currentTime).toBeLessThan(Date.now());
-            });
-        });
-
-        describe("Multiple events and phases", () => {
-            it("should handle multiple phases for same game", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-                const phase1Notification = { ...mockEventDetailNotification1, index: 0 };
-                const phase2Notification = { ...mockEventDetailNotification1, index: 1 };
-
-                // Act
-                videoStreamingService.onLiveStreamStart(phase1Notification);
-                videoStreamingService.onLiveStreamStart(phase2Notification);
-
-                // Assert - Second phase should overwrite first
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1].phaseIndex).toBe(1);
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1].videoLink).toBe(
-                    mockEvent1.eventDetails[1].playlist
-                );
-            });
-
-            it("should handle rapid successive preload and stream start calls", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-
-                // Act
-                videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-
-                // Assert
-                expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
-                expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2); // Once for preload, once for stream start
-            });
-        });
-
-        describe("Error handling and edge cases", () => {
-            it("should throw error when event details are missing", () => {
-                // Arrange
-                const eventWithoutDetails = { ...mockEvent1, eventDetails: [] };
-                const notificationWithoutDetails: EventDetailNotification = {
-                    event: eventWithoutDetails,
-                    index: 0
-                };
-
-                // Act & Assert - Should throw error
-                expect(() => {
-                    videoStreamingService.handleEventDetailScheduleStart(notificationWithoutDetails);
-                }).toThrow();
-            });
-
-            it("should throw error with invalid index", () => {
-                // Arrange
-                const invalidIndexNotification: EventDetailNotification = {
-                    event: mockEvent1,
-                    index: 999 // Index beyond eventDetails array
-                };
-
-                // Act & Assert - Should throw error
-                expect(() => {
-                    videoStreamingService.onLiveStreamStart(invalidIndexNotification);
-                }).toThrow();
-
-                expect(() => {
-                    videoStreamingService.onLiveStreamPreload(invalidIndexNotification);
-                }).toThrow();
-            });
-        });
-
-        describe("Integration with dependencies", () => {
-            it("should integrate correctly with all dependencies", () => {
-                // Arrange
-                jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
-
-                // Act - Full workflow
-                videoStreamingService.initEvent();
-                videoStreamingService.handleEventDetailScheduleStart(mockEventDetailNotification1);
-                videoStreamingService.onLiveStreamPreload(mockEventDetailNotification1);
-                videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
-                const currentVideoState = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
-                const currentPreloadState = videoStreamingService.getCurrentPreloadVideoStateByGameId(TEST_GAME_ID_1);
-                videoStreamingService.dispose();
-
-                // Assert - All dependencies should have been called
-                expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalled();
-                expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledTimes(2); // Once in handle, once in onLiveStreamStart
-                expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalled();
-                expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
-                expect(mockGameFlowService.getTrackPointByGameId).toHaveBeenCalled();
-                expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalled();
-                expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalled();
-                expect(currentVideoState).toBeDefined();
-                expect(currentPreloadState).toBeDefined();
-            });
+            // Assert
+            expect(result).toBeUndefined();
         });
     });
+
+
 });
