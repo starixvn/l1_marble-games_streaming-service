@@ -49,20 +49,11 @@ const createMockInGameEvent = (): InGameEvent => ({
 
 const createMockVoiceConfig = (): VoiceConfig => ({
   "goal": {
-    1000: {
-      timeline: [0, 500, 1000],
-      voice: ["Goal scored!", "What a shot!", "Amazing!"],
-    },
-    2000: {
-      timeline: [0, 1000, 2000],
-      voice: ["Two goals!", "Incredible!", "Fantastic!"],
-    },
+    1000: 5,
+    2000: 3,
   },
   "assist": {
-    500: {
-      timeline: [0, 250, 500],
-      voice: ["Great assist!", "Perfect pass!", "Teamwork!"],
-    },
+    500: 2,
   },
 });
 
@@ -457,15 +448,15 @@ describe("EventManager", () => {
       const gameId = "2001";
       const complexVoiceConfig: VoiceConfig = {
         "goal": {
-          500: { timeline: [0, 250, 500], voice: ["Quick goal!", "Fast!", "Speed!"] },
-          1000: { timeline: [0, 500, 1000], voice: ["Goal!", "Score!", "Yes!"] },
-          2000: { timeline: [0, 1000, 2000], voice: ["Long goal!", "Extended!", "Duration!"] },
+          500: 1,
+          1000: 2,
+          2000: 3,
         },
         "assist": {
-          300: { timeline: [0, 150, 300], voice: ["Assist!", "Pass!", "Help!"] },
+          300: 4,
         },
         "save": {
-          800: { timeline: [0, 400, 800], voice: ["Great save!", "Blocked!", "Stopped!"] },
+          800: 5,
         },
       };
       jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
@@ -508,10 +499,7 @@ describe("EventManager", () => {
       const gameId = "2001";
       const singleEventVoiceConfig: VoiceConfig = {
         "penalty": {
-          1500: {
-            timeline: [0, 750, 1500],
-            voice: ["Penalty awarded!", "Taking the shot!", "Goal or miss?"],
-          },
+          1500: 6,
         },
       };
       jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
@@ -528,9 +516,9 @@ describe("EventManager", () => {
       const gameId = "2001";
       const multiDurationVoiceConfig: VoiceConfig = {
         "corner": {
-          200: { timeline: [0, 100, 200], voice: ["Corner!", "Quick!", "Fast!"] },
-          500: { timeline: [0, 250, 500], voice: ["Corner kick!", "Medium pace!", "Standard!"] },
-          1000: { timeline: [0, 500, 1000], voice: ["Corner opportunity!", "Slow build!", "Dramatic!"] },
+          200: 7,
+          500: 8,
+          1000: 9,
         },
       };
       jest.spyOn(eventStore, "setCurrentVoiceConfigDetailForGame").mockImplementation();
