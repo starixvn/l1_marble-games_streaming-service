@@ -19,6 +19,7 @@ import { ResultService } from "./result/result-service";
 import { FeatureDebugService } from "./feature-debug/feature-debug-service";
 import { CommentatorVoiceService } from "./commentator-voice/commentator-voice-service";
 import { IntroService } from "./intro/intro-service";
+import { TeamNameService } from "./team-name/team-name-service";
 
 
 export interface OddFeedDataContainer extends DelayHandlingServiceContainer {
@@ -42,6 +43,7 @@ export interface OddFeedDataContainer extends DelayHandlingServiceContainer {
     featureDebugService: FeatureDebugService;
     commentatorVoiceService: CommentatorVoiceService;
     introService: IntroService;
+    teamNameService: TeamNameService;
 }
 
 function lazy<T extends object>(resolver: () => T): T {
@@ -92,6 +94,7 @@ export function registerContainer(container: AwilixContainer<OddFeedDataContaine
         resultService: asClass(ResultService).singleton().disposer((service) => service.dispose()),
         commentatorVoiceService: asClass(CommentatorVoiceService).singleton().disposer((service) => service.dispose()),
         introService: asClass(IntroService).singleton().disposer((service) => service.dispose()),
+        teamNameService: asClass(TeamNameService).singleton().disposer((service) => service.dispose()),
     });
 
     return container;
