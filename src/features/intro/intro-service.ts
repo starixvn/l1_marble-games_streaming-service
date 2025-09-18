@@ -51,7 +51,6 @@ export class IntroService {
         this.boundHandleEventUpcoming = this.handleEventUpcoming.bind(this);
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleEventCleanup = this.handleEventCleanup.bind(this);
-        this.boundHandleEventStart = this.handleEventStart.bind(this);
     }
 
     public eventName = "intro";
@@ -127,15 +126,24 @@ export class IntroService {
         delete this._introConfigByEventId[eventID];
     }
 
-    getCurrentByGameId(gameId: string): IntroState {
-        return this._introByGameId[gameId];
+    getCurrentByGameId(gameId: string) {
+        const introState = this._introByGameId[gameId];
+        if (!introState) {
+            return undefined;
+        }
+        const introTime = (Date.now() - introState.timeToPlay) / 1000;
+        return  { 
+            ...introState,
+            isPlaying: this.isPlaying(introState, introTime),
+            introTime,
+        };
     }
 
     private broadcastIntro({ gameId }: { gameId: string }) {
         
         this.gameBoardcastService.broadcastToAllClientByGameId(
             gameId,
-            this.getCurrentByGameId(gameId),
+            this.getCurrentByGameId(gameId) ?? {},
             this.eventName
         );
         this.log(`broadcast intro ${JSON.stringify(this.getCurrentByGameId(gameId), null, 2)}`, gameId);
@@ -147,5 +155,9 @@ export class IntroService {
 
     private log(message: string, gameId: string) {
         this.featureDebugService.log(this, message, gameId);
+    }
+
+    private isPlaying(introState: IntroState, introTime: number) {
+        return introTime >= 0 && introTime <= introState.duration;
     }
 }

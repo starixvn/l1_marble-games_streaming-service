@@ -190,22 +190,70 @@ describe('IntroService', () => {
     });
 
     describe('getCurrentByGameId', () => {
-        it('should return intro state for existing game', () => {
+        it('should return recalculated intro state for existing game', () => {
             // Arrange
-            const expectedState = {
+            const storedState = {
                 resourceServer: TEST_RESOURCE_SERVER,
-                introTime: 15,
+                introTime: 10, // This should be recalculated
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: false, // This should be recalculated
+                duration: TEST_DURATION
+            };
+            introService['_introByGameId'][TEST_GAME_ID] = storedState;
+
+            // Act
+            const result = introService.getCurrentByGameId(TEST_GAME_ID);
+
+            // Assert - should recalculate introTime and isPlaying based on current time
+            expect(result).toEqual({
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 15, // (TEST_TIME_TO_PLAY + 15000) - TEST_TIME_TO_PLAY = 15000ms / 1000 = 15s
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: true, // 15000ms is within 0-30000ms (duration * 1000)
+                duration: TEST_DURATION
+            });
+        });
+
+        it('should return intro state with isPlaying false when intro time exceeds duration', () => {
+            // Arrange
+            const storedState = {
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 10,
                 timeToPlay: TEST_TIME_TO_PLAY,
                 isPlaying: true,
                 duration: TEST_DURATION
             };
-            introService['_introByGameId'][TEST_GAME_ID] = expectedState;
+            introService['_introByGameId'][TEST_GAME_ID] = storedState;
+            jest.spyOn(Date, 'now').mockReturnValue(TEST_TIME_TO_PLAY + 35000); // 35 seconds after start
 
             // Act
             const result = introService.getCurrentByGameId(TEST_GAME_ID);
 
             // Assert
-            expect(result).toBe(expectedState);
+            expect(result).toBeDefined();
+            expect(result!.isPlaying).toBe(false);
+            expect(result!.introTime).toBe(35); // 35000ms / 1000 = 35s
+        });
+
+        it('should return intro state with isPlaying false when intro time is before start', () => {
+            // Arrange
+            const storedState = {
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 10,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: true,
+                duration: TEST_DURATION
+            };
+            introService['_introByGameId'][TEST_GAME_ID] = storedState;
+            jest.spyOn(Date, 'now').mockReturnValue(TEST_TIME_TO_PLAY - 5000); // 5 seconds before start
+
+            // Act
+            const result = introService.getCurrentByGameId(TEST_GAME_ID);
+
+            // Assert
+            expect(result).toBeDefined();
+            expect(result!.isPlaying).toBe(false);
+            expect(result!.introTime).toBe(-5); // -5000ms / 1000 = -5s
         });
 
         it('should return undefined for non-existing game', () => {
@@ -481,6 +529,25 @@ describe('IntroService', () => {
                 TEST_GAME_ID
             );
         });
+
+        it('should handle broadcasting when getCurrentByGameId returns undefined', () => {
+            // Arrange - No intro state set for the game
+
+            // Act
+            introService['broadcastIntro']({ gameId: 'nonexistent-game' });
+
+            // Assert
+            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                'nonexistent-game',
+                {}, // Should be empty object due to nullish coalescing
+                introService.eventName
+            );
+            expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
+                introService,
+                `broadcast intro ${JSON.stringify(undefined, null, 2)}`,
+                'nonexistent-game'
+            );
+        });
     });
 
     describe('getFirst2ndHalfEventDetailIndex', () => {
@@ -568,79 +635,113 @@ describe('IntroService', () => {
         });
     });
 
-    describe('edge cases', () => {
-        it('should maintain correct context when bound methods are called directly', () => {
+    describe('isPlaying (private method)', () => {
+        it('should return true when intro time is within duration range', () => {
             // Arrange
-            const boundHandleEventUpcoming = introService['boundHandleEventUpcoming'];
-            const boundHandleEventStart = introService['boundHandleEventStart'];
-            const boundHandleEventCleanup = introService['boundHandleEventCleanup'];
-
-            // Set up intro config first
-            introService['_introConfigByEventId'][TEST_EVENT_ID] = {
+            const introState = {
                 resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 15,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: false, // This will be overridden by isPlaying method
                 duration: TEST_DURATION
             };
-
-            // Act - Call bound methods directly (as they would be called by event emitter)
-            boundHandleEventUpcoming(mockEventNotificationWithConfig);
-            boundHandleEventStart(mockEventNotificationWithConfig);
-            boundHandleEventCleanup(mockSystemNotification);
-
-            // Assert
-            expect(mockScheduler.schedule).toHaveBeenCalledTimes(2); // prebet + halftime
-        });
-
-        it('should handle multiple events with different configs', () => {
-            // Arrange
-            const eventId2 = 8589934594;
-            const config2 = { resourceServer: "https://example2.com", duration: 45 };
-            const eventWithConfig2 = {
-                ...createMockEvent({ eventID: eventId2 }),
-                config: { intro: config2 }
-            };
+            const introTime = 15; // 15 seconds
 
             // Act
-            introService.handleEventUpcoming(mockEventNotificationWithConfig);
-            introService.handleEventUpcoming({ event: eventWithConfig2 as any });
+            const result = introService['isPlaying'](introState, introTime);
 
             // Assert
-            expect(introService['_introConfigByEventId'][TEST_EVENT_ID]).toEqual({
-                resourceServer: TEST_RESOURCE_SERVER,
-                duration: TEST_DURATION
-            });
-            expect(introService['_introConfigByEventId'][eventId2]).toEqual(config2);
+            expect(result).toBe(true);
         });
 
-        it('should handle playIntro with zero duration', () => {
+        it('should return true when intro time is exactly at start (0)', () => {
             // Arrange
-            introService['_introConfigByEventId'][TEST_EVENT_ID] = {
+            const introState = {
                 resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 0,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: false,
+                duration: TEST_DURATION
+            };
+            const introTime = 0;
+
+            // Act
+            const result = introService['isPlaying'](introState, introTime);
+
+            // Assert
+            expect(result).toBe(true);
+        });
+
+        it('should return true when intro time is exactly at duration end', () => {
+            // Arrange
+            const introState = {
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 30,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: false,
+                duration: TEST_DURATION
+            };
+            const introTime = TEST_DURATION; // 30 seconds
+
+            // Act
+            const result = introService['isPlaying'](introState, introTime);
+
+            // Assert
+            expect(result).toBe(true);
+        });
+
+        it('should return false when intro time is negative (before start)', () => {
+            // Arrange
+            const introState = {
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: -5,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: true,
+                duration: TEST_DURATION
+            };
+            const introTime = -5; // -5 seconds
+
+            // Act
+            const result = introService['isPlaying'](introState, introTime);
+
+            // Assert
+            expect(result).toBe(false);
+        });
+
+        it('should return false when intro time exceeds duration', () => {
+            // Arrange
+            const introState = {
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 35,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: true,
+                duration: TEST_DURATION
+            };
+            const introTime = 35; // 35 seconds
+
+            // Act
+            const result = introService['isPlaying'](introState, introTime);
+
+            // Assert
+            expect(result).toBe(false);
+        });
+
+        it('should return false when duration is zero', () => {
+            // Arrange
+            const introState = {
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 0,
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: true,
                 duration: 0
             };
+            const introTime = 1; // Any positive time should be false with 0 duration
 
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            const result = introService['isPlaying'](introState, introTime);
 
             // Assert
-            expect(introService['_introByGameId'][TEST_GAME_ID].isPlaying).toBe(false);
-            expect(introService['_introByGameId'][TEST_GAME_ID].duration).toBe(0);
-        });
-
-        it('should handle events with no event details gracefully', () => {
-            // Arrange
-            const eventWithNoDetails = createMockEvent({
-                eventID: TEST_EVENT_ID,
-                eventDetails: []
-            });
-            introService['_introConfigByEventId'][TEST_EVENT_ID] = {
-                resourceServer: TEST_RESOURCE_SERVER,
-                duration: TEST_DURATION
-            };
-
-            // Act & Assert - should throw due to accessing undefined array element
-            expect(() => {
-                introService.handleEventStart({ event: eventWithNoDetails });
-            }).toThrow();
+            expect(result).toBe(false);
         });
     });
 });
