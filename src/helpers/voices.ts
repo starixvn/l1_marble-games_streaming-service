@@ -191,8 +191,8 @@ export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: 
         
         if (isOverlappingPrevious(tracker)) {
             if (isGoalAndPreviousIsNotGoal(tracker)) {
-                const ignoredVoice = voice.pop();
-                const ignoredTimeline = timeline.pop();
+                voice.pop();
+                timeline.pop();
             } else {
                 return;
             }
