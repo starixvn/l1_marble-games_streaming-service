@@ -38,6 +38,7 @@ const createMockEvent = (eventId: number = 1001, name: string = "Test Event"): E
       result: "1-0",
       markets: [{ id: 1, name: "market1" }],
       inGameEventInfo: "in-game-event-info-1",
+      phase: 0
     },
     {
       eventID: eventId,
@@ -50,6 +51,7 @@ const createMockEvent = (eventId: number = 1001, name: string = "Test Event"): E
       result: "2-0",
       markets: [{ id: 2, name: "market2" }],
       inGameEventInfo: "in-game-event-info-2",
+      phase: 1
     },
   ],
 });

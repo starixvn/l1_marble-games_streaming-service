@@ -44,6 +44,7 @@ const mockEvent: Event = {
       result: "1-0",
       markets: TEST_MARKETS,
       inGameEventInfo: TEST_INFO,
+      phase: 0
     },
     {
       eventID: TEST_EVENT_ID,
@@ -56,6 +57,7 @@ const mockEvent: Event = {
       result: "2-0",
       markets: TEST_MARKETS,
       inGameEventInfo: "info-2",
+      phase: 1
     },
   ],
 };
@@ -66,7 +68,6 @@ describe("OddFeedScheduler", () => {
   let mockScheduler: any;
   let mockOddFeedPullService: any;
   let mockLogService: any;
-  let mockOddFeedStore: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,10 +92,6 @@ describe("OddFeedScheduler", () => {
       logError: jest.fn(),
     };
 
-    mockOddFeedStore = {
-      setEventByGameId: jest.fn(),
-    };
-
     (idHelper.extractGameId as jest.Mock).mockReturnValue(TEST_GAME_ID);
     (idHelper.extractRoundId as jest.Mock).mockReturnValue("round-456");
 
@@ -103,7 +100,6 @@ describe("OddFeedScheduler", () => {
       scheduler: mockScheduler,
       oddFeedPullService: mockOddFeedPullService,
       logService: mockLogService,
-      oddFeedStore: mockOddFeedStore,
     } as any);
   });
 
@@ -115,7 +111,6 @@ describe("OddFeedScheduler", () => {
         scheduler: mockScheduler,
         oddFeedPullService: mockOddFeedPullService,
         logService: mockLogService,
-        oddFeedStore: mockOddFeedStore,
       } as any);
 
       // Assert
@@ -124,7 +119,6 @@ describe("OddFeedScheduler", () => {
       expect(instance["scheduler"]).toBe(mockScheduler);
       expect(instance["oddFeedPullService"]).toBe(mockOddFeedPullService);
       expect(instance["logService"]).toBe(mockLogService);
-      expect(instance["oddFeedStore"]).toBe(mockOddFeedStore);
     });
   });
 
@@ -285,8 +279,6 @@ describe("OddFeedScheduler", () => {
 
       // Assert
       expect(mockOddFeedPullService.pullEventWithEventDetails).toHaveBeenCalledWith(TEST_EVENT_ID);
-      expect(idHelper.extractGameId).toHaveBeenCalledWith(TEST_EVENT_ID);
-      expect(mockOddFeedStore.setEventByGameId).toHaveBeenCalledWith(TEST_GAME_ID, TEST_EVENT_ID, updatedEvent);
       expect(result).toBe(updatedEvent);
     });
 
@@ -301,7 +293,6 @@ describe("OddFeedScheduler", () => {
       expect(mockOddFeedPullService.pullEventWithEventDetails).toHaveBeenCalledWith(TEST_EVENT_ID);
       expect(mockLogService.logError).toHaveBeenCalledWith(`Failed to get event details for event ${TEST_EVENT_ID}`);
       expect(idHelper.extractGameId).not.toHaveBeenCalled();
-      expect(mockOddFeedStore.setEventByGameId).not.toHaveBeenCalled();
       expect(result).toBeUndefined();
     });
   });

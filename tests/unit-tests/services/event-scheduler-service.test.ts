@@ -877,27 +877,6 @@ describe("EventSchedulerService", () => {
       expect(voiceJobCalls[1][3]).toBe(true); // should be background job
     });
 
-    it("should handle missing phase property in event detail", async () => {
-      // Arrange
-      const gameId = "2001";
-      const index = 0;
-      const givenGoalInfo = createMockGoalInfo();
-      const mockEvent = createMockEvent(1001);
-      // Remove phase property from event detail
-      const eventDetailWithoutPhase = { ...mockEvent.eventDetails[index] };
-      delete eventDetailWithoutPhase.phase;
-      mockEvent.eventDetails[index] = eventDetailWithoutPhase;
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      await eventSchedulerService.scheduleUpdateGoalInfo(gameId, index, givenGoalInfo);
-
-      // Assert
-      expect(mockEventManager.initializeGamePhaseWithGoalInfo).toHaveBeenCalledWith(gameId, givenGoalInfo, index);
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(3);
-    });
-
     it("should schedule goal info jobs with video delay", async () => {
       // Arrange
       const gameId = "2001";
@@ -922,40 +901,6 @@ describe("EventSchedulerService", () => {
           true
         );
       });
-    });
-
-    it("should handle missing phase property in voice scheduling", async () => {
-      // Arrange
-      const gameId = "2001";
-      const index = 0;
-      const givenInGameEvent = createMockInGameEvent();
-      const mockEvent = createMockEvent(1001);
-      // Remove phase property from event detail
-      const eventDetailWithoutPhase = { ...mockEvent.eventDetails[index] };
-      delete eventDetailWithoutPhase.phase;
-      mockEvent.eventDetails[index] = eventDetailWithoutPhase;
-      
-      const mockVoiceResult = {
-        timeline: [10],
-        voice: ["voice1"],
-      };
-      const mockPreviousVoice = { voice: [], timeline: [] };
-      const mockPreviousInGameEvent = { eventName: [], timeline: [] };
-      const mockPreviousResult: string[] = [];
-
-      mockEventManager.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockEventManager.getVoiceForGame.mockReturnValue(mockPreviousVoice);
-      mockEventManager.getInGameEventForGame.mockReturnValue(mockPreviousInGameEvent);
-      mockEventManager.getPreviousResultForGame.mockReturnValue(mockPreviousResult);
-      mockGenerateVoiceWithEventTimeline.mockReturnValue(mockVoiceResult);
-
-      // Act
-      await eventSchedulerService.scheduleUpdateVoice(gameId, index, givenInGameEvent);
-
-      // Assert
-      expect(mockEventManager.appendInGameEventForGame).toHaveBeenCalledWith(gameId, givenInGameEvent, index);
-      expect(mockEventManager.appendVoiceForGame).toHaveBeenCalledWith(gameId, mockVoiceResult.voice, mockVoiceResult.timeline, index);
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalledTimes(1);
     });
 
     it("should handle null values from previous voice and event data", async () => {
@@ -1470,21 +1415,6 @@ describe("EventSchedulerService", () => {
       expect(mockJobScheduler.scheduleJob).not.toHaveBeenCalled();
     });
 
-    it("should use index as fallback when phase is undefined", async () => {
-      // Arrange
-      const eventDetail = createMockEventDetail(1001, 1);
-      delete eventDetail.phase;
-      const gameId = "2001";
-      const index = 1;
-      const phaseChangeIndex = { 0: 0, 1: 1 };
-
-      // Act
-      await eventSchedulerService.schedulePlayIntroBetweenPhases(eventDetail, gameId, index, phaseChangeIndex);
-
-      // Assert
-      expect(mockJobScheduler.scheduleJob).toHaveBeenCalled();
-    });
-
     it("should handle default phaseChangeIndex parameters", async () => {
       // Arrange
       const eventDetail = createMockEventDetail(1001, 1);
@@ -1683,45 +1613,6 @@ describe("EventSchedulerService", () => {
         "2001", 
         0, 
         undefined
-      );
-
-      // Cleanup
-      schedulePlayIntroBetweenPhasesSpy.mockRestore();
-    });
-
-    it("should calculate phaseChangeIndex when event details have no phase property", () => {
-      // Arrange
-      const event = createMockEvent(1001);
-      // Create event details without phase property to trigger calculation
-      event.eventDetails = [
-        { ...createMockEventDetail(1001, 0) },
-        { ...createMockEventDetail(1001, 1) }
-      ];
-      // Remove phase properties to trigger phaseChangeIndex calculation
-      delete event.eventDetails[0].phase;
-      delete event.eventDetails[1].phase;
-      
-      const schedulePlayIntroBetweenPhasesSpy = jest.spyOn(eventSchedulerService, 'schedulePlayIntroBetweenPhases').mockImplementation();
-
-      mockIdHelper.extractGameId.mockReturnValue("2001");
-
-      // Act
-      eventSchedulerService.scheduleEventDetails(event);
-
-      // Assert - Should calculate and pass phaseChangeIndex when phases are not predefined
-      // When phases are undefined, getPhaseChangeIndex only returns { 0: 0 } because
-      // undefined !== undefined is false, so no phase changes are detected
-      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
-        event.eventDetails[0], 
-        "2001", 
-        0, 
-        { 0: 0 }  // Only default phase change index when phases are undefined
-      );
-      expect(schedulePlayIntroBetweenPhasesSpy).toHaveBeenCalledWith(
-        event.eventDetails[1], 
-        "2001", 
-        1, 
-        { 0: 0 }  // Only default phase change index when phases are undefined
       );
 
       // Cleanup

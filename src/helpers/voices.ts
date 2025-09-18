@@ -193,7 +193,6 @@ export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: 
             if (isGoalAndPreviousIsNotGoal(tracker)) {
                 const ignoredVoice = voice.pop();
                 const ignoredTimeline = timeline.pop();
-                console.log(`Ignored voice: ${ignoredVoice} at ${ignoredTimeline}`);
             } else {
                 return;
             }

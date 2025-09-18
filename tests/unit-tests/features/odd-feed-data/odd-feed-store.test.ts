@@ -35,7 +35,8 @@ const createMockEvent = (eventID: number, teamA = "Team A", teamB = "Team B"): E
             playlist: "playlist.m3u8",
             result: "",
             markets: {},
-            inGameEventInfo: "{}"
+            inGameEventInfo: "{}",
+            phase: 0
         }
     ]
 });

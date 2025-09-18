@@ -20,6 +20,7 @@ const createMockEventDetail = (eventId: number = 1, index: number = 0): EventDet
   result: "1-0",
   markets: [{ id: 1, name: "market1" }],
   inGameEventInfo: "in-game-event-info-1",
+  phase: index,
 });
 
 const createMockEvent = (eventId: number = 1, name: string = "Test Event"): Event => ({

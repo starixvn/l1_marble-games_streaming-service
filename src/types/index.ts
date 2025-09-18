@@ -54,7 +54,7 @@ export type EventDetail = {
   result: string;
   markets: any;
   inGameEventInfo: string;
-  phase?: number;
+  phase: number;
 };
 
 export type GoalInfoData = {
@@ -89,7 +89,7 @@ export type VoiceEvent = {
 
 export type VoiceConfig = {
   [event: string]: {
-    [duration: number]: VoiceEvent;
+    [duration: number]: number;
   };
 };
 

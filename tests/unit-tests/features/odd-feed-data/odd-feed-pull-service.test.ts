@@ -35,6 +35,7 @@ const mockEvent: Event = {
       result: "1-0",
       markets: [],
       inGameEventInfo: "info-1",
+      phase: 0
     },
   ],
 };

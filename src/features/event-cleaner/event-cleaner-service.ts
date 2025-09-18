@@ -1,5 +1,8 @@
 import { idHelper } from "../../helpers";
+import { log } from "../../helpers/log";
 import { EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
+
+const DEBUG = false;
 
 interface EventCleanerServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
@@ -36,18 +39,20 @@ export class EventCleanerService {
             this._eventQueueByGameId[gameId] = [];
         }
         this._eventQueueByGameId[gameId].push(event.eventID);
-        this.log(`event added event ${event.eventID} for game ${gameId}`);
+        this.log(`event added event ${event.eventID}`, gameId);
 
         if (this._eventQueueByGameId[gameId].length > this.maxLength) {
             const eventIdToRemove = this._eventQueueByGameId[gameId].shift();
             if (eventIdToRemove) {
-                this.log(`event queue want to clear event ${eventIdToRemove} for game ${gameId}`);
+                this.log(`event queue want to clear event ${eventIdToRemove}`, gameId);
                 this.oddFeedEventSource.onDataCleanup(eventIdToRemove);
             }
         }
     }
 
-    private log(message: string) {
-        console.log(`\x1b[31m[EventCleanerService]\x1b[37m: ${message}`);
+    private log(message: string, gameId: string) {
+        if (DEBUG) {
+            log(`\x1b[31m[EventCleanerService]\x1b[37m: ${message} for game ${gameId}`);
+        }
     }
 }
