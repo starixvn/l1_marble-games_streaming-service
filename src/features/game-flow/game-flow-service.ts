@@ -4,6 +4,7 @@ import { OddFeedEventName, OddFeedEventSource, EventNotification, EventDetailNot
 import { Scheduler } from "../scheduler/scheduler";
 import { isLastEventDetail, isPhaseSwitching } from "../../helpers/phase-helper";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
+import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 
 export enum GameFlow {
     Prebet = "Prebet",
@@ -17,6 +18,7 @@ interface GameFlowServiceContainer {
     scheduler: Scheduler;
     delayHandlingService: DelayHandlingService;
     gameBoardcastService: GameBroadcastService;
+    featureDebugService: FeatureDebugService;
 }
 
 export class GameFlowService {
@@ -25,6 +27,7 @@ export class GameFlowService {
     private readonly scheduler: Scheduler;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly gameBoardcastService: GameBroadcastService;
+    private readonly featureDebugService: FeatureDebugService;
 
     private _gameFlowByGameId: Record<string, GameFlow> = {};
     private _trackPointByGameId: Record<string, number> = {};
@@ -38,6 +41,7 @@ export class GameFlowService {
         this.scheduler = container.scheduler;
         this.delayHandlingService = container.delayHandlingService;
         this.gameBoardcastService = container.gameBoardcastService;
+        this.featureDebugService = container.featureDebugService;
 
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleResultAvailable = this.handleResultAvailable.bind(this);
@@ -130,9 +134,9 @@ export class GameFlowService {
 
     private switchGameFlow({ eventId, gameFlow }: { eventId: number, gameFlow: GameFlow }) {
         const gameId = idHelper.extractGameId(eventId);
-        const diffInSecond = (Date.now() - this._trackPointByGameId[gameId]) / 1000;
         
-        this.log(`switch to \x1b[32m${gameFlow}\x1b[37m for game ${gameId} track time: ${diffInSecond}`);
+        this.log(`switch to \x1b[32m${gameFlow}\x1b[37m`, gameId);
+
         this._gameFlowByGameId[gameId] = gameFlow;
         this.gameBoardcastService.broadcastToAllClientByGameId(gameId, { 
             state: gameFlow,
@@ -151,7 +155,7 @@ export class GameFlowService {
         return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
     }
 
-    private log(message: string) {
-        console.log(`\x1b[33m[GameFlowService] \x1b[37m: ${message}`);
+    private log(message: string, gameId: string) {
+        this.featureDebugService.log(this, message, gameId);
     }
 }

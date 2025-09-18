@@ -1,7 +1,11 @@
+import { log } from "../../helpers/log";
+
 interface TimedCallback {
     callback: Function;
     timeoutId: NodeJS.Timeout;
 }
+
+const DEBUG = false;
 
 export class Scheduler {
     private readonly tasks: Record<string, TimedCallback> = {};
@@ -63,6 +67,8 @@ export class Scheduler {
     }
 
     private log(message: string) {
-        console.log(`\x1b[32m [Scheduler] \x1b[37m: ${message}`);
+        if (DEBUG) {
+            log(`\x1b[32m [Scheduler] \x1b[37m: ${message}`);
+        }
     }
 }

@@ -13,6 +13,7 @@ const createMockEventDetail = (eventId: number = 1, index: number = 0): EventDet
   result: "1-0",
   markets: [{ id: 1, name: "market1" }],
   inGameEventInfo: "in-game-event-info-1",
+  phase: index,
 });
 
 const createMockGoalInfo = (): GoalInfoData => ({
@@ -34,20 +35,11 @@ const createMockVoiceEvent = (): VoiceEvent => ({
 
 const createMockVoiceConfig = (): VoiceConfig => ({
   "goal": {
-    1000: {
-      timeline: [0, 500, 1000],
-      voice: ["Goal scored!", "What a shot!", "Amazing!"],
-    },
-    2000: {
-      timeline: [0, 1000, 2000],
-      voice: ["Two goals!", "Incredible!", "Fantastic!"],
-    },
+    1000: 0,
+    2000: 1,
   },
   "assist": {
-    500: {
-      timeline: [0, 250, 500],
-      voice: ["Great assist!", "Perfect pass!", "Teamwork!"],
-    },
+    500: 2,
   },
 });
 
@@ -1031,10 +1023,7 @@ describe("EventStore", () => {
       const firstConfig = createMockVoiceConfig();
       const secondConfig: VoiceConfig = {
         "penalty": {
-          1500: {
-            timeline: [0, 750, 1500],
-            voice: ["Penalty!", "Shot!", "Goal or miss?"],
-          },
+          1500: 12,
         },
       };
 
@@ -1054,20 +1043,20 @@ describe("EventStore", () => {
       eventStore.setCurrentEventForGame(gameId, mockEvent);
       const complexConfig: VoiceConfig = {
         "goal": {
-          500: { timeline: [0, 250, 500], voice: ["Quick goal!", "Fast!", "Speed!"] },
-          1000: { timeline: [0, 500, 1000], voice: ["Goal!", "Score!", "Yes!"] },
-          2000: { timeline: [0, 1000, 2000], voice: ["Long goal!", "Extended!", "Duration!"] },
+          500: 0,
+          1000: 1,
+          2000: 2,
         },
         "assist": {
-          300: { timeline: [0, 150, 300], voice: ["Assist!", "Pass!", "Help!"] },
-          600: { timeline: [0, 300, 600], voice: ["Great assist!", "Perfect pass!", "Teamwork!"] },
+          300: 2,
+          600: 3,
         },
         "save": {
-          800: { timeline: [0, 400, 800], voice: ["Great save!", "Blocked!", "Stopped!"] },
+          800: 4,
         },
         "corner": {
-          200: { timeline: [0, 100, 200], voice: ["Corner!", "Quick!", "Fast!"] },
-          1000: { timeline: [0, 500, 1000], voice: ["Corner opportunity!", "Slow build!", "Dramatic!"] },
+          200: 5,
+          1000: 6,
         },
       };
 
@@ -1090,11 +1079,8 @@ describe("EventStore", () => {
       const config1 = createMockVoiceConfig();
       const config2: VoiceConfig = {
         "penalty": {
-          1000: {
-            timeline: [0, 500, 1000],
-            voice: ["Penalty kick!", "Will it go in?", "Goal!"],
-          },
-        },
+          1000: 7,
+        },  
       };
 
       // Act
@@ -1113,10 +1099,7 @@ describe("EventStore", () => {
       eventStore.setCurrentEventForGame(gameId, mockEvent);
       const singleEventConfig: VoiceConfig = {
         "free-kick": {
-          2000: {
-            timeline: [0, 1000, 2000],
-            voice: ["Free kick awarded!", "Taking the shot!", "What a strike!"],
-          },
+          2000: 8,
         },
       };
 
@@ -1135,9 +1118,9 @@ describe("EventStore", () => {
       eventStore.setCurrentEventForGame(gameId, mockEvent);
       const multiDurationConfig: VoiceConfig = {
         "substitution": {
-          500: { timeline: [0, 250, 500], voice: ["Sub!", "Quick!", "Change!"] },
-          1000: { timeline: [0, 500, 1000], voice: ["Substitution!", "Player change!", "Fresh legs!"] },
-          1500: { timeline: [0, 750, 1500], voice: ["Strategic substitution!", "Tactical change!", "New player on!"] },
+          500: 9,
+          1000: 10,
+          1500: 11,
         },
       };
 
@@ -1166,10 +1149,7 @@ describe("EventStore", () => {
       for (let i = 0; i < 5; i++) {
         const config: VoiceConfig = {
           [`event_${i}`]: {
-            1000: {
-              timeline: [0, 500, 1000],
-              voice: [`voice_${i}_1`, `voice_${i}_2`, `voice_${i}_3`],
-            },
+            1000: 12,
           },
         };
         eventStore.setCurrentVoiceConfigDetailForGame(gameId, config);
@@ -1179,10 +1159,7 @@ describe("EventStore", () => {
       const result = eventStore.getCurrentEventForGame(gameId);
       expect(result?.voiceConfigDetail).toEqual({
         "event_4": {
-          1000: {
-            timeline: [0, 500, 1000],
-            voice: ["voice_4_1", "voice_4_2", "voice_4_3"],
-          },
+          1000: 12
         },
       });
     });

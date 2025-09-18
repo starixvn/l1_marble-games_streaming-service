@@ -1,6 +1,7 @@
 import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
+import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
 import { Scheduler } from "../scheduler/scheduler";
 
@@ -9,6 +10,7 @@ interface CurrentEventServiceContainer {
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
     gameBoardcastService: GameBroadcastService;
+    featureDebugService: FeatureDebugService;
 }
 
 export class CurrentEventService {
@@ -16,7 +18,7 @@ export class CurrentEventService {
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
     private readonly gameBoardcastService: GameBroadcastService;
-    
+    private readonly featureDebugService: FeatureDebugService;
     private readonly _currentEventByGameId: Record<string, number> = {};
     private readonly _currentEventDetailIndexByGameId: Record<string, number> = {};
 
@@ -28,6 +30,7 @@ export class CurrentEventService {
         this.delayHandlingService = container.delayHandlingService;
         this.scheduler = container.scheduler;
         this.gameBoardcastService = container.gameBoardcastService;
+        this.featureDebugService = container.featureDebugService;   
 
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleEventDetailResultAvailable = this.handleEventDetailResultAvailable.bind(this);
@@ -84,7 +87,7 @@ export class CurrentEventService {
         }
 
         this._currentEventDetailIndexByGameId[gameId] = index + 1;
-        this.log(`event index increment for game ${gameId} with event ${event.eventID} to ${index + 1}`);
+        this.log(`event index increment for event ${event.eventID} to ${index + 1}`, gameId);
         this.notifyClient({
             gameId,
             eventID: event.eventID,
@@ -96,7 +99,7 @@ export class CurrentEventService {
         const gameId = idHelper.extractGameId(event.eventID);
         this._currentEventDetailIndexByGameId[gameId] = 0;
         this._currentEventByGameId[gameId] = event.eventID;
-        this.log(`event index reset for game ${gameId} and set current event to ${event.eventID}`);
+        this.log(`event index reset for event ${event.eventID}`, gameId);
         this.notifyClient({
             gameId,
             eventID: event.eventID,
@@ -109,8 +112,8 @@ export class CurrentEventService {
         this._currentEventDetailIndexByGameId[gameId] = index;
     }
 
-    private log(message: string) {
-        console.log(`\x1b[34m[CurrentEventService] \x1b[37m: ${message}`);
+    private log(message: string, gameId: string) {
+        this.featureDebugService.log(this, message, gameId);
     }
 
     private notifyClient({

@@ -3,15 +3,12 @@ import { AppContainer, Event as OddFeedEvent } from "../../types";
 import { Scheduler } from "../scheduler/scheduler";
 import { OddFeedEventName, OddFeedEventSource } from "./odd-feed-event-source";
 import { OddFeedPullService } from "./odd-feed-pull-service";
-import { OddFeedStore } from "./odd-feed-store";
-import { idHelper } from "../../helpers";
 
 interface OddFeedSchedulerContainer extends AppContainer {
     oddFeedEventSource: OddFeedEventSource;
     scheduler: Scheduler;
     oddFeedPullService: OddFeedPullService;
     logService: typeof logger;
-    oddFeedStore: OddFeedStore;
 }
 
 export class OddFeedScheduler {
@@ -19,14 +16,12 @@ export class OddFeedScheduler {
     private readonly scheduler: Scheduler;
     private readonly oddFeedPullService: OddFeedPullService;
     private readonly logService: typeof logger;
-    private readonly oddFeedStore: OddFeedStore;
 
     constructor(container: OddFeedSchedulerContainer) {
         this.oddFeedEventSource = container.oddFeedEventSource;
         this.scheduler = container.scheduler;
         this.oddFeedPullService = container.oddFeedPullService;
         this.logService = container.logService;
-        this.oddFeedStore = container.oddFeedStore;
     }
 
     public scheduleEventUpcoming(event: OddFeedEvent) {
@@ -121,8 +116,6 @@ export class OddFeedScheduler {
                 this.logService.logError(`Failed to get event details for event ${event.eventID}`);
                 return undefined;
             }
-            this.oddFeedStore.setEventByGameId(idHelper.extractGameId(updatedEvent.eventID), updatedEvent.eventID, updatedEvent);
-
         return updatedEvent;
     }
     

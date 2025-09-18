@@ -3,15 +3,15 @@ import { Event } from "../../types";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { EventDetailNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
 import { Scheduler } from "../scheduler/scheduler";
-import { GameFlowService } from "../game-flow/game-flow-service";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
+import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 
 interface VideoStreamingServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
-    gameFlowService: GameFlowService;
     gameBoardcastService: GameBroadcastService;
+    featureDebugService: FeatureDebugService;
 }
 
 
@@ -31,8 +31,8 @@ export class VideoStreamingService {
     private readonly oddFeedEventSource: OddFeedEventSource;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
-    private readonly gameFlowService: GameFlowService;
     private readonly gameBoardcastService: GameBroadcastService;
+    private readonly featureDebugService: FeatureDebugService;
     
     private readonly _currentVideoStateByGameId: Record<string, VideoState> = {};
     private readonly _preloadVideoStateByGameId: Record<string, PreloadVideoState> = {};
@@ -44,8 +44,8 @@ export class VideoStreamingService {
         this.oddFeedEventSource = container.oddFeedEventSource;
         this.delayHandlingService = container.delayHandlingService;
         this.scheduler = container.scheduler;
-        this.gameFlowService = container.gameFlowService;
         this.gameBoardcastService = container.gameBoardcastService;
+        this.featureDebugService = container.featureDebugService;
 
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
     }
@@ -84,8 +84,7 @@ export class VideoStreamingService {
             currentTime: 0,
             phaseIndex: index,
         };
-        const diffInSecond = (Date.now() - this.gameFlowService.getTrackPointByGameId(gameId)) / 1000;
-        this.log(`video streaming started for game ${gameId} with event ${event.eventID} and index ${index} track time: ${diffInSecond} `);
+        this.log(`video streaming started with event ${event.eventID} and index ${index}`, gameId);
         this.gameBoardcastService.broadcastToAllClientByGameId(
             gameId, 
             this.getCurrentVideoStateByGameId(gameId),
@@ -115,8 +114,8 @@ export class VideoStreamingService {
         return this._preloadVideoStateByGameId[gameId];
     }
 
-    private log(message: string) {
-        console.log(`\x1b[35m[VideoStreamingService] \x1b[37m: ${message}`);
+    private log(message: string, gameId: string) {
+        this.featureDebugService.log(this, message, gameId);
     }
 
     private getTimeToStream(event: Event, index: number) {

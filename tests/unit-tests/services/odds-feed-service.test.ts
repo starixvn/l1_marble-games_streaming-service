@@ -42,24 +42,24 @@ const createMockInGameEvent = (): InGameEvent => ({
   eventName: ["kick-off", "corner", "free-kick"],
 });
 
-const createMockVoiceConfig = (): VoiceConfig => ({
-  "goal": {
-    1000: {
-      timeline: [0, 500, 1000],
-      voice: ["Goal scored!", "What a shot!", "Amazing!"],
+const createMockVoiceConfig = (): VoiceConfig => {
+  return {
+    "goal": {
+      1000: 0,
+      2000: 1,
     },
-    2000: {
-      timeline: [0, 1000, 2000],
-      voice: ["Two goals!", "Incredible!", "Fantastic!"],
+    "assist": {
+      500: 2,
     },
-  },
-  "assist": {
-    500: {
-      timeline: [0, 250, 500],
-      voice: ["Great assist!", "Perfect pass!", "Teamwork!"],
+    "save": {
+      800: 4,
     },
-  },
-});
+    "corner": {
+      200: 5,
+      1000: 6,
+    },
+  }
+}
 
 const createMockEventValidator =
   (shouldValidate: boolean = true): EventValidator =>
@@ -831,15 +831,19 @@ describe("OddsFeedService", () => {
       const url = "https://api.voice.com/config/complex";
       const complexVoiceConfig: VoiceConfig = {
         "goal": {
-          500: { timeline: [0, 250, 500], voice: ["Quick goal!", "Fast!", "Speed!"] },
-          1000: { timeline: [0, 500, 1000], voice: ["Goal!", "Score!", "Yes!"] },
-          2000: { timeline: [0, 1000, 2000], voice: ["Long goal!", "Extended!", "Duration!"] },
+          500: 0,
+          1000: 1,
+          2000: 2,
         },
         "assist": {
-          300: { timeline: [0, 150, 300], voice: ["Assist!", "Pass!", "Help!"] },
+          300: 2,
         },
         "save": {
-          800: { timeline: [0, 400, 800], voice: ["Great save!", "Blocked!", "Stopped!"] },
+          800: 4,
+        },
+        "corner": {
+          200: 5,
+          1000: 6,
         },
       };
       const mockResponse = {
