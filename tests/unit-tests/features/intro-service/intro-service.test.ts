@@ -320,20 +320,31 @@ describe('IntroService', () => {
             };
         });
 
-        it('should schedule prebet and halftime intros when duration is available', () => {
+        it('should schedule prebet and halftime intro start and stop times when duration is available', () => {
             // Arrange
             mockDelayHandlingService.getDelayedTime
-                .mockReturnValueOnce(TEST_DELAYED_TIME) // prebet intro
-                .mockReturnValueOnce(TEST_DELAYED_TIME_HALFTIME); // halftime intro
+                .mockReturnValueOnce(TEST_DELAYED_TIME) // prebet intro start
+                .mockReturnValueOnce(TEST_DELAYED_TIME_HALFTIME); // halftime intro start
 
             // Act
             introService.handleEventStart(mockEventNotificationWithConfig);
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledTimes(2);
-            expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(4); // 2 start times + 2 stop times
+            
+            // Verify prebet intro start
             expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, TEST_DELAYED_TIME, expect.any(Function));
+            // Verify halftime intro start
             expect(mockScheduler.schedule).toHaveBeenNthCalledWith(2, TEST_DELAYED_TIME_HALFTIME, expect.any(Function));
+            
+            // Verify prebet intro stop (start time + duration + 1ms to avoid race condition)
+            const expectedPrebetStopTime = new Date(TEST_DELAYED_TIME.getTime() + (TEST_DURATION * 1000) + 1);
+            expect(mockScheduler.schedule).toHaveBeenNthCalledWith(3, expectedPrebetStopTime, expect.any(Function));
+            
+            // Verify halftime intro stop (start time + duration + 1ms to avoid race condition)
+            const expectedHalftimeStopTime = new Date(TEST_DELAYED_TIME_HALFTIME.getTime() + (TEST_DURATION * 1000) + 1);
+            expect(mockScheduler.schedule).toHaveBeenNthCalledWith(4, expectedHalftimeStopTime, expect.any(Function));
         });
 
         it('should not schedule intros when duration is not available', () => {
@@ -366,7 +377,7 @@ describe('IntroService', () => {
             });
         });
 
-        it('should execute scheduled intro correctly', () => {
+        it('should execute scheduled intro status update correctly', () => {
             // Act
             introService.handleEventStart(mockEventNotificationWithConfig);
 
@@ -380,7 +391,7 @@ describe('IntroService', () => {
         });
     });
 
-    describe('playIntro', () => {
+    describe('updateIntroStatus', () => {
         beforeEach(() => {
             // Set up intro config
             introService['_introConfigByEventId'][TEST_EVENT_ID] = {
@@ -389,9 +400,9 @@ describe('IntroService', () => {
             };
         });
 
-        it('should create intro state and broadcast when playing intro', () => {
+        it('should create intro state and broadcast when updating intro status', () => {
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
 
             // Assert
             expect(introService['_introByGameId'][TEST_GAME_ID]).toEqual({
@@ -413,7 +424,7 @@ describe('IntroService', () => {
             jest.spyOn(Date, 'now').mockReturnValue(TEST_TIME_TO_PLAY - 5000); // 5 seconds before start
 
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
 
             // Assert
             expect(introService['_introByGameId'][TEST_GAME_ID].isPlaying).toBe(false);
@@ -425,7 +436,7 @@ describe('IntroService', () => {
             jest.spyOn(Date, 'now').mockReturnValue(TEST_TIME_TO_PLAY + 35000); // 35 seconds after start (beyond 30s duration)
 
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
 
             // Assert
             expect(introService['_introByGameId'][TEST_GAME_ID].isPlaying).toBe(false);
@@ -437,7 +448,7 @@ describe('IntroService', () => {
             jest.spyOn(Date, 'now').mockReturnValue(TEST_TIME_TO_PLAY); // exactly at start time
 
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
 
             // Assert
             expect(introService['_introByGameId'][TEST_GAME_ID].isPlaying).toBe(true);
@@ -449,7 +460,7 @@ describe('IntroService', () => {
             jest.spyOn(Date, 'now').mockReturnValue(TEST_TIME_TO_PLAY + (TEST_DURATION * 1000)); // exactly at duration end
 
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
 
             // Assert
             expect(introService['_introByGameId'][TEST_GAME_ID].isPlaying).toBe(true);
@@ -461,12 +472,55 @@ describe('IntroService', () => {
             const extractGameIdSpy = jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID);
 
             // Act
-            introService.playIntro({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
 
             // Assert
             expect(extractGameIdSpy).toHaveBeenCalledWith(TEST_EVENT_ID);
             
             extractGameIdSpy.mockRestore();
+        });
+
+        it('should handle stop intro timing correctly - race condition fixed', () => {
+            // Arrange - The stop event is scheduled 1ms after the exact duration end
+            const stopTime = TEST_TIME_TO_PLAY + (TEST_DURATION * 1000) + 1; // stop time + 1ms
+            jest.spyOn(Date, 'now').mockReturnValue(stopTime); // exactly at stop time
+
+            // Act - This simulates what happens when the stop event fires
+            // The timeToPlay parameter is now the START time (race condition fixed!)
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+
+            // Assert - When timeToPlay is the start time and Date.now() is the stop time,
+            // introTime = (stopTime - startTime) / 1000 = 30.001, so isPlaying should be false
+            expect(introService['_introByGameId'][TEST_GAME_ID]).toEqual({
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 30.001, // (stopTime - startTime) / 1000 = (TEST_TIME_TO_PLAY + 30001 - TEST_TIME_TO_PLAY) / 1000
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: false, // 30.001 > 30 (duration), so correctly stopped!
+                duration: TEST_DURATION
+            });
+            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                TEST_GAME_ID,
+                introService.getCurrentByGameId(TEST_GAME_ID),
+                introService.eventName
+            );
+        });
+
+        it('should handle delayed stop event firing correctly', () => {
+            // Arrange - Stop event fires 100ms after the scheduled stop time
+            const stopTime = TEST_TIME_TO_PLAY + (TEST_DURATION * 1000);
+            jest.spyOn(Date, 'now').mockReturnValue(stopTime + 100); // 100ms after stop time
+
+            // Act - Stop event with timeToPlay as START time (fixed!)
+            introService.updateIntroStatus({ eventID: TEST_EVENT_ID, timeToPlay: TEST_TIME_TO_PLAY });
+
+            // Assert - Now introTime = 30.1 seconds, which is > 30, so correctly stopped!
+            expect(introService['_introByGameId'][TEST_GAME_ID]).toEqual({
+                resourceServer: TEST_RESOURCE_SERVER,
+                introTime: 30.1, // (stopTime + 100 - startTime) / 1000 = 30.1
+                timeToPlay: TEST_TIME_TO_PLAY,
+                isPlaying: false, // Correctly false because 30.1 > 30
+                duration: TEST_DURATION
+            });
         });
     });
 

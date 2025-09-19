@@ -94,17 +94,23 @@ export class IntroService {
             return;
         }
 
+        const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
+
         const durationInMillis = duration * 1000;
         const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
-       
-        const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
-        const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMillis) });
+        const timeToStopPrebetIntro = new Date(timeToPlayPrebetIntro.getTime() + durationInMillis + 1);
         
-        this.scheduler.schedule(timeToPlayPrebetIntro, this.playIntro.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayPrebetIntro.getTime() }));
-        this.scheduler.schedule(timeToPlayHalfTimeIntro, this.playIntro.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
+        const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMillis) });
+        const timeToStopHalfTimeIntro = new Date(timeToPlayHalfTimeIntro.getTime() + durationInMillis + 1);
+        
+        this.scheduler.schedule(timeToPlayPrebetIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayPrebetIntro.getTime() }));
+        this.scheduler.schedule(timeToPlayHalfTimeIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
+        
+        this.scheduler.schedule(timeToStopPrebetIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayPrebetIntro.getTime() }));
+        this.scheduler.schedule(timeToStopHalfTimeIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
     }
 
-    playIntro({ eventID, timeToPlay }: { eventID: number, timeToPlay: number }) {
+    updateIntroStatus({ eventID, timeToPlay }: { eventID: number, timeToPlay: number }) {
         const introTime = (Date.now() - timeToPlay) / 1000;
         const duration = this._introConfigByEventId[eventID].duration;
 
