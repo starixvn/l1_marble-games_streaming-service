@@ -111,5 +111,6 @@ export function initContainer(container: AwilixContainer<OddFeedDataContainer>) 
     container.resolve("resultService").initEvent();
     container.resolve("commentatorVoiceService").initEvent();
     container.resolve("introService").initEvent();
+    container.resolve("teamNameService").initEvent();
     container.resolve("oddFeedCron").start();
 }
