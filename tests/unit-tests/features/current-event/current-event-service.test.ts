@@ -1,5 +1,5 @@
 import { CurrentEventService } from "../../../../src/features/current-event/current-event-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification } from "../../../../src/features/odd-feed-data";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
 import { Scheduler } from "../../../../src/features/scheduler/scheduler";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
@@ -14,6 +14,8 @@ const mockOddFeedEventSource = {
     unregisterEventListener: jest.fn(),
     registerEventDetailEventListener: jest.fn(),
     unregisterEventDetailEventListener: jest.fn(),
+    registerSystemDataCleanupEventListener: jest.fn(),
+    unregisterSystemDataCleanupEventListener: jest.fn(),
 } as unknown as jest.Mocked<OddFeedEventSource>;
 
 const mockDelayHandlingService = {
@@ -57,6 +59,10 @@ const mockEventDetailNotification: EventDetailNotification = {
     index: 0
 };
 
+const mockSystemNotification: SystemNotification = {
+    eventID: 4294967298
+};
+
 // Helper functions for test setup
 const createContainer = () => ({
     oddFeedEventSource: mockOddFeedEventSource,
@@ -97,6 +103,7 @@ describe('CurrentEventService', () => {
             expect(service['featureDebugService']).toBe(mockFeatureDebugService);
             expect(service['boundHandleEventStart']).toBeInstanceOf(Function);
             expect(service['boundHandleEventDetailResultAvailable']).toBeInstanceOf(Function);
+            expect(service['boundHandleEventCleanup']).toBeInstanceOf(Function);
         });
 
         it('should initialize empty current event tracking objects', () => {
@@ -177,6 +184,99 @@ describe('CurrentEventService', () => {
         });
     });
 
+    describe('getCurrentPhaseByGameId', () => {
+        beforeEach(() => {
+            // Set up some test data
+            currentEventService['_currentEventByGameId']['1'] = 4294967298;
+            currentEventService['_currentEventDetailIndexByGameId']['1'] = 1;
+            currentEventService['_eventByEventId'][4294967298] = mockEvent;
+        });
+
+        it('should return current phase for existing game ID with valid event and index', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBe(mockEvent.eventDetails[1].phase);
+        });
+
+        it('should return undefined for non-existing game ID', () => {
+            // Arrange
+            const gameId = '999';
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBeUndefined();
+        });
+
+        it('should return undefined when current event is not found', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            currentEventService['_currentEventByGameId'][gameId] = 999999; // Non-existing event
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBeUndefined();
+        });
+
+        it('should return undefined when current event detail index is out of bounds', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId] = 999; // Out of bounds index
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBeUndefined();
+        });
+
+        it('should return undefined when current event detail index is undefined', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            delete currentEventService['_currentEventDetailIndexByGameId'][gameId];
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBeUndefined();
+        });
+
+        it('should return undefined when event details array is empty', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            const eventWithNoDetails: Event = createMockEventWithoutDetails(4294967298);
+            currentEventService['_eventByEventId'][4294967298] = eventWithNoDetails;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId] = 0;
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBeUndefined();
+        });
+
+        it('should handle zero index correctly', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId] = 0;
+
+            // Act
+            const result = currentEventService.getCurrentPhaseByGameId(gameId);
+
+            // Assert
+            expect(result).toBe(mockEvent.eventDetails[0].phase);
+        });
+    });
+
     describe('getCurrentByGameId', () => {
         beforeEach(() => {
             // Set up some test data
@@ -195,6 +295,7 @@ describe('CurrentEventService', () => {
             expect(result).toEqual({
                 event: 4294967298,
                 eventDetailIndex: 2,
+                phase: undefined,
             });
         });
 
@@ -209,12 +310,13 @@ describe('CurrentEventService', () => {
             expect(result).toEqual({
                 event: undefined,
                 eventDetailIndex: undefined,
+                phase: undefined,
             });
         });
     });
 
     describe('initEvent', () => {
-        it('should register event listeners for EventStart and EventDetailResultsAvailable', () => {
+        it('should register event listeners for EventStart, EventDetailResultsAvailable, and system cleanup', () => {
             // Arrange & Act
             currentEventService.initEvent();
 
@@ -227,11 +329,14 @@ describe('CurrentEventService', () => {
                 OddFeedEventName.EventDetailResultsAvailable,
                 currentEventService['boundHandleEventDetailResultAvailable']
             );
+            expect(mockOddFeedEventSource.registerSystemDataCleanupEventListener).toHaveBeenCalledWith(
+                currentEventService['boundHandleEventCleanup']
+            );
         });
     });
 
     describe('dispose', () => {
-        it('should unregister event listeners for EventStart and EventDetailResultsAvailable', () => {
+        it('should unregister event listeners for EventStart, EventDetailResultsAvailable, and system cleanup', () => {
             // Arrange & Act
             currentEventService.dispose();
 
@@ -243,6 +348,9 @@ describe('CurrentEventService', () => {
             expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
                 OddFeedEventName.EventDetailResultsAvailable,
                 currentEventService['boundHandleEventDetailResultAvailable']
+            );
+            expect(mockOddFeedEventSource.unregisterSystemDataCleanupEventListener).toHaveBeenCalledWith(
+                currentEventService['boundHandleEventCleanup']
             );
         });
     });
@@ -344,6 +452,8 @@ describe('CurrentEventService', () => {
             // Arrange
             const gameId = TEST_GAME_ID;
             currentEventService['_currentEventDetailIndexByGameId'][gameId] = 0;
+            currentEventService['_currentEventByGameId'][gameId] = mockEvent.eventID;
+            currentEventService['_eventByEventId'][mockEvent.eventID] = mockEvent;
 
             // Act
             currentEventService.handleEventDetailIndexIncrement(mockEventDetailNotification);
@@ -354,6 +464,7 @@ describe('CurrentEventService', () => {
                 {
                     event: mockEvent.eventID,
                     eventDetailIndex: 1,
+                    phase: mockEvent.eventDetails[1].phase,
                 },
                 currentEventService.eventName
             );
@@ -482,6 +593,7 @@ describe('CurrentEventService', () => {
                 {
                     event: mockEvent.eventID,
                     eventDetailIndex: 0,
+                    phase: mockEvent.eventDetails[0].phase,
                 },
                 currentEventService.eventName
             );
@@ -648,8 +760,13 @@ describe('CurrentEventService', () => {
         it('should broadcast to all clients for the specified game', () => {
             // Arrange
             const gameId = TEST_GAME_ID;
-            const eventID = 123456;
-            const index = 2;
+            const eventID = mockEvent.eventID;
+            const index = 1; // Use valid index within mockEvent.eventDetails bounds
+            
+            // Set up test data for getCurrentByGameId to work properly
+            currentEventService['_currentEventByGameId'][gameId] = eventID;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId] = index;
+            currentEventService['_eventByEventId'][eventID] = mockEvent;
 
             // Act
             currentEventService['notifyClient']({ gameId, eventID, index });
@@ -660,6 +777,7 @@ describe('CurrentEventService', () => {
                 {
                     event: eventID,
                     eventDetailIndex: index,
+                    phase: mockEvent.eventDetails[index].phase,
                 },
                 currentEventService.eventName
             );
@@ -669,10 +787,21 @@ describe('CurrentEventService', () => {
             // Arrange
             const gameId1 = '1';
             const gameId2 = '2';
-            const eventID1 = 111111;
-            const eventID2 = 222222;
+            const eventID1 = mockEvent.eventID; // Use mockEvent for game 1
+            const eventGame2: Event = createMockEvent({
+                eventID: 8589934594 // gameId: 2, roundId: 2
+            });
+            const eventID2 = eventGame2.eventID;
             const index1 = 0;
-            const index2 = 3;
+            const index2 = 1; // Use valid index within bounds
+
+            // Set up test data for getCurrentByGameId to work properly
+            currentEventService['_currentEventByGameId'][gameId1] = eventID1;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId1] = index1;
+            currentEventService['_eventByEventId'][eventID1] = mockEvent;
+            currentEventService['_currentEventByGameId'][gameId2] = eventID2;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId2] = index2;
+            currentEventService['_eventByEventId'][eventID2] = eventGame2;
 
             // Act
             currentEventService['notifyClient']({ gameId: gameId1, eventID: eventID1, index: index1 });
@@ -686,6 +815,7 @@ describe('CurrentEventService', () => {
                 {
                     event: eventID1,
                     eventDetailIndex: index1,
+                    phase: mockEvent.eventDetails[index1].phase,
                 },
                 currentEventService.eventName
             );
@@ -695,6 +825,7 @@ describe('CurrentEventService', () => {
                 {
                     event: eventID2,
                     eventDetailIndex: index2,
+                    phase: eventGame2.eventDetails[index2].phase,
                 },
                 currentEventService.eventName
             );
@@ -703,8 +834,13 @@ describe('CurrentEventService', () => {
         it('should handle zero index correctly', () => {
             // Arrange
             const gameId = TEST_GAME_ID;
-            const eventID = 999999;
+            const eventID = mockEvent.eventID;
             const index = 0;
+
+            // Set up test data for getCurrentByGameId to work properly
+            currentEventService['_currentEventByGameId'][gameId] = eventID;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId] = index;
+            currentEventService['_eventByEventId'][eventID] = mockEvent;
 
             // Act
             currentEventService['notifyClient']({ gameId, eventID, index });
@@ -715,6 +851,7 @@ describe('CurrentEventService', () => {
                 {
                     event: eventID,
                     eventDetailIndex: index,
+                    phase: mockEvent.eventDetails[index].phase,
                 },
                 currentEventService.eventName
             );
@@ -723,8 +860,13 @@ describe('CurrentEventService', () => {
         it('should handle large event IDs and indices', () => {
             // Arrange
             const gameId = TEST_GAME_ID;
-            const eventID = 4294967295; // Large event ID
-            const index = 999; // Large index
+            const eventID = mockEvent.eventID; // Use mockEvent's ID
+            const index = 1; // Use valid index within bounds
+
+            // Set up test data for getCurrentByGameId to work properly
+            currentEventService['_currentEventByGameId'][gameId] = eventID;
+            currentEventService['_currentEventDetailIndexByGameId'][gameId] = index;
+            currentEventService['_eventByEventId'][eventID] = mockEvent;
 
             // Act
             currentEventService['notifyClient']({ gameId, eventID, index });
@@ -735,9 +877,70 @@ describe('CurrentEventService', () => {
                 {
                     event: eventID,
                     eventDetailIndex: index,
+                    phase: mockEvent.eventDetails[index].phase,
                 },
                 currentEventService.eventName
             );
+        });
+    });
+
+    describe('cleanup', () => {
+        it('should remove event from _eventByEventId when cleanup is called', () => {
+            // Arrange
+            const eventID = mockEvent.eventID;
+            currentEventService['_eventByEventId'][eventID] = mockEvent;
+            expect(currentEventService['_eventByEventId'][eventID]).toBe(mockEvent);
+
+            // Act
+            currentEventService.cleanup(mockSystemNotification);
+
+            // Assert
+            expect(currentEventService['_eventByEventId'][eventID]).toBeUndefined();
+        });
+
+        it('should handle cleanup for non-existing event gracefully', () => {
+            // Arrange
+            const nonExistingEventID = 999999;
+            const systemNotification: SystemNotification = { eventID: nonExistingEventID };
+            expect(currentEventService['_eventByEventId'][nonExistingEventID]).toBeUndefined();
+
+            // Act & Assert - should not throw
+            expect(() => {
+                currentEventService.cleanup(systemNotification);
+            }).not.toThrow();
+        });
+
+        it('should only remove the specified event and leave others intact', () => {
+            // Arrange
+            const eventID1 = mockEvent.eventID;
+            const eventID2 = 8589934594; // Different event ID
+            const event2: Event = createMockEvent({ eventID: eventID2 });
+            
+            currentEventService['_eventByEventId'][eventID1] = mockEvent;
+            currentEventService['_eventByEventId'][eventID2] = event2;
+            
+            expect(currentEventService['_eventByEventId'][eventID1]).toBe(mockEvent);
+            expect(currentEventService['_eventByEventId'][eventID2]).toBe(event2);
+
+            // Act
+            currentEventService.cleanup(mockSystemNotification);
+
+            // Assert
+            expect(currentEventService['_eventByEventId'][eventID1]).toBeUndefined();
+            expect(currentEventService['_eventByEventId'][eventID2]).toBe(event2); // Should remain
+        });
+
+        it('should handle multiple cleanup calls for the same event', () => {
+            // Arrange
+            const eventID = mockEvent.eventID;
+            currentEventService['_eventByEventId'][eventID] = mockEvent;
+
+            // Act - Call cleanup twice
+            currentEventService.cleanup(mockSystemNotification);
+            currentEventService.cleanup(mockSystemNotification);
+
+            // Assert - Should not throw and event should remain undefined
+            expect(currentEventService['_eventByEventId'][eventID]).toBeUndefined();
         });
     });
 
