@@ -57,6 +57,7 @@ const mockGameFlowData = {
 const mockCurrentEventData = {
     event: TEST_EVENT_ID,
     eventDetailIndex: 2,
+    phase: 1
 };
 
 const mockVideoStreamingData = {
@@ -208,7 +209,7 @@ describe('InGameConsumer', () => {
         it('should handle different mock data correctly', () => {
             // Arrange
             const customGameFlowData = { state: GameFlow.Prebet };
-            const customCurrentEventData = { event: 999, eventDetailIndex: 0 };
+            const customCurrentEventData = { event: 999, eventDetailIndex: 0, phase: 0 };
             const customVideoData = { videoLink: "custom.m3u8", timeToStream: 0, currentTime: 0, phaseIndex: 0 };
             const customPreloadData = { videoLink: "custom-preload.m3u8" };
             const customResultData = { result: { 1: { homeScore: 0, awayScore: 0 } } };

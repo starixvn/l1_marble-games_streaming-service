@@ -1,8 +1,9 @@
 import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
+import { Event } from "../../types";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
+import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource, SystemNotification } from "../odd-feed-data";
 import { Scheduler } from "../scheduler/scheduler";
 
 interface CurrentEventServiceContainer {
@@ -21,9 +22,12 @@ export class CurrentEventService {
     private readonly featureDebugService: FeatureDebugService;
     private readonly _currentEventByGameId: Record<string, number> = {};
     private readonly _currentEventDetailIndexByGameId: Record<string, number> = {};
+    private readonly _eventByEventId: Record<number, Event> = {};
 
     private readonly boundHandleEventStart: (notification: EventNotification) => void;
     private readonly boundHandleEventDetailResultAvailable: (notification: EventDetailNotification) => void;
+    private readonly boundHandleEventCleanup: (notification: SystemNotification) => void;
+
 
     constructor(container: CurrentEventServiceContainer) {
         this.oddFeedEventSource = container.oddFeedEventSource;
@@ -34,6 +38,7 @@ export class CurrentEventService {
 
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleEventDetailResultAvailable = this.handleEventDetailResultAvailable.bind(this);
+        this.boundHandleEventCleanup = this.cleanup.bind(this);
     }
 
     public readonly eventName = "currentEvent";
@@ -46,10 +51,18 @@ export class CurrentEventService {
         return this._currentEventDetailIndexByGameId[gameId];
     }
 
+    public getCurrentPhaseByGameId(gameId: string) {
+        const currentEvent = this.getCurrentEventByGameId(gameId);
+        const currentEventDetailIndex = this.getCurrentEventDetailIndexByGameId(gameId);
+        const currentEventDetail = this._eventByEventId[currentEvent]?.eventDetails[currentEventDetailIndex];
+        return currentEventDetail?.phase;
+    }
+
     public getCurrentByGameId(gameId: string) {
         return {
             event: this.getCurrentEventByGameId(gameId),
             eventDetailIndex: this.getCurrentEventDetailIndexByGameId(gameId),
+            phase: this.getCurrentPhaseByGameId(gameId),
         }
     }
 
@@ -61,12 +74,18 @@ export class CurrentEventService {
         this.oddFeedEventSource.registerEventDetailEventListener(
             OddFeedEventName.EventDetailResultsAvailable,
             this.boundHandleEventDetailResultAvailable
-        )
+        );
+        this.oddFeedEventSource.registerSystemDataCleanupEventListener(this.boundHandleEventCleanup);
     }
 
     public dispose() {
         this.oddFeedEventSource.unregisterEventListener(OddFeedEventName.EventStart, this.boundHandleEventStart);
         this.oddFeedEventSource.unregisterEventDetailEventListener(OddFeedEventName.EventDetailResultsAvailable, this.boundHandleEventDetailResultAvailable);
+        this.oddFeedEventSource.unregisterSystemDataCleanupEventListener(this.boundHandleEventCleanup);
+    }
+
+    public cleanup({ eventID }: SystemNotification) {
+        delete this._eventByEventId[eventID];
     }
 
     public handleEventStart({ event }: EventNotification) {
@@ -98,6 +117,7 @@ export class CurrentEventService {
     public handleEventIndexReset({ event }: EventNotification) {
         const gameId = idHelper.extractGameId(event.eventID);
         this._currentEventDetailIndexByGameId[gameId] = 0;
+        this._eventByEventId[event.eventID] = event;
         this._currentEventByGameId[gameId] = event.eventID;
         this.log(`event index reset for event ${event.eventID}`, gameId);
         this.notifyClient({
@@ -118,8 +138,6 @@ export class CurrentEventService {
 
     private notifyClient({
         gameId,
-        eventID,
-        index,
     }: {
         gameId: string,
         eventID: number,
@@ -127,10 +145,7 @@ export class CurrentEventService {
     }) {
         this.gameBoardcastService.broadcastToAllClientByGameId(
             gameId,
-            { 
-                event: eventID,
-                eventDetailIndex: index,
-            },
+            this.getCurrentByGameId(gameId),
             this.eventName
         );
     }
