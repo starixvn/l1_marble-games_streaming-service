@@ -244,16 +244,13 @@ describe('ResultService', () => {
     });
 
     describe('handleEventStart', () => {
-        it('should initialize result state and schedule reset event', () => {
+        it('should schedule reset event for delayed time', () => {
             // Arrange
             
             // Act
             resultService.handleEventStart(mockEventNotification);
 
             // Assert
-            expect(resultService['_resultByGameId'][TEST_GAME_ID]).toEqual({
-                result: {}
-            });
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEvent.scheduleStartTs)
@@ -264,21 +261,17 @@ describe('ResultService', () => {
             );
         });
 
-        it('should extract correct game ID using idHelper', () => {
+        it('should not immediately initialize result state', () => {
             // Arrange
-            const extractGameIdSpy = jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID);
-
+            
             // Act
             resultService.handleEventStart(mockEventNotification);
 
             // Assert
-            expect(extractGameIdSpy).toHaveBeenCalledWith(TEST_EVENT_ID);
-            expect(resultService['_resultByGameId'][TEST_GAME_ID]).toBeDefined();
-            
-            extractGameIdSpy.mockRestore();
+            expect(resultService['_resultByGameId'][TEST_GAME_ID]).toBeUndefined();
         });
 
-        it('should schedule the correct bound method for reset event', () => {
+        it('should schedule the correct bound method for delayed reset event', () => {
             // Arrange
             
             // Act
@@ -290,7 +283,9 @@ describe('ResultService', () => {
             scheduledFunction();
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(1);
             expect(resultService['_resultByGameId'][TEST_GAME_ID]).toEqual({
-                result: {}
+                result: {
+                    0: { homeScore: 0, awayScore: 0 }
+                }
             });
         });
     });
@@ -300,6 +295,7 @@ describe('ResultService', () => {
             // Arrange
             resultService['_resultByGameId'][TEST_GAME_ID] = {
                 result: {
+                    0: { homeScore: 0, awayScore: 0 },
                     1: { homeScore: 1, awayScore: 0 }
                 }
             };
@@ -323,6 +319,7 @@ describe('ResultService', () => {
             // Assert
             expect(resultService['_resultByGameId'][TEST_GAME_ID]).toEqual({
                 result: {
+                    0: { homeScore: 0, awayScore: 0 },
                     1: { homeScore: 1, awayScore: 0 }
                 }
             });
@@ -332,6 +329,7 @@ describe('ResultService', () => {
             // Arrange
             resultService['_resultByGameId'][TEST_GAME_ID] = {
                 result: {
+                    0: { homeScore: 0, awayScore: 0 },
                     1: { homeScore: 1, awayScore: 0 }
                 }
             };
@@ -407,6 +405,7 @@ describe('ResultService', () => {
             // Arrange
             resultService['_resultByGameId'][TEST_GAME_ID] = {
                 result: {
+                    0: { homeScore: 0, awayScore: 0 },
                     1: { homeScore: 2, awayScore: 1 }
                 }
             };
@@ -428,9 +427,15 @@ describe('ResultService', () => {
             resultService.handleResultUpdate(mockEventDetailNotification);
 
             // Assert
+            const expectedResult = {
+                result: {
+                    0: { homeScore: 0, awayScore: 0 },
+                    1: { homeScore: 1, awayScore: 0 }
+                }
+            };
             expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
-                resultService.getCurrentByGameId(TEST_GAME_ID),
+                expectedResult,
                 resultService.eventName
             );
         });
@@ -541,7 +546,7 @@ describe('ResultService', () => {
     });
 
     describe('handleResetEvent', () => {
-        it('should reset result state to empty', () => {
+        it('should reset result state with phase 0 initialization', () => {
             // Arrange
             resultService['_resultByGameId'][TEST_GAME_ID] = {
                 result: {
@@ -555,7 +560,9 @@ describe('ResultService', () => {
 
             // Assert
             expect(resultService['_resultByGameId'][TEST_GAME_ID]).toEqual({
-                result: {}
+                result: {
+                    0: { homeScore: 0, awayScore: 0 }
+                }
             });
         });
 
@@ -566,9 +573,14 @@ describe('ResultService', () => {
             resultService.handleResetEvent(mockEventNotification);
 
             // Assert
+            const expectedResult = {
+                result: {
+                    0: { homeScore: 0, awayScore: 0 }
+                }
+            };
             expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
-                resultService.getCurrentByGameId(TEST_GAME_ID),
+                expectedResult,
                 resultService.eventName
             );
         });
@@ -592,6 +604,7 @@ describe('ResultService', () => {
             // Arrange
             const testState: ResultState = {
                 result: {
+                    0: { homeScore: 0, awayScore: 0 },
                     1: { homeScore: 2, awayScore: 1 }
                 }
             };
@@ -612,6 +625,7 @@ describe('ResultService', () => {
             // Arrange
             const testState: ResultState = {
                 result: {
+                    0: { homeScore: 0, awayScore: 0 },
                     1: { homeScore: 2, awayScore: 1 }
                 }
             };
@@ -628,10 +642,12 @@ describe('ResultService', () => {
             );
         });
 
-        it('should handle empty result state', () => {
+        it('should handle result state with only phase 0', () => {
             // Arrange
             const testState: ResultState = {
-                result: {}
+                result: {
+                    0: { homeScore: 0, awayScore: 0 }
+                }
             };
             resultService['_resultByGameId'][TEST_GAME_ID] = testState;
 
@@ -722,11 +738,21 @@ describe('ResultService', () => {
 
             // Assert
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
+            
+            // Execute the scheduled functions to verify they work correctly
+            const scheduleCalls = mockScheduler.schedule.mock.calls;
+            scheduleCalls[0][1](); // Execute reset event
+            scheduleCalls[1][1](); // Execute result update
+            
             expect(resultService['_resultByGameId'][TEST_GAME_ID]).toBeDefined();
         });
 
         it('should handle multiple games independently', () => {
             // Arrange
+            const extractGameIdSpy = jest.spyOn(idHelper, 'extractGameId')
+                .mockReturnValueOnce(TEST_GAME_ID)
+                .mockReturnValueOnce(TEST_GAME_ID_2);
+                
             const event2 = createMockEvent({ eventID: TEST_EVENT_ID_2 });
             const notification1: EventNotification = { event: mockEvent };
             const notification2: EventNotification = { event: event2 };
@@ -736,9 +762,18 @@ describe('ResultService', () => {
             resultService.handleEventStart(notification2);
 
             // Assert
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
+            
+            // Execute the scheduled functions to verify they work correctly
+            const scheduleCalls = mockScheduler.schedule.mock.calls;
+            scheduleCalls[0][1](); // Execute reset event for game 1
+            scheduleCalls[1][1](); // Execute reset event for game 2
+            
             expect(resultService['_resultByGameId'][TEST_GAME_ID]).toBeDefined();
             expect(resultService['_resultByGameId'][TEST_GAME_ID_2]).toBeDefined();
             expect(Object.keys(resultService['_resultByGameId'])).toHaveLength(2);
+            
+            extractGameIdSpy.mockRestore();
         });
 
         it('should handle phase without existing result correctly', () => {
