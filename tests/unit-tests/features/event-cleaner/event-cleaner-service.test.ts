@@ -18,7 +18,9 @@ const TEST_EVENT_ID_2 = 4294967299; // gameId: 1, roundId: 3
 const TEST_EVENT_ID_3 = 4294967300; // gameId: 1, roundId: 4
 const TEST_EVENT_ID_4 = 4294967301; // gameId: 1, roundId: 5
 const TEST_EVENT_ID_GAME_2 = 8589934594; // gameId: 2, roundId: 2
-const MAX_QUEUE_LENGTH = 3;
+
+// Test constant - change this value to match the service's maxLength if it changes
+const MAX_QUEUE_LENGTH = 50;
 
 // Test data
 const createMockEvent = (eventID: number): Event => ({
@@ -50,6 +52,31 @@ const createContainer = () => ({
 
 const setupMocks = () => {
     jest.clearAllMocks();
+};
+
+// Helper function to create multiple mock events
+const createMockEvents = (startId: number, count: number): EventNotification[] => {
+    return Array.from({ length: count }, (_, i) => ({
+        event: createMockEvent(startId + i)
+    }));
+};
+
+// Helper function to fill queue to capacity
+const fillQueueToCapacity = (service: EventCleanerService, gameStartId: number = TEST_EVENT_ID_1): EventNotification[] => {
+    const events = createMockEvents(gameStartId, MAX_QUEUE_LENGTH);
+    events.forEach(notification => service.handleEventStart(notification));
+    return events;
+};
+
+// Helper function to fill a specific game's queue to capacity
+const fillGameQueueToCapacity = (service: EventCleanerService, gameId: string, startEventId: number): void => {
+    // Mock idHelper.extractGameId to return the specific gameId for our test events
+    const extractGameIdSpy = jest.spyOn(idHelper, 'extractGameId').mockReturnValue(gameId);
+    
+    const events = createMockEvents(startEventId, MAX_QUEUE_LENGTH);
+    events.forEach(notification => service.handleEventStart(notification));
+    
+    extractGameIdSpy.mockRestore();
 };
 
 describe('EventCleanerService', () => {
@@ -84,7 +111,7 @@ describe('EventCleanerService', () => {
             expect(service['_eventQueueByGameId']).toEqual({});
         });
 
-        it('should set maxLength to 3', () => {
+        it('should set maxLength to configured value', () => {
             // Arrange & Act
             const service = new EventCleanerService(container);
 
@@ -160,76 +187,63 @@ describe('EventCleanerService', () => {
             });
 
             it('should not trigger cleanup when queue is at maxLength', () => {
-                // Arrange - Add events up to maxLength
-                eventCleanerService.handleEventStart(mockEventNotification1);
-                eventCleanerService.handleEventStart(mockEventNotification2);
-                eventCleanerService.handleEventStart(mockEventNotification3);
+                // Arrange - Fill queue to exactly maxLength (MAX_QUEUE_LENGTH)
+                fillQueueToCapacity(eventCleanerService);
 
-                // Act - Queue should now be at maxLength (3)
                 // Assert
                 expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
                 expect(mockOddFeedEventSource.onDataCleanup).not.toHaveBeenCalled();
             });
 
             it('should trigger cleanup when queue exceeds maxLength', () => {
-                // Arrange - Fill queue to maxLength
-                eventCleanerService.handleEventStart(mockEventNotification1);
-                eventCleanerService.handleEventStart(mockEventNotification2);
-                eventCleanerService.handleEventStart(mockEventNotification3);
+                // Arrange - Fill queue to maxLength (MAX_QUEUE_LENGTH)
+                fillQueueToCapacity(eventCleanerService);
 
                 // Act - Add one more event to exceed maxLength
-                eventCleanerService.handleEventStart(mockEventNotification4);
+                const additionalEvent = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+                eventCleanerService.handleEventStart(additionalEvent);
 
                 // Assert
-                expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toEqual([
-                    TEST_EVENT_ID_2,
-                    TEST_EVENT_ID_3,
-                    TEST_EVENT_ID_4
-                ]);
+                expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
                 expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenCalledWith(TEST_EVENT_ID_1);
             });
 
             it('should remove oldest event when cleaning up', () => {
-                // Arrange - Fill queue to maxLength
-                eventCleanerService.handleEventStart(mockEventNotification1);
-                eventCleanerService.handleEventStart(mockEventNotification2);
-                eventCleanerService.handleEventStart(mockEventNotification3);
+                // Arrange - Fill queue to maxLength (MAX_QUEUE_LENGTH)
+                fillQueueToCapacity(eventCleanerService);
 
-                // Act - Add fourth event
-                eventCleanerService.handleEventStart(mockEventNotification4);
+                // Act - Add one more event to trigger cleanup
+                const additionalEvent = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+                eventCleanerService.handleEventStart(additionalEvent);
 
-                // Assert - First event should be removed, others shifted
-                expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toEqual([
-                    TEST_EVENT_ID_2,
-                    TEST_EVENT_ID_3,
-                    TEST_EVENT_ID_4
-                ]);
+                // Assert - Queue should still be at maxLength, oldest event removed
+                const queue = eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1];
+                expect(queue).toHaveLength(MAX_QUEUE_LENGTH);
+                expect(queue[0]).toBe(TEST_EVENT_ID_1 + 1); // Second event is now first
+                expect(queue[queue.length - 1]).toBe(TEST_EVENT_ID_1 + 50); // New event is last
             });
         });
 
         describe('Multiple cleanup operations', () => {
             it('should handle multiple cleanup operations correctly', () => {
-                // Arrange - Fill queue beyond maxLength multiple times
-                const events = [mockEventNotification1, mockEventNotification2, mockEventNotification3, mockEventNotification4];
-                const additionalEvent1 = { event: createMockEvent(4294967302) }; // gameId: 1, roundId: 6
-                const additionalEvent2 = { event: createMockEvent(4294967303) }; // gameId: 1, roundId: 7
+                // Arrange - Fill queue to maxLength (MAX_QUEUE_LENGTH)
+                fillQueueToCapacity(eventCleanerService);
 
-                // Act - Add events one by one
-                events.forEach(notification => eventCleanerService.handleEventStart(notification));
+                // Act - Add 3 more events to trigger multiple cleanups
+                const additionalEvent1 = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+                const additionalEvent2 = { event: createMockEvent(TEST_EVENT_ID_1 + 51) };
+                const additionalEvent3 = { event: createMockEvent(TEST_EVENT_ID_1 + 52) };
+
                 eventCleanerService.handleEventStart(additionalEvent1);
                 eventCleanerService.handleEventStart(additionalEvent2);
+                eventCleanerService.handleEventStart(additionalEvent3);
 
                 // Assert
                 expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
-                expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toEqual([
-                    TEST_EVENT_ID_4,
-                    4294967302,
-                    4294967303
-                ]);
                 expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenCalledTimes(3);
                 expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenNthCalledWith(1, TEST_EVENT_ID_1);
-                expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenNthCalledWith(2, TEST_EVENT_ID_2);
-                expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenNthCalledWith(3, TEST_EVENT_ID_3);
+                expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenNthCalledWith(2, TEST_EVENT_ID_1 + 1);
+                expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenNthCalledWith(3, TEST_EVENT_ID_1 + 2);
             });
         });
     });
@@ -252,16 +266,15 @@ describe('EventCleanerService', () => {
         });
 
         it('should trigger cleanup independently for each game', () => {
-            // Arrange - Fill Game 1 queue to maxLength
-            eventCleanerService.handleEventStart(mockEventNotification1);
-            eventCleanerService.handleEventStart(mockEventNotification2);
-            eventCleanerService.handleEventStart(mockEventNotification3);
+            // Arrange - Fill Game 1 queue to maxLength (MAX_QUEUE_LENGTH)
+            fillQueueToCapacity(eventCleanerService);
 
             // Add one event to Game 2
             eventCleanerService.handleEventStart(mockEventNotificationGame2);
 
-            // Act - Trigger cleanup for Game 1 only
-            eventCleanerService.handleEventStart(mockEventNotification4);
+            // Act - Trigger cleanup for Game 1 only by adding one more event
+            const additionalEvent = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+            eventCleanerService.handleEventStart(additionalEvent);
 
             // Assert
             expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
@@ -271,23 +284,19 @@ describe('EventCleanerService', () => {
         });
 
         it('should maintain separate queue limits for each game', () => {
-            // Arrange - Create events for Game 2
-            const game2Events = [
-                { event: createMockEvent(8589934594) }, // gameId: 2, roundId: 2
-                { event: createMockEvent(8589934595) }, // gameId: 2, roundId: 3
-                { event: createMockEvent(8589934596) }, // gameId: 2, roundId: 4
-                { event: createMockEvent(8589934597) }, // gameId: 2, roundId: 5
-            ];
+            // Arrange & Act - Fill Game 1 to capacity and trigger cleanup
+            fillGameQueueToCapacity(eventCleanerService, TEST_GAME_ID_1, TEST_EVENT_ID_1);
+            const extractGameIdSpy1 = jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_1);
+            const game1AdditionalEvent = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+            eventCleanerService.handleEventStart(game1AdditionalEvent);
+            extractGameIdSpy1.mockRestore();
 
-            // Act - Fill both games to trigger cleanup
-            // Game 1
-            eventCleanerService.handleEventStart(mockEventNotification1);
-            eventCleanerService.handleEventStart(mockEventNotification2);
-            eventCleanerService.handleEventStart(mockEventNotification3);
-            eventCleanerService.handleEventStart(mockEventNotification4); // Should trigger cleanup
-
-            // Game 2
-            game2Events.forEach(notification => eventCleanerService.handleEventStart(notification));
+            // Fill Game 2 to capacity and trigger cleanup  
+            fillGameQueueToCapacity(eventCleanerService, TEST_GAME_ID_2, TEST_EVENT_ID_GAME_2);
+            const extractGameIdSpy2 = jest.spyOn(idHelper, 'extractGameId').mockReturnValue(TEST_GAME_ID_2);
+            const game2AdditionalEvent = { event: createMockEvent(TEST_EVENT_ID_GAME_2 + 50) };
+            eventCleanerService.handleEventStart(game2AdditionalEvent);
+            extractGameIdSpy2.mockRestore();
 
             // Assert
             expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
@@ -313,10 +322,8 @@ describe('EventCleanerService', () => {
 
         describe('Queue boundary conditions', () => {
             it('should handle exactly maxLength events without cleanup', () => {
-                // Arrange & Act - Add exactly maxLength events
-                eventCleanerService.handleEventStart(mockEventNotification1);
-                eventCleanerService.handleEventStart(mockEventNotification2);
-                eventCleanerService.handleEventStart(mockEventNotification3);
+                // Arrange & Act - Add exactly maxLength events (MAX_QUEUE_LENGTH)
+                fillQueueToCapacity(eventCleanerService);
 
                 // Assert
                 expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
@@ -324,13 +331,12 @@ describe('EventCleanerService', () => {
             });
 
             it('should trigger cleanup only when exceeding maxLength', () => {
-                // Arrange - Add maxLength events
-                eventCleanerService.handleEventStart(mockEventNotification1);
-                eventCleanerService.handleEventStart(mockEventNotification2);
-                eventCleanerService.handleEventStart(mockEventNotification3);
+                // Arrange - Add maxLength events (MAX_QUEUE_LENGTH)
+                fillQueueToCapacity(eventCleanerService);
 
                 // Act - Add one more to exceed limit
-                eventCleanerService.handleEventStart(mockEventNotification4);
+                const additionalEvent = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+                eventCleanerService.handleEventStart(additionalEvent);
 
                 // Assert
                 expect(eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1]).toHaveLength(MAX_QUEUE_LENGTH);
@@ -353,26 +359,28 @@ describe('EventCleanerService', () => {
 
         describe('Queue state consistency', () => {
             it('should maintain queue state consistency across multiple operations', () => {
-                // Arrange - Perform multiple operations
-                eventCleanerService.handleEventStart(mockEventNotification1);
-                eventCleanerService.handleEventStart(mockEventNotification2);
+                // Arrange - Fill queue to capacity
+                fillQueueToCapacity(eventCleanerService);
                 
-                // Act - Add and remove events
-                eventCleanerService.handleEventStart(mockEventNotification3);
-                eventCleanerService.handleEventStart(mockEventNotification4); // Triggers cleanup
+                // Act - Add events to trigger cleanup
+                const additionalEvent1 = { event: createMockEvent(TEST_EVENT_ID_1 + 50) };
+                const additionalEvent2 = { event: createMockEvent(TEST_EVENT_ID_1 + 51) };
+                eventCleanerService.handleEventStart(additionalEvent1);
+                eventCleanerService.handleEventStart(additionalEvent2);
 
                 // Assert queue state is consistent
                 const queue = eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1];
                 expect(queue).toHaveLength(MAX_QUEUE_LENGTH);
-                expect(queue[0]).toBe(TEST_EVENT_ID_2); // Oldest remaining
-                expect(queue[queue.length - 1]).toBe(TEST_EVENT_ID_4); // Newest
+                expect(queue[0]).toBe(TEST_EVENT_ID_1 + 2); // Third event is now first (first two removed)
+                expect(queue[queue.length - 1]).toBe(TEST_EVENT_ID_1 + 51); // Newest event is last
             });
         });
 
         describe('Large number of events', () => {
             it('should handle continuous stream of events efficiently', () => {
-                // Arrange - Create many events
-                const manyEvents = Array.from({ length: 10 }, (_, i) => ({
+                // Arrange - Create many events (more than maxLength to test cleanup)
+                const totalEvents = 75; // More than maxLength (MAX_QUEUE_LENGTH)
+                const manyEvents = Array.from({ length: totalEvents }, (_, i) => ({
                     event: createMockEvent(TEST_EVENT_ID_1 + i)
                 }));
 
@@ -384,11 +392,11 @@ describe('EventCleanerService', () => {
                 // Assert
                 const queue = eventCleanerService['_eventQueueByGameId'][TEST_GAME_ID_1];
                 expect(queue).toHaveLength(MAX_QUEUE_LENGTH);
-                expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenCalledTimes(7); // 10 - 3 = 7 cleanups
+                expect(mockOddFeedEventSource.onDataCleanup).toHaveBeenCalledTimes(totalEvents - MAX_QUEUE_LENGTH); // 75 - MAX_QUEUE_LENGTH = 25 cleanups
                 
-                // Verify queue contains the last 3 events
-                const expectedLastThree = manyEvents.slice(-3).map(n => n.event.eventID);
-                expect(queue).toEqual(expectedLastThree);
+                // Verify queue contains the last MAX_QUEUE_LENGTH events
+                const expectedLastEvents = manyEvents.slice(-MAX_QUEUE_LENGTH).map(n => n.event.eventID);
+                expect(queue).toEqual(expectedLastEvents);
             });
         });
     });

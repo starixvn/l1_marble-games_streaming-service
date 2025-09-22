@@ -3,6 +3,7 @@ import { log } from "../../helpers/log";
 import { EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
 
 const DEBUG = false;
+const MAX_LENGTH = 50;
 
 interface EventCleanerServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
@@ -11,7 +12,7 @@ interface EventCleanerServiceContainer {
 export class EventCleanerService {
     private readonly oddFeedEventSource: OddFeedEventSource;
     private _eventQueueByGameId: Record<string, number[]> = {};
-    private readonly maxLength = 3;
+    private readonly maxLength = MAX_LENGTH;
     private readonly boundHandleEventStart: (notification: EventNotification) => void;
 
     constructor(container: EventCleanerServiceContainer) {
