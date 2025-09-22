@@ -149,7 +149,7 @@ export const DEFAULT_VOICE_DURATION_CONFIG: VoiceDurationConfig = {
 
 const TIME_WITHIN_TO_BE_CONSIDERED_AS_FAST_GOAL = 5;
 const GOAL_COUNT_TO_BE_CONSIDERED_AS_FAST_GOAL = 2;
-    const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 55;
+    const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 25;
 
 export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: VoiceDurationConfig = DEFAULT_VOICE_DURATION_CONFIG): VoiceGenerationResult {
     const events = args.eventName;
@@ -375,7 +375,6 @@ function getPossibleVoiceEvent(tracker: TrackingStas, config: VoiceDurationConfi
 
 const voiceConditionMap: Record<string, (tracker: TrackingStas) => boolean> = {
     draw4: isDraw4,
-    lastGoal: isLastGoal,
     draw3: isDraw3,
     draw2: isDraw2,
     draw1: isDraw1,
