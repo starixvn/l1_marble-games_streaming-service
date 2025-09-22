@@ -1,17 +1,11 @@
 import { AuthController } from "../controllers/auth-controller";
 import { HealthController } from "../controllers/health-controller";
 import { EventStreamController } from "../controllers/event-stream-controller";
-import { MonitorController } from "../controllers/monitor-controller";
 import { AuthenticateService } from "../services/authenticate-service";
 import { OddsFeedService } from "../services/odds-feed-service";
 import { EventStreamService } from "../services/event-stream-service";
 import { logger } from "sc-common";
-import { EventManagementService } from "../services/event-management-service";
-import { EventStore } from "../stores/event-store";
-import { JobScheduler } from "../services/job-scheduler";
 import { Response } from "express";
-import { EventSchedulerService } from "../services/event-scheduler-service";
-import { EventManager } from "../stores/event-manager";
 import { ClientManager } from "../managers/client-manager";
 
 export interface AppContainer {
@@ -22,12 +16,6 @@ export interface AppContainer {
   authController: AuthController;
   eventStreamController: EventStreamController;
   healthController: HealthController;
-  monitorController: MonitorController;
-  eventManagementService: EventManagementService;
-  eventStore: EventStore;
-  jobScheduler: JobScheduler;
-  eventSchedulerService: EventSchedulerService;
-  eventManager: EventManager;
   clientManager: ClientManager;
 }
 

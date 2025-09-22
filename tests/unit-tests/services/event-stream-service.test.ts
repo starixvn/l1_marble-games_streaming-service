@@ -94,7 +94,6 @@ describe("EventStreamService", () => {
     };
 
     // Replace the auto-stubbed methods with Jest mocks
-    mockContainer.eventStore = mockEventStore;
     mockContainer.clientManager = mockClientManager;
     mockContainer.logService = mockLogService;
 
@@ -129,236 +128,6 @@ describe("EventStreamService", () => {
     dateNowSpy.mockRestore();
   });
 
-  describe("buildCurrentEventDetailsPayload", () => {
-    it("should build payload successfully with valid event", () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1, gameId);
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result?.gameId).toBe(gameId);
-      expect(result?.eventId).toBe(1);
-      expect(result?.homeTeam).toBe("Test Event Home");
-      expect(result?.awayTeam).toBe("Test Event Away");
-      expect(result?.currentIndex).toBe(0);
-      expect(result?.updatedIndex).toBe(0);
-      expect(result?.eventDetails).toHaveLength(2);
-      expect(result?.liveScores).toEqual(["1-0", "2-0"]);
-      expect(result?.goalInfos).toEqual([]);
-      expect(result?.currentPhase).toBe(JobName.ScheduleEvent);
-      expect(result?.message).toBe("");
-
-      // Verify event details payload structure
-      expect(result?.eventDetails[0]).toEqual({
-        playlist: "playlist1",
-        videoLiveTimeMs: -2000, // Since scheduleStartTs is the same as mockNow
-        videoLength: 30,
-        result: "1-0",
-      });
-
-      expect(mockEventStore.getCurrentEventForGame).toHaveBeenCalledWith(gameId);
-    });
-
-    it("should build payload with custom updatedIndex", () => {
-      // Arrange
-      const gameId = "2001";
-      const updatedIndex = 2;
-      const mockEvent = createMockEventStreamState(1, gameId);
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId, updatedIndex);
-
-      // Assert
-      expect(result?.updatedIndex).toBe(updatedIndex);
-      expect(result?.currentIndex).toBe(0); // Should remain unchanged
-    });
-
-    it("should return null when no current event exists", () => {
-      // Arrange
-      const gameId = "2001";
-      mockEventStore.getCurrentEventForGame.mockReturnValue(null);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
-
-      // Assert
-      expect(result).toBeNull();
-      expect(mockLogService.logError).toHaveBeenCalledWith(`No current event for game ${gameId}`);
-    });
-
-    it("should calculate videoLiveTimeMs correctly", () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1, gameId);
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Mock Date.now() to return 5 minutes later
-      dateNowSpy.mockReturnValue(new Date("2024-01-01T10:00:00Z").getTime() + 10000); // 2024-01-01T10:05:01Z
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
-
-      // Assert
-      expect(result?.eventDetails[0].videoLiveTimeMs).toBe(7000); // delay 3000ms
-    });
-
-    it("should calculate matchLiveTimeMs correctly", () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1, gameId);
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      dateNowSpy.mockReturnValue(new Date("2024-01-01T10:00:00Z").getTime() + 50000);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
-
-      // Assert
-      const expectedMatchLiveTime = 47000; // delay 3000ms
-      expect(result?.matchLiveTimeMs).toBe(expectedMatchLiveTime);
-    });
-
-    it("should handle negative videoLiveTimeMs by setting to 0", () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1, gameId);
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      dateNowSpy.mockReturnValue(new Date("2024-01-01T10:00:00Z").getTime() - 5000);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
-
-      // Assert
-      expect(result?.eventDetails[0].videoLiveTimeMs).toBe(-8000); // delay 3000ms
-      expect(result?.matchLiveTimeMs).toBe(0);
-    });
-
-    it("should handle empty eventDetails array", () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = {
-        ...createMockEventStreamState(1, gameId),
-        eventDetails: [],
-      };
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId);
-
-      // Assert
-      expect(result?.eventDetails).toEqual([]);
-      expect(result?.matchLiveTimeMs).toBe(0);
-    });
-
-    it("should include voice in additional payload", () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1, gameId);
-      const additionalPayload = { voice: "test_voice_1_2" };
-      
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-
-      // Act
-      const result = eventStreamService.buildCurrentEventDetailsPayload(gameId, -1, additionalPayload);
-
-      // Assert
-      expect(result?.voice).toBe("test_voice_1_2");
-    });
-  });
-
-  describe("broadcastUpdateEventDataToClients", () => {
-    it("should broadcast payload to all clients for a game", () => {
-      // Arrange
-      const gameId = "2001";
-      const eventJobName = JobName.UpdateOdds;
-      const updatedIndex = 2;
-      const mockEvent = createMockEventStreamState(1, gameId);
-      const mockClients = [createMockClient(gameId), createMockClient(gameId)];
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockClientManager.getClientSetForGame.mockReturnValue(mockClients);
-
-      // Act
-      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex);
-
-      // Assert
-      expect(mockClientManager.getClientSetForGame).toHaveBeenCalledWith(gameId);
-      expect(mockClients[0].write).toHaveBeenCalledWith(
-        expect.stringContaining(`"message":"Broadcasted ${eventJobName} on index: ${updatedIndex}"`)
-      );
-      expect(mockClients[1].write).toHaveBeenCalledWith(
-        expect.stringContaining(`"message":"Broadcasted ${eventJobName} on index: ${updatedIndex}"`)
-      );
-    });
-
-    it("should handle case when no payload is built", () => {
-      // Arrange
-      const gameId = "2001";
-      const eventJobName = JobName.UpdateOdds;
-      const updatedIndex = 2;
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(null);
-
-      // Act
-      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex);
-
-      // Assert
-      expect(mockLogService.logError).toHaveBeenCalledWith(
-        `No payload for game ${gameId} updatedIndex: ${updatedIndex}`
-      );
-    });
-
-    it("should include correct message in broadcast payload", () => {
-      // Arrange
-      const gameId = "2001";
-      const eventJobName = JobName.UpdateVideoInfo;
-      const updatedIndex = 5;
-      const mockEvent = createMockEventStreamState(1, gameId);
-      const mockClient = createMockClient(gameId);
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
-
-      // Act
-      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex);
-
-      // Assert
-      const expectedMessage = `Broadcasted ${eventJobName} on index: ${updatedIndex}`;
-      expect(mockClient.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"${expectedMessage}"`));
-    });
-
-    it("should broadcast voice updates with additional payload", () => {
-      // Arrange
-      const gameId = "2001";
-      const eventJobName = JobName.UpdateVoice;
-      const updatedIndex = 0;
-      const additionalPayload = { voice: "goal_2_1" };
-      const mockEvent = createMockEventStreamState(1, gameId);
-      const mockClient = createMockClient(gameId);
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockClientManager.getClientSetForGame.mockReturnValue([mockClient]);
-
-      // Act
-      eventStreamService.broadcastUpdateEventDataToClients(gameId, eventJobName, updatedIndex, additionalPayload);
-
-      // Assert
-      expect(mockClient.write).toHaveBeenCalledWith(
-        expect.stringContaining(`"voice":"goal_2_1"`)
-      );
-      expect(mockClient.write).toHaveBeenCalledWith(
-        expect.stringContaining(`"message":"Broadcasted ${eventJobName} on index: ${updatedIndex}"`)
-      );
-    });
-  });
-
   describe("addClient", () => {
     it("should add client and send initial payload for supported game", async () => {
       // Arrange
@@ -375,8 +144,6 @@ describe("EventStreamService", () => {
       // Assert
       expect(mockClientManager.addClient).toHaveBeenCalledWith(mockResponse, gameId);
       expect(mockInGameConsumer.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-      expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"First connection"`));
-      expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"gameFlow":"Streaming"`));
       expect(mockResponse.end).not.toHaveBeenCalled();
     });
 
@@ -391,24 +158,6 @@ describe("EventStreamService", () => {
       expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"Game not supported"`));
       expect(mockResponse.end).toHaveBeenCalled();
       expect(mockClientManager.addClient).not.toHaveBeenCalled();
-    });
-
-    it("should handle case when no payload is built", async () => {
-      // Arrange
-      const gameId = "2001";
-      const mockFeaturePayload = { gameFlow: "Prebet", currentEvent: null };
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(null);
-      mockInGameConsumer.getCurrentByGameId.mockReturnValue(mockFeaturePayload);
-
-      // Act
-      await eventStreamService.addClient(mockResponse, gameId);
-
-      // Assert
-      expect(mockInGameConsumer.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-      expect(mockLogService.logError).toHaveBeenCalledWith(`No payload for game ${gameId}`);
-      expect(mockClientManager.addClient).toHaveBeenCalledWith(mockResponse, gameId);
-      expect(mockResponse.write).not.toHaveBeenCalled();
     });
 
     it("should handle all supported gameIds", async () => {
@@ -453,24 +202,6 @@ describe("EventStreamService", () => {
       expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"currentEvent":{"eventId":1,"index":2}`));
     });
 
-    it("should handle empty feature payload from InGameConsumer", async () => {
-      // Arrange
-      const gameId = "2001";
-      const mockEvent = createMockEventStreamState(1, gameId);
-      const mockFeaturePayload = {};
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockInGameConsumer.getCurrentByGameId.mockReturnValue(mockFeaturePayload);
-
-      // Act
-      await eventStreamService.addClient(mockResponse, gameId);
-
-      // Assert
-      expect(mockInGameConsumer.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-      expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"First connection"`));
-      expect(mockResponse.end).not.toHaveBeenCalled();
-    });
-
     it("should handle null feature payload from InGameConsumer", async () => {
       // Arrange
       const gameId = "2001";
@@ -484,7 +215,6 @@ describe("EventStreamService", () => {
 
       // Assert
       expect(mockInGameConsumer.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-      expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"First connection"`));
       expect(mockResponse.end).not.toHaveBeenCalled();
     });
 
@@ -528,7 +258,6 @@ describe("EventStreamService", () => {
       expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"currentTime":45000`));
       expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"phaseIndex":2`));
       expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"timeToStream":1640995200000`));
-      expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"First connection"`));
     });
 
     it("should handle InGameConsumer throwing an error", async () => {

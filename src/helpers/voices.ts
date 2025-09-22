@@ -149,7 +149,7 @@ export const DEFAULT_VOICE_DURATION_CONFIG: VoiceDurationConfig = {
 
 const TIME_WITHIN_TO_BE_CONSIDERED_AS_FAST_GOAL = 5;
 const GOAL_COUNT_TO_BE_CONSIDERED_AS_FAST_GOAL = 2;
-    const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 25;
+    const TIME_TO_BE_CONSIDERED_AS_LAST_GOAL = 55;
 
 export function generateVoiceWithEventTimeline(args: EventTimelineArgs, config: VoiceDurationConfig = DEFAULT_VOICE_DURATION_CONFIG): VoiceGenerationResult {
     const events = args.eventName;
