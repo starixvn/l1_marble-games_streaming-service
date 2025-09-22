@@ -79,10 +79,6 @@ export class ResultService {
     }
 
     public handleEventStart({ event }: EventNotification) {
-        const gameId = idHelper.extractGameId(event.eventID);
-        this._resultByGameId[gameId] = {
-            result: {},
-        };
         const timeToReset = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
         this.scheduler.schedule(timeToReset, this.handleResetEvent.bind(this, { event }));
     }
@@ -91,7 +87,9 @@ export class ResultService {
         const gameId = idHelper.extractGameId(event.eventID);
         if (!this._resultByGameId[gameId]) {
             this._resultByGameId[gameId] = {
-                result: {},
+                result: {
+                    0: { homeScore: 0, awayScore: 0 },
+                },
             };
         }
         const phase = event.eventDetails[index].phase;
@@ -114,7 +112,9 @@ export class ResultService {
     public handleResetEvent({ event }: EventNotification) {
         const gameId = idHelper.extractGameId(event.eventID);
         this._resultByGameId[gameId] = {
-            result: {},
+            result: {
+                0: { homeScore: 0, awayScore: 0 },
+            },
         };
 
         this.broadcastResult({ gameId });
