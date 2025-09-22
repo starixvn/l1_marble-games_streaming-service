@@ -65,7 +65,7 @@ export class CommentatorVoiceService {
     private readonly boundHandleEventUpcoming: (notification: EventNotification) => void;
     private readonly boundHandleEventDetailScheduleStart: (notification: EventDetailNotification) => void;
     private readonly boundHandleEventCleanup: (notification: SystemNotification) => void;
-
+    private readonly boundHandleEventStart: (notification: EventNotification) => void;
 
     constructor(container: CommentatorVoiceServiceContainer) {
         this.oddFeedEventSource = container.oddFeedEventSource;
@@ -78,11 +78,17 @@ export class CommentatorVoiceService {
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
         this.boundHandleEventUpcoming = this.handleEventUpcoming.bind(this);
         this.boundHandleEventCleanup = this.handleEventCleanup.bind(this);
+        this.boundHandleEventStart = this.handleEventStart.bind(this);
     }
 
     public eventName = "commentatorVoice";
 
     public initEvent() {
+
+        this.oddFeedEventSource.registerEventListener(
+            OddFeedEventName.EventStart,
+            this.boundHandleEventStart
+        );
         this.oddFeedEventSource.registerEventDetailEventListener(
             OddFeedEventName.EventDetailStart,
             this.boundHandleEventDetailScheduleStart
@@ -103,7 +109,11 @@ export class CommentatorVoiceService {
         );
         this.oddFeedEventSource.unregisterEventListener(
             OddFeedEventName.EventUpcoming,
-            this.boundHandleEventUpcoming
+            this.boundHandleEventUpcoming,
+        );
+        this.oddFeedEventSource.unregisterEventListener(
+            OddFeedEventName.EventStart,
+            this.boundHandleEventStart
         );
         this.oddFeedEventSource.unregisterSystemDataCleanupEventListener(
             this.boundHandleEventCleanup
@@ -141,6 +151,11 @@ export class CommentatorVoiceService {
         delete this._commentatorVoiceConfigByEventId[eventID];
     }
     
+    handleEventStart({ event }: EventNotification) {
+        const gameId = idHelper.extractGameId(event.eventID);
+        this.resetVoiceState(gameId);
+    }
+
     async handleEventDetailScheduleStart({ event, index}: EventDetailNotification) {
 
         const config = this._commentatorVoiceConfigByEventId[event.eventID];
@@ -247,6 +262,10 @@ export class CommentatorVoiceService {
             voice,
             this.eventName
         );
+    }
+
+    public resetVoiceState(gameId: string) {
+        this._voiceStateByGameId[gameId] = new Map();
     }
 
     private getAbsoluteTimeline(timeline: number[], videoLength: number) {

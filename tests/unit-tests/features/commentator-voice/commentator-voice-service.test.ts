@@ -56,6 +56,17 @@ const TEST_SCHEDULE_START_TS = "2023-01-01T10:00:00Z";
 const TEST_VIDEO_LENGTH = 30;
 const TEST_CONFIG_JSON = "test-config.json";
 
+// Common test data
+const TEST_VOICE_FILE = 'voice1.mp3';
+const MOCK_VOICE_STATE_DATA = {
+    eventName: ['Goal'],
+    timeline: [10],
+    voices: [TEST_VOICE_FILE],
+    voiceTimelines: [5],
+    scoreSequence: '1-0',
+    videoLength: 30
+};
+
 // Test data
 const mockVoiceConfig = {
     "goal": {
@@ -172,6 +183,7 @@ describe('CommentatorVoiceService', () => {
             expect(service['boundHandleEventDetailScheduleStart']).toBeInstanceOf(Function);
             expect(service['boundHandleEventUpcoming']).toBeInstanceOf(Function);
             expect(service['boundHandleEventCleanup']).toBeInstanceOf(Function);
+            expect(service['boundHandleEventStart']).toBeInstanceOf(Function);
         });
 
         it('should initialize empty state tracking objects', () => {
@@ -201,6 +213,10 @@ describe('CommentatorVoiceService', () => {
             commentatorVoiceService.initEvent();
 
             // Assert
+            expect(mockOddFeedEventSource.registerEventListener).toHaveBeenCalledWith(
+                OddFeedEventName.EventStart,
+                commentatorVoiceService['boundHandleEventStart']
+            );
             expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
                 OddFeedEventName.EventDetailStart,
                 commentatorVoiceService['boundHandleEventDetailScheduleStart']
@@ -228,6 +244,10 @@ describe('CommentatorVoiceService', () => {
             expect(mockOddFeedEventSource.unregisterEventListener).toHaveBeenCalledWith(
                 OddFeedEventName.EventUpcoming,
                 commentatorVoiceService['boundHandleEventUpcoming']
+            );
+            expect(mockOddFeedEventSource.unregisterEventListener).toHaveBeenCalledWith(
+                OddFeedEventName.EventStart,
+                commentatorVoiceService['boundHandleEventStart']
             );
             expect(mockOddFeedEventSource.unregisterSystemDataCleanupEventListener).toHaveBeenCalledWith(
                 commentatorVoiceService['boundHandleEventCleanup']
@@ -338,6 +358,111 @@ describe('CommentatorVoiceService', () => {
             // Assert
             expect(commentatorVoiceService['_videoLengthByEventId'][TEST_EVENT_ID]).toBeUndefined();
             expect(commentatorVoiceService['_commentatorVoiceConfigByEventId'][TEST_EVENT_ID]).toBeUndefined();
+        });
+    });
+
+    describe('handleEventStart', () => {
+        it('should reset voice state for the game when event starts', () => {
+            // Arrange
+            const mockEventNotification: EventNotification = {
+                event: createMockEvent({
+                    eventID: TEST_EVENT_ID,
+                    scheduleStartTs: TEST_SCHEDULE_START_TS,
+                })
+            };
+            
+            // Set up existing voice state to verify it gets reset
+            const existingVoiceState = new Map();
+            existingVoiceState.set(1, MOCK_VOICE_STATE_DATA);
+            commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID] = existingVoiceState;
+
+            // Act
+            commentatorVoiceService.handleEventStart(mockEventNotification);
+
+            // Assert
+            const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+            expect(voiceState).toBeInstanceOf(Map);
+            expect(voiceState.size).toBe(0); // Should be empty after reset
+        });
+
+        it('should create new voice state map if none exists for the game', () => {
+            // Arrange
+            const mockEventNotification: EventNotification = {
+                event: createMockEvent({
+                    eventID: TEST_EVENT_ID,
+                    scheduleStartTs: TEST_SCHEDULE_START_TS,
+                })
+            };
+            
+            // Ensure no existing voice state
+            delete commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+
+            // Act
+            commentatorVoiceService.handleEventStart(mockEventNotification);
+
+            // Assert
+            const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+            expect(voiceState).toBeInstanceOf(Map);
+            expect(voiceState.size).toBe(0);
+        });
+
+        it('should handle multiple games independently', () => {
+            // Arrange
+            const gameId1 = '1';
+            const gameId2 = '2';
+            const eventId1 = 4294967298;
+            
+            const mockEventNotification1: EventNotification = {
+                event: createMockEvent({
+                    eventID: eventId1, // Maps to gameId1
+                    scheduleStartTs: TEST_SCHEDULE_START_TS,
+                })
+            };
+            
+
+            // Set up existing voice states for both games
+            const voiceState1 = new Map();
+            voiceState1.set(1, { eventName: ['Goal1'], timeline: [10], voices: [TEST_VOICE_FILE], voiceTimelines: [5], scoreSequence: '1-0', videoLength: 30 });
+            const voiceState2 = new Map();
+            voiceState2.set(1, { eventName: ['Goal2'], timeline: [15], voices: ['voice2.mp3'], voiceTimelines: [8], scoreSequence: '0-1', videoLength: 25 });
+            
+            commentatorVoiceService['_voiceStateByGameId'][gameId1] = voiceState1;
+            commentatorVoiceService['_voiceStateByGameId'][gameId2] = voiceState2;
+
+            // Act - Reset only gameId1
+            commentatorVoiceService.handleEventStart(mockEventNotification1);
+
+            // Assert
+            const resetVoiceState1 = commentatorVoiceService['_voiceStateByGameId'][gameId1];
+            const unchangedVoiceState2 = commentatorVoiceService['_voiceStateByGameId'][gameId2];
+            
+            expect(resetVoiceState1).toBeInstanceOf(Map);
+            expect(resetVoiceState1.size).toBe(0); // Should be reset
+            expect(unchangedVoiceState2).toBeInstanceOf(Map);
+            expect(unchangedVoiceState2.size).toBe(1); // Should remain unchanged
+            expect(unchangedVoiceState2.get(1)?.scoreSequence).toBe('0-1');
+        });
+
+        it('should call resetVoiceState method internally', () => {
+            // Arrange
+            const mockEventNotification: EventNotification = {
+                event: createMockEvent({
+                    eventID: TEST_EVENT_ID,
+                    scheduleStartTs: TEST_SCHEDULE_START_TS,
+                })
+            };
+            
+            // Spy on the resetVoiceState method
+            const resetVoiceStateSpy = jest.spyOn(commentatorVoiceService, 'resetVoiceState');
+
+            // Act
+            commentatorVoiceService.handleEventStart(mockEventNotification);
+
+            // Assert
+            expect(resetVoiceStateSpy).toHaveBeenCalledWith(TEST_GAME_ID);
+            
+            // Cleanup
+            resetVoiceStateSpy.mockRestore();
         });
     });
 
@@ -513,6 +638,63 @@ describe('CommentatorVoiceService', () => {
         });
     });
 
+    describe('resetVoiceState', () => {
+        it('should create a new empty Map for the specified game', () => {
+            // Arrange
+            const existingVoiceState = new Map();
+            existingVoiceState.set(1, MOCK_VOICE_STATE_DATA);
+            commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID] = existingVoiceState;
+
+            // Act
+            commentatorVoiceService.resetVoiceState(TEST_GAME_ID);
+
+            // Assert
+            const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+            expect(voiceState).toBeInstanceOf(Map);
+            expect(voiceState.size).toBe(0);
+        });
+
+        it('should create new Map if no existing state for the game', () => {
+            // Arrange
+            delete commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+
+            // Act
+            commentatorVoiceService.resetVoiceState(TEST_GAME_ID);
+
+            // Assert
+            const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+            expect(voiceState).toBeInstanceOf(Map);
+            expect(voiceState.size).toBe(0);
+        });
+
+        it('should not affect voice states of other games', () => {
+            // Arrange
+            const gameId1 = '1';
+            const gameId2 = '2';
+            
+            const voiceState1 = new Map();
+            voiceState1.set(1, { eventName: ['Goal1'], timeline: [10], voices: [TEST_VOICE_FILE], voiceTimelines: [5], scoreSequence: '1-0', videoLength: 30 });
+            const voiceState2 = new Map();
+            voiceState2.set(1, { eventName: ['Goal2'], timeline: [15], voices: ['voice2.mp3'], voiceTimelines: [8], scoreSequence: '0-1', videoLength: 25 });
+            
+            commentatorVoiceService['_voiceStateByGameId'][gameId1] = voiceState1;
+            commentatorVoiceService['_voiceStateByGameId'][gameId2] = voiceState2;
+
+            // Act
+            commentatorVoiceService.resetVoiceState(gameId1);
+
+            // Assert
+            const resetVoiceState1 = commentatorVoiceService['_voiceStateByGameId'][gameId1];
+            const unchangedVoiceState2 = commentatorVoiceService['_voiceStateByGameId'][gameId2];
+            
+            expect(resetVoiceState1).toBeInstanceOf(Map);
+            expect(resetVoiceState1.size).toBe(0);
+            expect(unchangedVoiceState2).toBeInstanceOf(Map);
+            expect(unchangedVoiceState2.size).toBe(1);
+            expect(unchangedVoiceState2.get(1)?.scoreSequence).toBe('0-1');
+        });
+    });
+
     describe('getAbsoluteTimeline', () => {
         it('should add video length to each timeline value', () => {
             // Arrange
@@ -656,15 +838,28 @@ describe('CommentatorVoiceService', () => {
             const boundHandleEventUpcoming = commentatorVoiceService['boundHandleEventUpcoming'];
             const boundHandleEventDetailScheduleStart = commentatorVoiceService['boundHandleEventDetailScheduleStart'];
             const boundHandleEventCleanup = commentatorVoiceService['boundHandleEventCleanup'];
+            const boundHandleEventStart = commentatorVoiceService['boundHandleEventStart'];
+
+            const mockEventNotification: EventNotification = {
+                event: createMockEvent({
+                    eventID: TEST_EVENT_ID,
+                    scheduleStartTs: TEST_SCHEDULE_START_TS,
+                })
+            };
 
             // Act
             await boundHandleEventUpcoming(mockEventNotificationWithConfig);
             await boundHandleEventDetailScheduleStart(mockEventDetailNotification);
             boundHandleEventCleanup(mockSystemNotification);
+            boundHandleEventStart(mockEventNotification);
 
             // Assert
             expect(mockOddsFeedService.getVoiceConfig).toHaveBeenCalled();
             expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalled();
+            
+            // Verify voice state was reset for handleEventStart
+            const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
+            expect(voiceState).toBeInstanceOf(Map);
         });
 
         it('should handle multiple phases for same game', async () => {
