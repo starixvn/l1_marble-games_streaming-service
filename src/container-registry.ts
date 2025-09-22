@@ -6,13 +6,7 @@ import { OddsFeedService } from "./services/odds-feed-service";
 import { AuthController } from "./controllers/auth-controller";
 import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
-import { MonitorController } from "./controllers/monitor-controller";
 import { logger } from "sc-common";
-import { EventManagementService } from "./services/event-management-service";
-import { EventStore } from "./stores/event-store";
-import { JobScheduler } from "./services/job-scheduler";
-import { EventSchedulerService } from "./services/event-scheduler-service";
-import { EventManager } from "./stores/event-manager";
 import { ClientManager } from "./managers/client-manager";
 import { initContainer, OddFeedDataContainer, registerContainer } from "./features/container-registry";
 
@@ -27,8 +21,6 @@ export class ContainerRegistry {
 
   register() {
     this.container.register({
-      eventStore: asClass(EventStore).singleton(),
-      eventManager: asClass(EventManager).singleton(),
       clientManager: 
         asClass(ClientManager)
         .singleton()
@@ -40,19 +32,12 @@ export class ContainerRegistry {
       authenticateService: asClass(AuthenticateService).singleton(),
       oddsFeedService: asClass(OddsFeedService).singleton(),
       logService: asValue(logger),
-      eventManagementService: 
-        asClass(EventManagementService)
-        .singleton()
-        .disposer((service) => service.cleanup()),
-      jobScheduler: asClass(JobScheduler).singleton(),
-      eventSchedulerService: asClass(EventSchedulerService).singleton(),
     });
 
     this.container.register({
       authController: asClass(AuthController).singleton(),
       eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
-      monitorController: asClass(MonitorController).singleton(),
     });
 
     registerContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
@@ -62,6 +47,5 @@ export class ContainerRegistry {
 
   init() {
     initContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
-    this.container.resolve("eventManagementService").start();
   }
 }

@@ -31,6 +31,7 @@ enum ServiceWithDebug {
     VideoStreamingService = "VideoStreamingService",
     CommentatorVoiceService = "CommentatorVoiceService",
     IntroService = "IntroService",
+    TeamNameService = "TeamNameService",
     Default = "Default",
 }
 
@@ -42,17 +43,19 @@ const colorMap = {
     [ServiceWithDebug.VideoStreamingService]: ANSIColor.Cyan,
     [ServiceWithDebug.CommentatorVoiceService]: ANSIColor.BackgroundRed,
     [ServiceWithDebug.IntroService]: ANSIColor.BackgroundGreen,
+    [ServiceWithDebug.TeamNameService]: ANSIColor.BackgroundBlue,
     [ServiceWithDebug.Default]: ANSIColor.White,
 }
 
 const debugEnabledServices = new Set<string>([
-    ServiceWithDebug.GameFlowService,
-    ServiceWithDebug.CurrentEventService,
-    ServiceWithDebug.LiveScoreService,
-    ServiceWithDebug.ResultService,
-    ServiceWithDebug.VideoStreamingService,
+    //ServiceWithDebug.IntroService,
+    //ServiceWithDebug.GameFlowService,
+    //ServiceWithDebug.CurrentEventService,
+    //ServiceWithDebug.LiveScoreService,
+    //ServiceWithDebug.ResultService,
+    //ServiceWithDebug.VideoStreamingService,
     ServiceWithDebug.CommentatorVoiceService,
-    ServiceWithDebug.IntroService,
+    //ServiceWithDebug.TeamNameService,
 ]);
 
 export interface DebugServiceContainer {
