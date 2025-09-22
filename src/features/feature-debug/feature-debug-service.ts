@@ -48,14 +48,14 @@ const colorMap = {
 }
 
 const debugEnabledServices = new Set<string>([
-    //ServiceWithDebug.IntroService,
-    //ServiceWithDebug.GameFlowService,
-    //ServiceWithDebug.CurrentEventService,
-    //ServiceWithDebug.LiveScoreService,
-    //ServiceWithDebug.ResultService,
-    //ServiceWithDebug.VideoStreamingService,
+    ServiceWithDebug.IntroService,
+    ServiceWithDebug.GameFlowService,
+    ServiceWithDebug.CurrentEventService,
+    ServiceWithDebug.LiveScoreService,
+    ServiceWithDebug.ResultService,
+    ServiceWithDebug.VideoStreamingService,
     ServiceWithDebug.CommentatorVoiceService,
-    //ServiceWithDebug.TeamNameService,
+    ServiceWithDebug.TeamNameService,
 ]);
 
 export interface DebugServiceContainer {
