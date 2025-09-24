@@ -70,7 +70,7 @@ export class ClientManager {
       }
 
       if (clients.size !== initialSize) {
-        this.logService.log(`Cleaned up ${initialSize - clients.size} dead connections from game ${gameId}`);
+        this.logService.log(`Cleaned up ${initialSize - clients.size} dead connections from game ${gameId}`, "debug");
       }
 
       if (clients.size === 0) {

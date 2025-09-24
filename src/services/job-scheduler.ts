@@ -29,7 +29,7 @@ export class JobScheduler {
     }
 
     if (delay < 0 && force) {
-      this.logService.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`);
+      this.logService.log(`Scheduled time is late ${delay}ms for job ${name}, forcing it`, "debug");
     }
 
     const timeoutId = setTimeout(async () => {
@@ -64,7 +64,7 @@ export class JobScheduler {
   addJobCompleted(name: string) {
     if (this.jobsCompleted.length >= 100) {
       console.log(`Jobs completed: ${this.jobsCompleted.join("\n")}`);
-      this.logService.log(`Jobs completed: ${this.jobsCompleted.length}`);
+      this.logService.log(`Jobs completed: ${this.jobsCompleted.length}`, "debug");
       this.jobsCompleted = [];
     }
 
