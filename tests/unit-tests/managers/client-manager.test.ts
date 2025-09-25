@@ -275,7 +275,7 @@ describe("ClientManager", () => {
       // Assert
       expect(clientManager.getClientCount(gameId)).toBe(1);
       expect(clientManager.getTotalClientCount()).toBe(1);
-      expect(mockContainer.logService.log).toHaveBeenCalledWith("Cleaned up 1 dead connections from game game-123");
+      expect(mockContainer.logService.log).toHaveBeenCalledWith("Cleaned up 1 dead connections from game game-123", "debug");
     });
 
     it("should remove game entry when all clients are dead", () => {
@@ -308,7 +308,7 @@ describe("ClientManager", () => {
       // Assert
       expect(clientManager.getClientCount(gameId)).toBe(1);
       expect(clientManager.getTotalClientCount()).toBe(1);
-      expect(mockContainer.logService.log).toHaveBeenCalledWith("Cleaned up 2 dead connections from game game-123");
+      expect(mockContainer.logService.log).toHaveBeenCalledWith("Cleaned up 2 dead connections from game game-123", "debug");
     });
 
     it("should not log when no dead connections found", () => {
