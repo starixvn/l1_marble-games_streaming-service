@@ -1,15 +1,20 @@
 import { EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
 
 type DelayConfig = {
-    globalDelayInMillisecond: number;
-    videoDelayInMillisecond: number;
+    globalDelayInMillisecond?: number;
+    videoDelayInMillisecond?: number;
+    eventScheduleStartDelayInMillisecond?: number;
+    eventDetailScheduleStartDelayInMillisecond?: number;
+    eventDetailResultAvailableDelayInMillisecond?: number;
 }
 
 export interface DelayHandlingServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
 }
 
-
+interface DelayOptions {
+    oddFeedEventType?: OddFeedEventName;
+}
 export class DelayHandlingService {
 
     private readonly _delayConfigByEventId: Record<number, DelayConfig> = {};
@@ -32,20 +37,23 @@ export class DelayHandlingService {
         return this._delayConfigByEventId[eventId];
     }
 
-    public getDelayedTime({ eventId, time }: { eventId: number, time: Date }): Date {
+    public getDelayedTime({ eventId, time }: { eventId: number, time: Date }, { oddFeedEventType }: DelayOptions = {}): Date {
         const config = this._delayConfigByEventId[eventId];
         if (!config) {
             return time;
         }
-        return new Date(time.getTime() + config.globalDelayInMillisecond);
+        const globalDelayInMillisecond = config.globalDelayInMillisecond ?? 0;
+        const eventTypeDelayMiliseconds = this.getDelayConfigByEventType({ eventId }, { oddFeedEventType });
+        return new Date(time.getTime() + globalDelayInMillisecond + eventTypeDelayMiliseconds);
     }
 
-    public getDelayedTimeWithVideoDelay({ eventId, time }: { eventId: number, time: Date }): Date {
+    public getDelayedTimeWithVideoDelay({ eventId, time }: { eventId: number, time: Date }, { oddFeedEventType }: DelayOptions = {}): Date {
         const config = this._delayConfigByEventId[eventId];
         if (!config) {
             return time;
         }
-        return new Date(this.getDelayedTime({ eventId, time }).getTime() + config.videoDelayInMillisecond);
+        const videoDelayInMillisecond = config.videoDelayInMillisecond ?? 0;
+        return new Date(this.getDelayedTime({ eventId, time }, { oddFeedEventType }).getTime() + videoDelayInMillisecond);
     }
 
     public handleEventUpcoming({ event }: EventNotification) {
@@ -61,5 +69,27 @@ export class DelayHandlingService {
             this.boundHandleEventUpcoming
         )
         return this;
+    }
+
+    private getDelayConfigByEventType({ eventId }: { eventId: number }, { oddFeedEventType }: DelayOptions = {}): number {
+        const config = this._delayConfigByEventId[eventId];
+        if (!config) {
+            return 0;
+        }
+
+        if (!oddFeedEventType) {
+            return 0;
+        }
+
+        switch (oddFeedEventType) {
+            case OddFeedEventName.EventStart:
+                return config.eventScheduleStartDelayInMillisecond ?? 0;
+            case OddFeedEventName.EventDetailStart:
+                return config.eventDetailScheduleStartDelayInMillisecond ?? 0;
+            case OddFeedEventName.EventDetailResultsAvailable:
+                return config.eventDetailResultAvailableDelayInMillisecond ?? 0;
+            default:
+                return 0;
+        }
     }
 }

@@ -264,6 +264,8 @@ describe('LiveScoreService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEvent.eventDetails[0].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -312,15 +314,18 @@ describe('LiveScoreService', () => {
             // Assert
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 1,
-                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime1) }
+                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime1) },
+                { oddFeedEventType: OddFeedEventName.EventDetailStart }
             );
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 2,
-                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime2) }
+                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime2) },
+                { oddFeedEventType: OddFeedEventName.EventDetailStart }
             );
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 3,
-                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime3) }
+                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime3) },
+                { oddFeedEventType: OddFeedEventName.EventDetailStart }
             );
         });
 

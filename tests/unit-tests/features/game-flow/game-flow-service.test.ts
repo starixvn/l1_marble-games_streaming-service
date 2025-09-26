@@ -313,6 +313,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -348,6 +350,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.eventDetails[2].resultsAvailableTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -367,6 +371,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.eventDetails[0].resultsAvailableTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -440,6 +446,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.eventDetails[0].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -634,6 +642,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.eventDetails[0].resultsAvailableTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
             });
         });
 
@@ -655,6 +665,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.eventDetails[0].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
         });
 
@@ -676,6 +688,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventStart,
             });
         });
 
@@ -687,6 +701,8 @@ describe('GameFlowService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithDetails.scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventStart,
             });
         });
 

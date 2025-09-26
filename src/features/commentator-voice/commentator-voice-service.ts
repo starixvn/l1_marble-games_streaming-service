@@ -205,7 +205,9 @@ export class CommentatorVoiceService {
         }, config.configVoice);
 
         this.scheduler.schedule(
-            this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }),
+            this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
+            }),
             this.debugVoice.bind(this, gameId, voices, {
                 eventName: thisInGameEvent,
                 timeline: thisTimeline,
@@ -243,7 +245,9 @@ export class CommentatorVoiceService {
 
         scheduledVoiceTimelines.forEach((timeline, voiceIndex) => {
             const voiceTime = new Date(event.eventDetails[index].scheduleStartTs).getTime() + timeline * 1000;
-            const scheduledVoiceTime = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(voiceTime) });
+            const scheduledVoiceTime = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(voiceTime) }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
+            });
             this.scheduler.schedule(
                 scheduledVoiceTime,
                 this.playVoice.bind(this, 

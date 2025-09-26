@@ -366,6 +366,8 @@ describe('IntroService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenNthCalledWith(1, {
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEventWithIntroConfig.scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventStart,
             });
             
             // Second call should be for halftime intro (phase 1 start time - duration)
@@ -374,6 +376,8 @@ describe('IntroService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenNthCalledWith(2, {
                 eventId: TEST_EVENT_ID,
                 time: expectedHalfTimeIntroStart
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
         });
 

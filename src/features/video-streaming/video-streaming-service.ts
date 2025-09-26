@@ -119,10 +119,14 @@ export class VideoStreamingService {
     }
 
     private getTimeToStream(event: Event, index: number) {
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailStart,
+        });
     }
 
     private getTimeToPreload(event: Event, index: number) {
-        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
+        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailStart,
+        });
     }
 }

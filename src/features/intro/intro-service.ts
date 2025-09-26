@@ -97,10 +97,14 @@ export class IntroService {
         const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
 
         const durationInMillis = duration * 1000;
-        const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
+        const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventStart,
+        });
         const timeToStopPrebetIntro = new Date(timeToPlayPrebetIntro.getTime() + durationInMillis + 1);
         
-        const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMillis) });
+        const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMillis) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailStart,
+        });
         const timeToStopHalfTimeIntro = new Date(timeToPlayHalfTimeIntro.getTime() + durationInMillis + 1);
         
         this.scheduler.schedule(timeToPlayPrebetIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayPrebetIntro.getTime() }));
