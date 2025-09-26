@@ -59,7 +59,9 @@ export class TeamNameService {
     }
 
     public handleEventStart({ event }: EventNotification) {
-        const timeToUpdate = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
+        const timeToUpdate = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventStart,
+        });
         this.scheduler.schedule(timeToUpdate, this.handleTeamNameUpdate.bind(this, { event }));
     }
 

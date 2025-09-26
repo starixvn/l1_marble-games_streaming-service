@@ -77,13 +77,17 @@ export class LiveScoreService {
         }
 
         if (index === 0) {
-            const timeToReset = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
+            const timeToReset = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
+            });
             this.scheduler.schedule(timeToReset, this.resetLiveScore.bind(this, { gameId: idHelper.extractGameId(event.eventID) }));
         }
 
         goalInfo?.timeLine.forEach((time, goalIndex) => {
             const goalTime = new Date(event.eventDetails[index].scheduleStartTs).getTime() + time * 1000;
-            const timeToUpdate = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(goalTime) });
+            const timeToUpdate = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(goalTime) }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
+            });
             this.scheduler.schedule(timeToUpdate, this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] }));
         });
     }

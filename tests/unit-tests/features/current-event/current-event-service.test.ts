@@ -368,6 +368,8 @@ describe('CurrentEventService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: mockEvent.eventID,
                 time: new Date(mockEvent.scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 delayedTime,
@@ -408,6 +410,8 @@ describe('CurrentEventService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: mockEvent.eventID,
                 time: new Date(mockEvent.eventDetails[0].resultsAvailableTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 delayedTime,

@@ -202,10 +202,14 @@ describe("VideoStreamingService", () => {
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
             expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, TEST_DELAYED_TIME_VIDEO, expect.any(Function));
@@ -507,6 +511,8 @@ describe("VideoStreamingService", () => {
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
             expect(result).toBe(TEST_DELAYED_TIME_VIDEO);
         });
@@ -519,6 +525,8 @@ describe("VideoStreamingService", () => {
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[0].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
         });
     });
@@ -532,6 +540,8 @@ describe("VideoStreamingService", () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
             expect(result).toBe(TEST_DELAYED_TIME_PRELOAD);
         });
@@ -544,6 +554,8 @@ describe("VideoStreamingService", () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[0].scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailStart,
             });
         });
     });

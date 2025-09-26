@@ -144,15 +144,21 @@ export class GameFlowService {
     }
 
     private delayedEventDetailResultAvailable({ event, index }: EventDetailNotification) {
-        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) });
+        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
+        });
     }
 
     private delayedEventDetailtScheduleStartWithVideoDelay({ event, index }: EventDetailNotification) {
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) });
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailStart,
+        });
     }
 
     private delayedEventScheduleStart({ event }: EventNotification | EventDetailNotification) {
-        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) });
+        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventStart,
+        });
     }
 
     private log(message: string, gameId: string) {

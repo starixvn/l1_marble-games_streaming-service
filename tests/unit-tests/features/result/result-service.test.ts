@@ -221,6 +221,8 @@ describe('ResultService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEvent.eventDetails[0].resultsAvailableTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -254,6 +256,8 @@ describe('ResultService', () => {
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEvent.scheduleStartTs)
+            }, {
+                oddFeedEventType: OddFeedEventName.EventStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
