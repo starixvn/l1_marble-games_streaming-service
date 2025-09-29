@@ -37,7 +37,8 @@ export const applyCors = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (req.path === "/" || req.path.includes("/debug")) {
+  if (req.path === "/" || req.path === "/debug") {
+    console.log("cor passed ")
     return next();
   }
 
