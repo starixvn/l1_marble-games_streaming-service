@@ -90,12 +90,12 @@ export class GameFlowService {
     }
 
     public handleResultAvailable({ event, index }: EventDetailNotification) {
+        const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
         if (isLastEventDetail({ event, index })) {
-            const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
+            
             this.scheduler.schedule(whenToSwitch, this.switchToResult.bind(this, { eventId: event.eventID }));
         }
         if (isPhaseSwitching({ event, index })) {
-            const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
             this.scheduler.schedule(whenToSwitch, this.switchToHalfTime.bind(this, { eventId: event.eventID }));
         }
     }

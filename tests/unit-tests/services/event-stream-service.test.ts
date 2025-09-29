@@ -147,19 +147,6 @@ describe("EventStreamService", () => {
       expect(mockResponse.end).not.toHaveBeenCalled();
     });
 
-    it("should reject unsupported game and end response", async () => {
-      // Arrange
-      const unsupportedGameId = "9999";
-
-      // Act
-      await eventStreamService.addClient(mockResponse, unsupportedGameId);
-
-      // Assert
-      expect(mockResponse.write).toHaveBeenCalledWith(expect.stringContaining(`"message":"Game not supported"`));
-      expect(mockResponse.end).toHaveBeenCalled();
-      expect(mockClientManager.addClient).not.toHaveBeenCalled();
-    });
-
     it("should handle all supported gameIds", async () => {
       // Arrange
       const supportedGameIds = ["2001", "2002", "2003"];

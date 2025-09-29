@@ -389,12 +389,12 @@ describe("OddFeedScheduler", () => {
   });
 
   describe("handleEventDetailResultsAvailable", () => {
-    it("should call pullEventAndUpdateStore and emit onEventDetailResultsAvailable when successful", async () => {
+    it("should emit when updatedEvent has non-empty result for valid index", async () => {
       // Arrange
-      const updatedEvent = { ...mockEvent, eventNameAKey: TEST_UPDATED_NAME };
+      const index = 1;
+      const updatedEvent = { ...mockEvent };
       const pullEventAndUpdateStoreSpy = jest.spyOn(oddFeedScheduler as any, "pullEventAndUpdateStore");
       pullEventAndUpdateStoreSpy.mockResolvedValue(updatedEvent);
-      const index = 3;
 
       // Act
       await (oddFeedScheduler as any).handleEventDetailResultsAvailable(mockEvent, index);
@@ -404,18 +404,69 @@ describe("OddFeedScheduler", () => {
       expect(mockOddFeedEventSource.onEventDetailResultsAvailable).toHaveBeenCalledWith(updatedEvent, index);
     });
 
-    it("should not emit onEventDetailResultsAvailable when pullEventAndUpdateStore returns undefined", async () => {
+    it("should retry when updatedEvent is undefined and then succeed", async () => {
       // Arrange
+      const index = 1;
+      const eventWithResult = { ...mockEvent };
       const pullEventAndUpdateStoreSpy = jest.spyOn(oddFeedScheduler as any, "pullEventAndUpdateStore");
-      pullEventAndUpdateStoreSpy.mockResolvedValue(undefined);
-      const index = 3;
+      pullEventAndUpdateStoreSpy
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(eventWithResult);
 
       // Act
       await (oddFeedScheduler as any).handleEventDetailResultsAvailable(mockEvent, index);
 
       // Assert
-      expect(pullEventAndUpdateStoreSpy).toHaveBeenCalledWith(mockEvent);
+      expect(pullEventAndUpdateStoreSpy).toHaveBeenCalledTimes(2);
+      expect(mockOddFeedEventSource.onEventDetailResultsAvailable).toHaveBeenCalledTimes(1);
+      expect(mockOddFeedEventSource.onEventDetailResultsAvailable).toHaveBeenCalledWith(eventWithResult, index);
+    });
+
+    it("should retry when result is empty then emit when result appears", async () => {
+      // Arrange
+      const index = 1;
+      const eventWithEmptyResult = {
+        ...mockEvent,
+        eventDetails: mockEvent.eventDetails.map((d, i) => (i === index ? { ...d, result: "" } : d)),
+      } as any;
+      const eventWithResult = {
+        ...mockEvent,
+        eventDetails: mockEvent.eventDetails.map((d, i) => (i === index ? { ...d, result: "3:1" } : d)),
+      } as any;
+      const pullEventAndUpdateStoreSpy = jest.spyOn(oddFeedScheduler as any, "pullEventAndUpdateStore");
+      pullEventAndUpdateStoreSpy
+        .mockResolvedValueOnce(eventWithEmptyResult)
+        .mockResolvedValueOnce(eventWithResult);
+
+      // Act
+      await (oddFeedScheduler as any).handleEventDetailResultsAvailable(mockEvent, index);
+
+      // Assert
+      expect(pullEventAndUpdateStoreSpy).toHaveBeenCalledTimes(2);
+      expect(mockOddFeedEventSource.onEventDetailResultsAvailable).toHaveBeenCalledTimes(1);
+      expect(mockOddFeedEventSource.onEventDetailResultsAvailable).toHaveBeenCalledWith(eventWithResult, index);
+    });
+
+    it("should stop and log error after retries exhausted without emitting", async () => {
+      // Arrange
+      const index = 1;
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const pullEventAndUpdateStoreSpy = jest.spyOn(oddFeedScheduler as any, "pullEventAndUpdateStore");
+      pullEventAndUpdateStoreSpy
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+
+      // Act
+      await (oddFeedScheduler as any).handleEventDetailResultsAvailable(mockEvent, index, 0);
+
+      // Assert
+      expect(pullEventAndUpdateStoreSpy).toHaveBeenCalledTimes(2);
       expect(mockOddFeedEventSource.onEventDetailResultsAvailable).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain(`event ${TEST_EVENT_ID}`);
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain(`index ${index}`);
+
+      consoleErrorSpy.mockRestore();
     });
   });
 });
