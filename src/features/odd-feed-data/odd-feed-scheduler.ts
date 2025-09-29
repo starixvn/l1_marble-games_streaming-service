@@ -3,6 +3,8 @@ import { AppContainer, Event as OddFeedEvent } from "../../types";
 import { Scheduler } from "../scheduler/scheduler";
 import { OddFeedEventName, OddFeedEventSource } from "./odd-feed-event-source";
 import { OddFeedPullService } from "./odd-feed-pull-service";
+import { isNullOrUndefinedOrEmpty } from "../../helpers/string";
+import { isNullOrUndefined } from "../../helpers/nullcheck";
 
 interface OddFeedSchedulerContainer extends AppContainer {
     oddFeedEventSource: OddFeedEventSource;
@@ -102,11 +104,23 @@ export class OddFeedScheduler {
         this.oddFeedEventSource.onEventDetailOddsAvailable(updatedEvent, index);
     }
     
-    protected async handleEventDetailResultsAvailable(event: OddFeedEvent, index: number) {
+    protected async handleEventDetailResultsAvailable(event: OddFeedEvent, index: number, retry = 3) {
         const updatedEvent = await this.pullEventAndUpdateStore(event);
-        if (!updatedEvent) {
+        if (retry < 0) {
+            console.error(`Failed to get event details for event ${event.eventID} and index ${index} after ${retry} retries`);
             return;
         }
+
+        if (!updatedEvent) {
+            await this.handleEventDetailResultsAvailable(event, index, retry - 1);
+            return;
+        }
+
+        if (isNullOrUndefinedOrEmpty(updatedEvent.eventDetails[index].result)) {
+            await this.handleEventDetailResultsAvailable(event, index, retry - 1);
+            return;
+        }
+
         this.oddFeedEventSource.onEventDetailResultsAvailable(updatedEvent, index);
     }
 

@@ -1,5 +1,4 @@
 export const appSettings = {
-  gameIds: ["2000", "2001", "2002", "2003"],
   videoLength: {
     // in seconds
     "2000": 30,
