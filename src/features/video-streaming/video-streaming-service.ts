@@ -20,6 +20,7 @@ export interface VideoState {
     timeToStream: number;
     currentTime: number;
     phaseIndex: number;
+    timeFromPhaseStart: number;
 }
 
 export interface PreloadVideoState {
@@ -78,11 +79,13 @@ export class VideoStreamingService {
     onLiveStreamStart({ event, index }: EventDetailNotification) {
         const gameId = idHelper.extractGameId(event.eventID);
         const timeToStream = this.getTimeToStream(event, index);
+        const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
         this._currentVideoStateByGameId[gameId] = {
             videoLink: event.eventDetails[index].playlist,
             timeToStream: timeToStream.getTime(),
             currentTime: 0,
             phaseIndex: event.eventDetails[index].phase,
+            timeFromPhaseStart: timeFromPhaseStart.getTime(),
         };
         this.log(`video streaming started with event ${event.eventID} and index ${index}
             {
@@ -133,6 +136,16 @@ export class VideoStreamingService {
 
     private getTimeToPreload(event: Event, index: number) {
         return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailStart,
+        });
+    }
+
+    private getTimeFromPhaseStart(event: Event, index: number) {
+        const currentPhase = event.eventDetails[index].phase;
+        const firstEventDetailOfPhase = 
+            event.eventDetails.find(detail => detail.phase === currentPhase) 
+            ?? event.eventDetails[index];
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(firstEventDetailOfPhase.scheduleStartTs) }, {
             oddFeedEventType: OddFeedEventName.EventDetailStart,
         });
     }

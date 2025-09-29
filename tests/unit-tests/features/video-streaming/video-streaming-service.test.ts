@@ -244,11 +244,12 @@ describe("VideoStreamingService", () => {
             videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
 
             // Assert
-            expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toEqual({
+			expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toEqual({
                 videoLink: TEST_PLAYLIST_URL_2, // Index 1 of the event details
                 timeToStream: TEST_TIME_TO_STREAM,
                 currentTime: 0,
                 phaseIndex: mockEvent1.eventDetails[TEST_INDEX].phase,
+				timeFromPhaseStart: TEST_TIME_TO_STREAM,
             });
             expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID_1,
@@ -354,6 +355,7 @@ describe("VideoStreamingService", () => {
                 timeToStream: TEST_TIME_TO_STREAM,
                 currentTime: 0,
                 phaseIndex: TEST_INDEX,
+				timeFromPhaseStart: TEST_TIME_TO_STREAM,
             };
             videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
         });
@@ -363,11 +365,12 @@ describe("VideoStreamingService", () => {
             const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
 
             // Assert
-            expect(result).toEqual({
+			expect(result).toEqual({
                 videoLink: TEST_PLAYLIST_URL_1,
                 timeToStream: TEST_TIME_TO_STREAM,
                 currentTime: TEST_CURRENT_TIME - TEST_TIME_TO_STREAM, // Calculated difference
-                phaseIndex: TEST_INDEX,
+				phaseIndex: TEST_INDEX,
+				timeFromPhaseStart: TEST_TIME_TO_STREAM,
             });
         });
 
@@ -622,11 +625,12 @@ describe("VideoStreamingService", () => {
             const largeTime = TEST_TIME_TO_STREAM + 86400000; // 24 hours later
             jest.spyOn(Date, 'now').mockReturnValue(largeTime);
             
-            const testVideoState: VideoState = {
+			const testVideoState: VideoState = {
                 videoLink: TEST_PLAYLIST_URL_1,
                 timeToStream: TEST_TIME_TO_STREAM,
                 currentTime: 0,
-                phaseIndex: TEST_INDEX,
+				phaseIndex: TEST_INDEX,
+				timeFromPhaseStart: TEST_TIME_TO_STREAM,
             };
             videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
 
