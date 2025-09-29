@@ -1,5 +1,4 @@
 import { Router } from "express";
-import path from "path";
 import { AppContainer } from "../types";
 import { AwilixContainer } from "awilix";
 import { DebugController } from "../controllers/debug-controller";
@@ -17,7 +16,6 @@ export function setupRoutes(container: AwilixContainer<AppContainer & { debugCon
 
   router.get("/live/:gameId", (req, res) => eventStreamController.handleEventStreamConnection(req, res));
   router.get("/debug-stream/:gameId", (req, res) => debugController.handle(req, res));
-
 
   return router;
 }
