@@ -4,7 +4,6 @@ import { Scheduler } from "../scheduler/scheduler";
 import { OddFeedEventName, OddFeedEventSource } from "./odd-feed-event-source";
 import { OddFeedPullService } from "./odd-feed-pull-service";
 import { isNullOrUndefinedOrEmpty } from "../../helpers/string";
-import { isNullOrUndefined } from "../../helpers/nullcheck";
 
 interface OddFeedSchedulerContainer extends AppContainer {
     oddFeedEventSource: OddFeedEventSource;
