@@ -21,7 +21,7 @@ export const validateOrigin = (origin: any, host: any): boolean => {
 };
 
 export const applyCors = (req: Request, res: Response, next: NextFunction) => {
-  const corsOptions = {
+  const corsOptions: cors.CorsOptions = {
     origin: function (origin: any, callback: any) {
       if (validateOrigin(origin, req.headers.host)) {
         callback(null, true);
@@ -29,14 +29,15 @@ export const applyCors = (req: Request, res: Response, next: NextFunction) => {
         callback(new Error("Access denied"));
       }
     },
-    credentials: true,
+
+    credentials: true
   };
 
   return cors(corsOptions)(req, res, next);
 };
 
 export const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (req.path === "/") {
+  if (req.path === "/" || req.path.includes("/debug")) {
     return next();
   }
 
