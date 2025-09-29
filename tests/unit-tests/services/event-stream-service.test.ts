@@ -105,7 +105,6 @@ describe("EventStreamService", () => {
 
     // Mock appSettings
     (appSettings as any) = {
-      gameIds: ["2001", "2002", "2003"],
       videoLength: {
         "2001": 30,
         "2002": 30,
@@ -145,23 +144,6 @@ describe("EventStreamService", () => {
       expect(mockClientManager.addClient).toHaveBeenCalledWith(mockResponse, gameId);
       expect(mockInGameConsumer.getCurrentByGameId).toHaveBeenCalledWith(gameId);
       expect(mockResponse.end).not.toHaveBeenCalled();
-    });
-
-    it("should handle all supported gameIds", async () => {
-      // Arrange
-      const supportedGameIds = ["2001", "2002", "2003"];
-      const mockEvent = createMockEventStreamState(1);
-      const mockFeaturePayload = { gameFlow: "Streaming", currentEvent: { eventId: 1 } };
-
-      mockEventStore.getCurrentEventForGame.mockReturnValue(mockEvent);
-      mockInGameConsumer.getCurrentByGameId.mockReturnValue(mockFeaturePayload);
-
-      // Act & Assert
-      for (const gameId of supportedGameIds) {
-        await eventStreamService.addClient(mockResponse, gameId);
-        expect(mockClientManager.addClient).toHaveBeenCalledWith(mockResponse, gameId);
-        expect(mockInGameConsumer.getCurrentByGameId).toHaveBeenCalledWith(gameId);
-      }
     });
 
     it("should include feature payload with video streaming data", async () => {
