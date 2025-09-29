@@ -161,7 +161,7 @@ describe("setupRoutes", () => {
 
     it("should register debug routes at /debug-stream/:gameId and /debug/:gameId", () => {
       expect(mockRouter.get).toHaveBeenCalledWith("/debug-stream/:gameId", expect.any(Function));
-      expect(mockRouter.get).toHaveBeenCalledWith("/debug/:gameId", expect.any(Function));
+      expect(mockRouter.get).toHaveBeenCalledWith("/debug", expect.any(Function));
     });
 
     it("should register expected number of routes", () => {
@@ -351,10 +351,10 @@ describe("setupRoutes", () => {
       expect(mockDebugController.handle).toHaveBeenCalledTimes(1);
     });
 
-    it("should send debug.html when /debug/:gameId is accessed", () => {
-      const mockReq = createMockRequest({ gameId: "2001" });
+    it("should send debug.html when /debug is accessed", () => {
+      const mockReq = createMockRequest();
       const mockRes = createMockResponse();
-      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug/:gameId")?.[1];
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug")?.[1];
 
       if (routeHandler) {
         routeHandler(mockReq, mockRes);

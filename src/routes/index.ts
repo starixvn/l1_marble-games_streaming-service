@@ -19,7 +19,7 @@ export function setupRoutes(container: AwilixContainer<AppContainer & { debugCon
   router.get("/debug-stream/:gameId", (req, res) => debugController.handle(req, res));
 
   // Serve debug HTML page
-  router.get("/debug/:gameId", (req, res) => {
+  router.get("/debug", (req, res) => {
     res.sendFile(path.join(process.cwd(), "public", "debug.html"));
   });
 
