@@ -239,8 +239,13 @@
     }
 
     function getPresetGameId() {
-      const m = location.pathname.match(/^\/debug\/([^\/]+)/);
-      return m ? decodeURIComponent(m[1]) : '';
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const game = params.get('game');
+        return game ? String(game) : '';
+      } catch (e) {
+        return '';
+      }
     }
 
     (function init() {
