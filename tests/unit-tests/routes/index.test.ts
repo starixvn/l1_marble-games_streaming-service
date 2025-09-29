@@ -28,6 +28,10 @@ const mockAuthController = {
   login: jest.fn(),
 };
 
+const mockDebugController = {
+  handle: jest.fn(),
+};
+
 const mockMonitorController = {
   getMonitoringData: jest.fn(),
   getGameMonitoringData: jest.fn(),
@@ -52,6 +56,7 @@ const createMockResponse = (): jest.Mocked<Response> => {
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
     send: jest.fn().mockReturnThis(),
+    sendFile: jest.fn().mockReturnThis(),
   } as any;
   return mockRes;
 };
@@ -85,6 +90,8 @@ describe("setupRoutes", () => {
           return mockAuthController;
         case "monitorController":
           return mockMonitorController;
+        case "debugController":
+          return mockDebugController;
         default:
           throw new Error(`Unknown key: ${key}`);
       }
@@ -100,7 +107,8 @@ describe("setupRoutes", () => {
       expect(mockContainer.resolve).toHaveBeenCalledWith("eventStreamController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("healthController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("authController");
-      expect(mockContainer.resolve).toHaveBeenCalledTimes(3);
+      expect(mockContainer.resolve).toHaveBeenCalledWith("debugController");
+      expect(mockContainer.resolve).toHaveBeenCalledTimes(4);
     });
 
     it("should throw error when container fails to resolve controllers", () => {
@@ -151,10 +159,14 @@ describe("setupRoutes", () => {
       expect(mockRouter.get).toHaveBeenCalledWith("/live/:gameId", expect.any(Function));
     });
 
+    it("should register debug routes at /debug-stream/:gameId and /debug/:gameId", () => {
+      expect(mockRouter.get).toHaveBeenCalledWith("/debug-stream/:gameId", expect.any(Function));
+      expect(mockRouter.get).toHaveBeenCalledWith("/debug/:gameId", expect.any(Function));
+    });
 
-    it("should register exactly 5 routes", () => {
+    it("should register expected number of routes", () => {
       // Assert
-      expect(mockRouter.get).toHaveBeenCalledTimes(2); // health check, event stream, and 2 monitor routes
+      expect(mockRouter.get).toHaveBeenCalledTimes(4); // health, live, debug-stream, debug page
       expect(mockRouter.post).toHaveBeenCalledTimes(1); // auth
       expect(mockRouter.put).not.toHaveBeenCalled();
       expect(mockRouter.delete).not.toHaveBeenCalled();
@@ -322,6 +334,33 @@ describe("setupRoutes", () => {
 
       // Assert
       expect(mockEventStreamController.handleEventStreamConnection).toHaveBeenCalledWith(mockReq, mockRes);
+    });
+  });
+
+  describe("debug routes handlers", () => {
+    it("should call debugController.handle when /debug-stream/:gameId is accessed", () => {
+      const mockReq = createMockRequest({ gameId: "2001" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug-stream/:gameId")?.[1];
+
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      expect(mockDebugController.handle).toHaveBeenCalledWith(mockReq, mockRes);
+      expect(mockDebugController.handle).toHaveBeenCalledTimes(1);
+    });
+
+    it("should send debug.html when /debug/:gameId is accessed", () => {
+      const mockReq = createMockRequest({ gameId: "2001" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug/:gameId")?.[1];
+
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      expect(mockRes.sendFile).toHaveBeenCalledWith(expect.stringContaining("public" + require("path").sep + "debug.html"));
     });
   });
 

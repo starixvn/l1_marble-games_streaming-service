@@ -1,7 +1,8 @@
+import EventEmitter from "node:events";
 import { log } from "../../helpers/log";
 import { GameFlowService } from "../game-flow/game-flow-service";
 
-enum ANSIColor {
+export enum ANSIColor {
     Black = "\x1b[30m",
     Red = "\x1b[31m",
     Green = "\x1b[32m",
@@ -48,7 +49,7 @@ const colorMap = {
 }
 
 const debugEnabledServices = new Set<string>([
-    ServiceWithDebug.GameFlowService,
+    ServiceWithDebug.GameFlowService
 ]);
 
 export interface DebugServiceContainer {
@@ -69,6 +70,16 @@ function debugLog(service: object, message: string, gameId: string, gameFlowServ
     log(`${title}${gameIdMessage}${relativeTimeMessage}${message}`);
 }
 
+export interface LogMessage {
+    serviceColor: ANSIColor;
+    message: string;
+    serviceName: string;
+    absoluteTime: number;
+    relativeTime: number;
+}
+
+const MAX_LOG_LENGTH = 1000;
+
 export class FeatureDebugService {
     private readonly gameFlowService: GameFlowService;
 
@@ -76,7 +87,49 @@ export class FeatureDebugService {
         this.gameFlowService = container.gameFlowService;
     }
 
+    public logEventSourceByGameId: Record<string, EventEmitter> = {};
+    public logByGameId: Record<string, LogMessage[]> = {};
+
+
     public log(service: object, message: string, gameId: string) {
         debugLog(service, message, gameId, this.gameFlowService);
+
+        if (!this.logByGameId[gameId]) {
+            this.logByGameId[gameId] = [];
+        }
+
+        const serviceName = Object.getPrototypeOf(service)?.constructor?.name ?? "UnknownService";
+        
+        if (!this.logEventSourceByGameId[gameId]) {
+            this.logEventSourceByGameId[gameId] = new EventEmitter();
+        }
+
+        this.logByGameId[gameId].push({
+            serviceColor: colorMap[serviceName as keyof typeof colorMap] ?? colorMap[ServiceWithDebug.Default],
+            message,
+            serviceName: serviceName,
+            absoluteTime: Date.now(),
+            relativeTime: (Date.now() - this.gameFlowService.getTrackPointByGameId(gameId)) / 1000,
+        });
+
+        if (this.logByGameId[gameId].length > MAX_LOG_LENGTH) {
+            this.logByGameId[gameId].shift();
+        }
+
+        this.logEventSourceByGameId[gameId].emit("log", {
+            serviceColor: colorMap[serviceName as keyof typeof colorMap] ?? colorMap[ServiceWithDebug.Default],
+            message,
+            serviceName: serviceName,
+            absoluteTime: Date.now(),
+            relativeTime: (Date.now() - this.gameFlowService.getTrackPointByGameId(gameId)) / 1000,
+        });
+    }
+
+    public dispose() {
+        Object.values(this.logEventSourceByGameId).forEach((emitter: EventEmitter) => {
+            emitter.removeAllListeners();
+        });
+        this.logByGameId = {};
+        this.logEventSourceByGameId = {};
     }
 }

@@ -9,6 +9,7 @@ import { HealthController } from "./controllers/health-controller";
 import { logger } from "sc-common";
 import { ClientManager } from "./managers/client-manager";
 import { initContainer, OddFeedDataContainer, registerContainer } from "./features/container-registry";
+import { DebugController } from "./controllers/debug-controller";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -38,6 +39,7 @@ export class ContainerRegistry {
       authController: asClass(AuthController).singleton(),
       eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
+      debugController: asClass(DebugController).disposer((service) => service.dispose()).singleton(),
     });
 
     registerContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);

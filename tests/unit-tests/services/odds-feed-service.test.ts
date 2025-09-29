@@ -2,7 +2,7 @@ import { OddsFeedService } from "../../../src/services/odds-feed-service";
 import { mockContainer } from "../global-stubs";
 import { appConfigs } from "../../../src/app-configs";
 import { retry } from "../../../src/helpers/retry-helper";
-import { Event, EventValidator, GoalInfoData, InGameEvent, VoiceConfig } from "../../../src/types";
+import { Event, EventValidator, InGameEvent, VoiceConfig } from "../../../src/types";
 
 // Mock dependencies
 jest.mock("../../../src/app-configs");
@@ -30,7 +30,9 @@ const createMockEvent = (eventId: number, name: string = "Test Event"): Event =>
   eventDetails: [],
 });
 
-const createMockGoalInfo = (): GoalInfoData => ({
+type GoalInfo = NonNullable<Awaited<ReturnType<OddsFeedService["getGoalInfo"]>>>;
+
+const createMockGoalInfo = (): GoalInfo => ({
   frame: [1, 2, 3],
   timeLine: [10, 20, 30],
   result: ["goal", "assist", "save"],

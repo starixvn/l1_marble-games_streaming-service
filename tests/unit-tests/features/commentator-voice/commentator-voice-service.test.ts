@@ -48,6 +48,8 @@ const mockOddsFeedService = {
     getGoalInfo: jest.fn(),
 } as unknown as jest.Mocked<OddsFeedService>;
 
+type GoalInfo = NonNullable<Awaited<ReturnType<OddsFeedService["getGoalInfo"]>>>;
+
 // Test constants
 const TEST_GAME_ID = '1';
 const TEST_EVENT_ID = 4294967298;
@@ -85,9 +87,9 @@ const mockInGameEvent = {
     frame: [100, 200]
 };
 
-const mockGoalInfo = {
+const mockGoalInfo: GoalInfo = {
     result: ["1", "0"],
-    length: 25,
+    duration: 25,
     frame: [100, 200],
     timeLine: [50, 60] // This timeline is NOT used for voice generation
 };
@@ -501,7 +503,7 @@ describe('CommentatorVoiceService', () => {
             // Arrange
             mockOddsFeedService.getGoalInfo.mockResolvedValue({ 
                 result: ["1", "0"], 
-                length: 35,
+                duration: 35,
                 frame: [100, 200],
                 timeLine: [50, 60] // GoalInfo timeline is not used for voice generation
             });
@@ -556,9 +558,9 @@ describe('CommentatorVoiceService', () => {
                 timeLine: [15, 25], // This timeline should be used
                 frame: [150, 250]
             };
-            const customGoalInfo = {
+            const customGoalInfo: GoalInfo = {
                 result: ["2", "1"],
-                length: 40,
+                duration: 40,
                 frame: [300, 400],
                 timeLine: [99, 100] // This timeline should NOT be used
             };
@@ -585,7 +587,7 @@ describe('CommentatorVoiceService', () => {
             // Set up second event detail in the same phase with different goal info
             mockOddsFeedService.getGoalInfo.mockResolvedValueOnce({ 
                 result: ["2", "1"],
-                length: 30, // Different length for second event detail
+                duration: 30, // Different length for second event detail
                 frame: [200, 300],
                 timeLine: [70, 80]
             });
@@ -817,6 +819,8 @@ describe('CommentatorVoiceService', () => {
                 previousTimelines: [3],
                 previousEvents: ["Card"],
                 previousVoiceTimelines: [7],
+                videoLength: 30,
+                previousVideoLength: 20,
             };
             const config = mockVoiceConfig;
 

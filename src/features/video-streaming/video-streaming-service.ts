@@ -82,9 +82,16 @@ export class VideoStreamingService {
             videoLink: event.eventDetails[index].playlist,
             timeToStream: timeToStream.getTime(),
             currentTime: 0,
-            phaseIndex: index,
+            phaseIndex: event.eventDetails[index].phase,
         };
-        this.log(`video streaming started with event ${event.eventID} and index ${index}`, gameId);
+        this.log(`video streaming started with event ${event.eventID} and index ${index}
+            {
+                videoLink: ${event.eventDetails[index].playlist},
+                timeToStream: ${timeToStream},
+                phaseIndex: ${event.eventDetails[index].phase},
+            }
+
+            `, gameId);
         this.gameBoardcastService.broadcastToAllClientByGameId(
             gameId, 
             this.getCurrentVideoStateByGameId(gameId),

@@ -81,7 +81,7 @@ export function registerContainer(container: AwilixContainer<OddFeedDataContaine
             (cradle) => new FeatureDebugService({
                 gameFlowService: lazy(() => cradle.gameFlowService),
             }),
-        ).singleton().proxy(),
+        ).singleton().proxy().disposer((service) => service.dispose()),
     });
     
     container.register({
