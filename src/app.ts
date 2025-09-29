@@ -5,6 +5,7 @@ import { setupRoutes } from "./routes";
 import { ContainerRegistry } from "./container-registry";
 import { corsMiddleware } from "./middlewares/cors";
 import { errorHandler } from "./middlewares/error-handler";
+import path from "path";
 
 const run = async () => {
   const configuration = new Configuration();
@@ -13,6 +14,7 @@ const run = async () => {
   const container = containerRegistry.register();
   containerRegistry.init();
   const app = express();
+  app.use(express.static(path.join(process.cwd(), "public")));
   app.use(express.json());
   app.use(corsMiddleware);
   app.set("port", appConfigs.hostingPort);
