@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug Logs</title>
+</head>
+<body style="background:#ffffff;">
+  
+  <div id="tableContainer">
+  <table border="1" width="100%">
+    <thead>
+      <tr>
+        <th style="width: 220px;">Service</th>
+        <th>Time</th>
+        <th>Time from Prebet (s)</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody id="logBody"></tbody>
+  </table>
+  <div id="filters">Services: <span id="filterPanel"></span></div>
+  </div>
+  <div id="emptyContainer" style="display:none;">
+    <div id="statusMessage">No log</div>
+    <button id="reloadBtn">Reload</button>
+  </div>
+  <script>
+    let eventSource = null;
+    let allLogs = [];
+    const enabledServices = {};
+
+    function updateFiltersUI() {
+      const panel = document.getElementById('filterPanel');
+      if (!panel) return;
+      panel.innerHTML = '';
+      const names = Object.keys(enabledServices).sort();
+      names.forEach((name, idx) => {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!enabledServices[name];
+        cb.onchange = () => {
+          enabledServices[name] = cb.checked;
+          renderTable();
+        };
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + name));
+        panel.appendChild(label);
+        if (idx < names.length - 1) panel.appendChild(document.createTextNode(' '));
+      });
+    }
+
+    function ensureService(name) {
+      if (!(name in enabledServices)) {
+        enabledServices[name] = false;
+        updateFiltersUI();
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function ansiToHtml(input) {
+      if (typeof input !== 'string') {
+        input = JSON.stringify(input);
+      }
+      const text = String(input);
+      const colorMap = {
+        '30': '#000000',
+        '31': '#B22222',
+        '32': '#228B22',
+        '33': '#B8860B',
+        '34': '#00008B',
+        '35': '#8B008B',
+        '36': '#008B8B',
+        // Treat 37 as reset to default (black) for readability on white bg
+      };
+
+      let result = '';
+      let lastIndex = 0;
+      let open = false;
+      const re = /\u001b\[(\d{1,3})m/g; // matches ESC[xxm
+      let match;
+      while ((match = re.exec(text)) !== null) {
+        const idx = match.index;
+        const code = match[1];
+        const chunk = text.slice(lastIndex, idx);
+        if (chunk) {
+          const escaped = escapeHtml(chunk).replace(/\n/g, '<br>');
+          result += escaped;
+        }
+        // handle code
+        if (code === '0' || code === '37') { // reset/default
+          if (open) {
+            result += '</span>';
+            open = false;
+          }
+        } else if (colorMap[code]) {
+          if (open) {
+            result += '</span>';
+          }
+          result += `<span style="color:${colorMap[code]}">`;
+          open = true;
+        }
+        lastIndex = re.lastIndex;
+      }
+      // tail
+      const tail = text.slice(lastIndex);
+      if (tail) {
+        const escaped = escapeHtml(tail).replace(/\n/g, '<br>');
+        result += escaped;
+      }
+      if (open) {
+        result += '</span>';
+      }
+      return result;
+    }
+
+    function addRow(log, shouldScroll = true) {
+      const tbody = document.getElementById('logBody');
+      const tr = document.createElement('tr');
+
+      const tdService = document.createElement('td');
+      tdService.textContent = log?.serviceName || '';
+      if (log?.serviceColor?.foreground) {
+        tdService.style.color = log.serviceColor.foreground;
+        tdService.style.background = log.serviceColor.background;
+      }
+
+      const tdAbs = document.createElement('td');
+      if (log?.absoluteTime !== undefined && log?.absoluteTime !== null) {
+        const t = Number(log.absoluteTime);
+        if (!Number.isNaN(t)) {
+          tdAbs.textContent = new Date(t).toLocaleString();
+        }
+      }
+
+      const tdRel = document.createElement('td');
+      if (log?.relativeTime !== undefined && log?.relativeTime !== null) {
+        const r = Number(log.relativeTime);
+        if (!Number.isNaN(r)) {
+          tdRel.textContent = String(r);
+        }
+      }
+
+      const tdMessage = document.createElement('td');
+      const raw = typeof log?.message === 'string' ? log.message : JSON.stringify(log?.message);
+      tdMessage.innerHTML = ansiToHtml(raw);
+
+      tr.appendChild(tdService);
+      tr.appendChild(tdAbs);
+      tr.appendChild(tdRel);
+      tr.appendChild(tdMessage);
+      tbody.appendChild(tr);
+      if (shouldScroll) {
+        try { window.scrollTo(0, document.body.scrollHeight); } catch {}
+      }
+    }
+
+    function clearRows() {
+      const tbody = document.getElementById('logBody');
+      tbody.innerHTML = '';
+    }
+
+    function showTable() {
+      var tableEl = document.getElementById('tableContainer');
+      var emptyEl = document.getElementById('emptyContainer');
+      if (tableEl) tableEl.style.display = '';
+      if (emptyEl) emptyEl.style.display = 'none';
+    }
+
+    function showEmpty(messageText) {
+      var tableEl = document.getElementById('tableContainer');
+      var emptyEl = document.getElementById('emptyContainer');
+      var statusEl = document.getElementById('statusMessage');
+      if (statusEl && typeof messageText === 'string') statusEl.textContent = messageText;
+      if (tableEl) tableEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = '';
+    }
+
+    function renderTable() {
+      clearRows();
+      for (const log of allLogs) {
+        if (enabledServices[log.serviceName]) addRow(log, true);
+      }
+      if (allLogs.length === 0) {
+        showEmpty('No log');
+      } else {
+        showTable();
+      }
+    }
+
+    function connect(gameId) {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+
+      allLogs = [];
+      clearRows();
+
+      const url = `/debug-stream/${encodeURIComponent(gameId)}`;
+      eventSource = new EventSource(url);
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (Array.isArray(payload.logs)) {
+            allLogs = payload.logs.slice();
+            for (const log of allLogs) ensureService(log.serviceName);
+            renderTable();
+          } else if (payload.log) {
+            allLogs.push(payload.log);
+            const name = payload.log.serviceName;
+            const isNew = !(name in enabledServices);
+            ensureService(name);
+            if (enabledServices[name]) {
+              if (isNew) {
+                // New service default enabled → rerender to keep ordering consistent
+                renderTable();
+              } else {
+                addRow(payload.log, true);
+              }
+            }
+            showTable();
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+      eventSource.onerror = () => {
+        try { eventSource && eventSource.close(); } catch {}
+        showEmpty('No debug stream available for this game');
+      };
+    }
+
+    function getPresetGameId() {
+      const m = location.pathname.match(/^\/debug\/([^\/]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    (function init() {
+      var reloadBtn = document.getElementById('reloadBtn');
+      if (reloadBtn) reloadBtn.onclick = function() { location.reload(); };
+      const preset = getPresetGameId();
+      if (preset) {
+        connect(preset);
+      } else {
+        showEmpty('<game id is required>');
+      }
+    })();
+  </script>
+</body>
+</html>
+
+

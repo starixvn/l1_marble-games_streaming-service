@@ -5,7 +5,7 @@ import { getDomain } from "tldts";
 export const validateOrigin = (origin: any, host: any): boolean => {
   console.log("validateOrigin", origin, host);
   if (!origin) {
-    return false;
+    return true;
   }
 
   const originDomain = getDomain(origin);

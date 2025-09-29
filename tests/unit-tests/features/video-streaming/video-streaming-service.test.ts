@@ -248,13 +248,13 @@ describe("VideoStreamingService", () => {
                 videoLink: TEST_PLAYLIST_URL_2, // Index 1 of the event details
                 timeToStream: TEST_TIME_TO_STREAM,
                 currentTime: 0,
-                phaseIndex: TEST_INDEX,
+                phaseIndex: mockEvent1.eventDetails[TEST_INDEX].phase,
             });
             expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID_1,
                 expect.objectContaining({
                     videoLink: TEST_PLAYLIST_URL_2,
-                    phaseIndex: TEST_INDEX,
+                    phaseIndex: mockEvent1.eventDetails[TEST_INDEX].phase,
                 }),
                 videoStreamingService.streamingEventName
             );
@@ -267,7 +267,7 @@ describe("VideoStreamingService", () => {
             // Assert
             expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
                 videoStreamingService,
-                `video streaming started with event ${TEST_EVENT_ID_1} and index ${TEST_INDEX}`,
+                expect.stringContaining(`video streaming started with event ${TEST_EVENT_ID_1} and index ${TEST_INDEX}`),
                 TEST_GAME_ID_1
             );
         });
@@ -299,7 +299,7 @@ describe("VideoStreamingService", () => {
             expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toEqual(
                 expect.objectContaining({
                     videoLink: TEST_PLAYLIST_URL_1, // Index 0 of the event details
-                    phaseIndex: 0,
+                    phaseIndex: mockEvent1.eventDetails[0].phase,
                 })
             );
         });
@@ -584,7 +584,7 @@ describe("VideoStreamingService", () => {
             // Assert - Latest event should overwrite previous state
             expect(videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1]).toEqual(
                 expect.objectContaining({
-                    phaseIndex: 1, // Latest index
+                    phaseIndex: mockEvent1.eventDetails[1].phase, // Latest phase
                 })
             );
         });

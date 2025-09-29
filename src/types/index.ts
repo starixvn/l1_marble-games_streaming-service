@@ -7,6 +7,7 @@ import { EventStreamService } from "../services/event-stream-service";
 import { logger } from "sc-common";
 import { Response } from "express";
 import { ClientManager } from "../managers/client-manager";
+import { DebugController } from "../controllers/debug-controller";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
@@ -17,6 +18,7 @@ export interface AppContainer {
   eventStreamController: EventStreamController;
   healthController: HealthController;
   clientManager: ClientManager;
+  debugController: DebugController;
 }
 
 export type Event = {
@@ -49,7 +51,7 @@ export type GoalInfoData = {
   frame: number[];
   timeLine: number[];
   result: string[];
-  length?: number;
+  duration?: number;
 };
 
 export type InGameEvent = {

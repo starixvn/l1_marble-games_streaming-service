@@ -18,6 +18,8 @@ const mockOddsFeedService = {
     getGoalInfo: jest.fn(),
 } as unknown as jest.Mocked<OddsFeedService>;
 
+type GoalInfo = NonNullable<Awaited<ReturnType<OddsFeedService["getGoalInfo"]>>>;
+
 const mockDelayHandlingService = {
     getDelayedTime: jest.fn(),
     getDelayedTimeWithVideoDelay: jest.fn(),
@@ -48,10 +50,10 @@ const TEST_INDEX = 0;
 const TEST_INDEX_1 = 1;
 
 // Test data
-const mockGoalInfo = {
+const mockGoalInfo: GoalInfo = {
     result: ["H", "A", "H"],
     timeLine: [10, 25, 45],
-    length: 60,
+    duration: 60,
     frame: [100, 200, 300]
 };
 
@@ -334,7 +336,7 @@ describe('LiveScoreService', () => {
             mockOddsFeedService.getGoalInfo.mockResolvedValue({
                 result: [],
                 timeLine: [],
-                length: 0,
+                duration: 0,
                 frame: []
             });
 
@@ -657,7 +659,7 @@ describe('LiveScoreService', () => {
             mockOddsFeedService.getGoalInfo.mockResolvedValue({
                 result: ["H", "A"],
                 timeLine: [10, 25, 45], // More timeline entries than results
-                length: 60,
+                duration: 60,
                 frame: [100, 200, 300]
             });
 
