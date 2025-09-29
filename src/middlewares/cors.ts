@@ -8,6 +8,10 @@ export const validateOrigin = (origin: any, host: any): boolean => {
     return true;
   }
 
+  if (origin === "") {
+    return false;
+  }
+
   const originDomain = getDomain(origin);
   const hostDomain = getDomain(host);
   const isLocalHost = /^https?:\/\/localhost:745(6|7|8|9)$/.test(origin);
