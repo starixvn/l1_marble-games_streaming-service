@@ -53,7 +53,7 @@ const TEST_INDEX_1 = 1;
 const mockGoalInfo: GoalInfo = {
     result: ["H", "A", "H"],
     timeLine: [10, 25, 45],
-    duration: 60,
+    length: 60,
     frame: [100, 200, 300]
 };
 
@@ -336,7 +336,7 @@ describe('LiveScoreService', () => {
             mockOddsFeedService.getGoalInfo.mockResolvedValue({
                 result: [],
                 timeLine: [],
-                duration: 0,
+                length: 0,
                 frame: []
             });
 
@@ -659,7 +659,7 @@ describe('LiveScoreService', () => {
             mockOddsFeedService.getGoalInfo.mockResolvedValue({
                 result: ["H", "A"],
                 timeLine: [10, 25, 45], // More timeline entries than results
-                duration: 60,
+                length: 60,
                 frame: [100, 200, 300]
             });
 

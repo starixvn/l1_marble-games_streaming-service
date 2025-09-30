@@ -89,7 +89,7 @@ const mockInGameEvent = {
 
 const mockGoalInfo: GoalInfo = {
     result: ["1", "0"],
-    duration: 25,
+    length: 25,
     frame: [100, 200],
     timeLine: [50, 60] // This timeline is NOT used for voice generation
 };
@@ -503,7 +503,7 @@ describe('CommentatorVoiceService', () => {
             // Arrange
             mockOddsFeedService.getGoalInfo.mockResolvedValue({ 
                 result: ["1", "0"], 
-                duration: 35,
+                length: 35,
                 frame: [100, 200],
                 timeLine: [50, 60] // GoalInfo timeline is not used for voice generation
             });
@@ -560,7 +560,7 @@ describe('CommentatorVoiceService', () => {
             };
             const customGoalInfo: GoalInfo = {
                 result: ["2", "1"],
-                duration: 40,
+                length: 40,
                 frame: [300, 400],
                 timeLine: [99, 100] // This timeline should NOT be used
             };
@@ -587,7 +587,7 @@ describe('CommentatorVoiceService', () => {
             // Set up second event detail in the same phase with different goal info
             mockOddsFeedService.getGoalInfo.mockResolvedValueOnce({ 
                 result: ["2", "1"],
-                duration: 30, // Different length for second event detail
+                length: 30, // Different length for second event detail
                 frame: [200, 300],
                 timeLine: [70, 80]
             });

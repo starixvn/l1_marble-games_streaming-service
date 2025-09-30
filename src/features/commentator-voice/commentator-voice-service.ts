@@ -168,7 +168,7 @@ export class CommentatorVoiceService {
         const inGameEvent = await this.oddsFeedService.getInGameEvent(event.eventDetails[index].inGameEventInfo);
         // get goal info for video length
         const goalInfo = await this.oddsFeedService.getGoalInfo(event.eventDetails[index].goalInfo);
-        const videoLength = goalInfo?.duration ?? this._videoLengthByEventId[event.eventID];
+        const videoLength = goalInfo?.length ?? this._videoLengthByEventId[event.eventID];
 
         // get previous state
         const currentPhase = event.eventDetails[index].phase;
