@@ -20,6 +20,7 @@ USER node
 ENV PATH /app/node_modules/.bin:$PATH
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/yarn.lock ./
 
