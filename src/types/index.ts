@@ -51,7 +51,7 @@ export type GoalInfoData = {
   frame: number[];
   timeLine: number[];
   result: string[];
-  duration?: number;
+  length?: number;
 };
 
 export type InGameEvent = {
