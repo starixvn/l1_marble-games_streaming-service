@@ -1,4 +1,4 @@
-import { EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
+import { EventNotification, OddFeedEventName, OddFeedEventSource } from "odd-feed-client";
 
 type DelayConfig = {
     globalDelayInMillisecond?: number;

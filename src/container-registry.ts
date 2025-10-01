@@ -2,7 +2,6 @@ import { asClass, asValue, AwilixContainer, createContainer, InjectionMode } fro
 import { EventStreamService } from "./services/event-stream-service";
 import { AppContainer } from "./types";
 import { AuthenticateService } from "./services/authenticate-service";
-import { OddsFeedService } from "./services/odds-feed-service";
 import { AuthController } from "./controllers/auth-controller";
 import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
@@ -10,17 +9,29 @@ import { logger } from "sc-common";
 import { ClientManager } from "./managers/client-manager";
 import { initContainer, OddFeedDataContainer, registerContainer } from "./features/container-registry";
 import { DebugController } from "./controllers/debug-controller";
+import { AwilixDIContainer } from "odd-feed-client/awilix";
+import { init, register } from "odd-feed-client/dependency-injection";
+import { appConfigs } from "./app-configs";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
+  diContainer: AwilixDIContainer;
 
   constructor() {
     this.container = createContainer<AppContainer>({
       injectionMode: InjectionMode.PROXY,
     });
+    this.diContainer = new AwilixDIContainer(this.container);
   }
 
   register() {
+    register(this.diContainer);
+    this.diContainer.register({
+      registerType: "value",
+      key: "appConfigs",
+      value: appConfigs as any,
+    });
+
     this.container.register({
       clientManager: 
         asClass(ClientManager)
@@ -31,9 +42,9 @@ export class ContainerRegistry {
     this.container.register({
       eventStreamService: asClass(EventStreamService).singleton(),
       authenticateService: asClass(AuthenticateService).singleton(),
-      oddsFeedService: asClass(OddsFeedService).singleton(),
       logService: asValue(logger),
     });
+
 
     this.container.register({
       authController: asClass(AuthController).singleton(),
@@ -48,6 +59,7 @@ export class ContainerRegistry {
   }
 
   init() {
+    init(this.diContainer);
     initContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
   }
 }

@@ -1,5 +1,5 @@
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification } from "odd-feed-client";
 import { Event } from "../../../../src/types";
 
 // Mock dependencies

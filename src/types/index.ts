@@ -2,7 +2,7 @@ import { AuthController } from "../controllers/auth-controller";
 import { HealthController } from "../controllers/health-controller";
 import { EventStreamController } from "../controllers/event-stream-controller";
 import { AuthenticateService } from "../services/authenticate-service";
-import { OddsFeedService } from "../services/odds-feed-service";
+import { OddFeedService } from "odd-feed-client";
 import { EventStreamService } from "../services/event-stream-service";
 import { logger } from "sc-common";
 import { Response } from "express";
@@ -12,7 +12,7 @@ import { DebugController } from "../controllers/debug-controller";
 export interface AppContainer {
   eventStreamService: EventStreamService;
   authenticateService: AuthenticateService;
-  oddsFeedService: OddsFeedService;
+  oddFeedService: OddFeedService;
   logService: typeof logger;
   authController: AuthController;
   eventStreamController: EventStreamController;

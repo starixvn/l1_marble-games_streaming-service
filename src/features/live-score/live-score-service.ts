@@ -1,9 +1,7 @@
-import { EventDetailNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data/odd-feed-event-source";
-import { OddsFeedService } from "../../services/odds-feed-service";
+import { EventDetailNotification, OddFeedEventName, OddFeedEventSource, OddFeedService, Scheduler } from "odd-feed-client";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { idHelper } from "../../helpers";
-import { Event } from "../../types";
-import { Scheduler } from "../scheduler/scheduler";
+import { Event, GoalInfoData } from "../../types";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 
@@ -18,7 +16,7 @@ export interface LiveScoreStateByPhase {
 
 interface LiveScoreServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
-    oddsFeedService: OddsFeedService;
+    oddFeedService: OddFeedService;
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
     gameBoardcastService: GameBroadcastService;
@@ -28,7 +26,7 @@ interface LiveScoreServiceContainer {
 export class LiveScoreService {
 
     private readonly oddFeedEventSource: OddFeedEventSource;
-    private readonly oddsFeedService: OddsFeedService;
+    private readonly oddsFeedService: OddFeedService;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
     private readonly gameBoardcastService: GameBroadcastService;
@@ -39,7 +37,7 @@ export class LiveScoreService {
 
     constructor(container: LiveScoreServiceContainer) {
         this.oddFeedEventSource = container.oddFeedEventSource;
-        this.oddsFeedService = container.oddsFeedService;
+        this.oddsFeedService = container.oddFeedService;
         this.delayHandlingService = container.delayHandlingService;
         this.scheduler = container.scheduler;
         this.gameBoardcastService = container.gameBoardcastService;
@@ -70,7 +68,7 @@ export class LiveScoreService {
 
     public async handleEventDetailStart({ event, index }: EventDetailNotification) {
         const goalInfoUrl = event.eventDetails[index].goalInfo;
-        const goalInfo = await this.oddsFeedService.getGoalInfo(goalInfoUrl);
+        const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl);
 
         if (!goalInfo) {
             return;

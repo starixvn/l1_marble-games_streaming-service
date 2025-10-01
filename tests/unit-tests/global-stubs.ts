@@ -1,7 +1,7 @@
 import { logger } from "sc-common";
 import { AppContainer } from "../../src/types";
 import { stub } from "jest-auto-stub";
-import { OddsFeedService } from "../../src/services/odds-feed-service";
+import { OddFeedService } from "odd-feed-client";
 import { EventStreamService } from "../../src/services/event-stream-service";
 import { ClientManager } from "../../src/managers/client-manager";
 import { AuthenticateService } from "../../src/services/authenticate-service";
@@ -18,7 +18,7 @@ const mockLogService: typeof logger = {
   logWarning: jest.fn(),
 } as unknown as typeof logger;
 
-const mockOddsFeedService = stub<OddsFeedService>();
+const mockOddFeedService = stub<OddFeedService>();
 const mockEventStreamService = stub<EventStreamService>();
 const mockClientManager = stub<ClientManager>();
 const mockAuthenticateService = stub<AuthenticateService>();
@@ -29,7 +29,7 @@ const mockDebugController = stub<DebugController>();
 
 const mockContainer: AppContainer = {
   logService: mockLogService,
-  oddsFeedService: mockOddsFeedService,
+  oddFeedService: mockOddFeedService,
   eventStreamService: mockEventStreamService,
   clientManager: mockClientManager,
   authenticateService: mockAuthenticateService,

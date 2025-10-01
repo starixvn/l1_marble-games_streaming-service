@@ -1,10 +1,9 @@
 import { GameFlowService, GameFlow } from "../../../../src/features/game-flow/game-flow-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification } from "odd-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "../../../../src/features/scheduler/scheduler";
+import { Scheduler } from "odd-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
-import { Event } from "../../../../src/types";
 import { idHelper } from "../../../../src/helpers";
 import { isLastEventDetail, isPhaseSwitching } from "../../../../src/helpers/phase-helper";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";

@@ -38,6 +38,7 @@
     "express": "^5.1.0",
     "extensionless": "^1.9.9",
     "jsonwebtoken": "^9.0.2",
+    "odd-feed-client": "^1.1.0",
     "sc-common": "^3.0.0",
     "sc-core-rng": "^1.1.0",
     "tldts": "^7.0.11"

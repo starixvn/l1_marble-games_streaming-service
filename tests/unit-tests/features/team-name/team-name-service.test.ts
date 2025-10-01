@@ -1,11 +1,35 @@
 import { TeamNameService, TeamNameState, TeamNameServiceContainer } from "../../../../src/features/team-name/team-name-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification } from "odd-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "../../../../src/features/scheduler/scheduler";
+import { Scheduler } from "odd-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { idHelper } from "../../../../src/helpers";
 import { createMockEvent } from "../../test-utils/mock-event";
+
+jest.mock("odd-feed-client", () => {
+    return {
+        OddFeedEventName: {
+            EventDetailStart: "EventDetailStart",
+            EventStart: "EventStart",
+            EventUpcoming: "EventUpcoming",
+        },
+        Scheduler: class {
+            schedule = jest.fn();
+        },
+        OddFeedEventSource: class {
+            registerEventDetailEventListener = jest.fn();
+            unregisterEventDetailEventListener = jest.fn();
+            registerEventListener = jest.fn();
+            unregisterEventListener = jest.fn();
+            registerSystemDataCleanupEventListener = jest.fn();
+            unregisterSystemDataCleanupEventListener = jest.fn();
+        },
+        OddFeedService: class {
+            getRemoteJson = jest.fn();
+        },
+    };
+});
 
 // Mock dependencies
 const mockOddFeedEventSource = {

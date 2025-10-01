@@ -2,8 +2,7 @@ import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventNotification, OddFeedEventName, OddFeedEventSource } from "../odd-feed-data";
-import { Scheduler } from "../scheduler/scheduler";
+import { EventNotification, OddFeedEventName, OddFeedEventSource, Scheduler } from "odd-feed-client";
 
 export interface TeamNameState {
     homeTeamName: string;

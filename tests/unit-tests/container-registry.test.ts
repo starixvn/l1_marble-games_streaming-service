@@ -4,7 +4,6 @@ import { AppContainer } from "../../src/types";
 import { AwilixContainer } from "awilix";
 import { EventStreamService } from "../../src/services/event-stream-service";
 import { AuthenticateService } from "../../src/services/authenticate-service";
-import { OddsFeedService } from "../../src/services/odds-feed-service";
 import { AuthController } from "../../src/controllers/auth-controller";
 import { EventStreamController } from "../../src/controllers/event-stream-controller";
 import { HealthController } from "../../src/controllers/health-controller";
@@ -76,7 +75,6 @@ describe("ContainerRegistry", () => {
       // Assert
       expect(container.hasRegistration("eventStreamService")).toBe(true);
       expect(container.hasRegistration("authenticateService")).toBe(true);
-      expect(container.hasRegistration("oddsFeedService")).toBe(true);
       expect(container.hasRegistration("logService")).toBe(true);
 
       // Verify they are singletons
@@ -123,7 +121,6 @@ describe("ContainerRegistry", () => {
         container.resolve("clientManager");
         container.resolve("eventStreamService");
         container.resolve("authenticateService");
-        container.resolve("oddsFeedService");
         container.resolve("logService");
         container.resolve("authController");
         container.resolve("eventStreamController");
@@ -141,7 +138,6 @@ describe("ContainerRegistry", () => {
       const clientManager = container.resolve("clientManager");
       const eventStreamService = container.resolve("eventStreamService");
       const authenticateService = container.resolve("authenticateService");
-      const oddsFeedService = container.resolve("oddsFeedService");
       const authController = container.resolve("authController");
       const eventStreamController = container.resolve("eventStreamController");
       const healthController = container.resolve("healthController");
@@ -150,7 +146,6 @@ describe("ContainerRegistry", () => {
       expect(clientManager).toBeInstanceOf(ClientManager);
       expect(eventStreamService).toBeInstanceOf(EventStreamService);
       expect(authenticateService).toBeInstanceOf(AuthenticateService);
-      expect(oddsFeedService).toBeInstanceOf(OddsFeedService);
       expect(authController).toBeInstanceOf(AuthController);
       expect(eventStreamController).toBeInstanceOf(EventStreamController);
       expect(healthController).toBeInstanceOf(HealthController);
