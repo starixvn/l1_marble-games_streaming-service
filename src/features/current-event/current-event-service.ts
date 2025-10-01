@@ -1,10 +1,8 @@
 import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
-import { Event } from "../../types";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource, SystemNotification } from "../odd-feed-data";
-import { Scheduler } from "../scheduler/scheduler";
+import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource, SystemNotification, Scheduler, Event } from "odd-feed-client";
 
 interface CurrentEventServiceContainer {
     oddFeedEventSource: OddFeedEventSource;

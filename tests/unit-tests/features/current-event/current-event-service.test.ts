@@ -1,7 +1,6 @@
 import { CurrentEventService } from "../../../../src/features/current-event/current-event-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification, Scheduler } from "odd-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "../../../../src/features/scheduler/scheduler";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { Event } from "../../../../src/types";

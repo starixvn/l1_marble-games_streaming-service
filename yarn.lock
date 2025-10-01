@@ -2601,7 +2601,7 @@ create-require@^1.1.0:
   resolved "http://npm.lumigame.com/create-require/-/create-require-1.1.1.tgz#c1d7e8f1e5f6cfc9ff65f9cd352d37348756c333"
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
-cron@^4.3.1:
+cron@^4.3.1, cron@^4.3.3:
   version "4.3.3"
   resolved "http://npm.lumigame.com/cron/-/cron-4.3.3.tgz#d37cfcbc73ba34a50d9d9ce9b653ae60837377d7"
   integrity sha512-B/CJj5yL3sjtlun6RtYHvoSB26EmQ2NUmhq9ZiJSyKIM4K/fqfh9aelDFlIayD2YMeFZqWLi9hHV+c+pq2Djkw==
@@ -5236,6 +5236,14 @@ object.pick@^1.3.0:
   integrity sha1-h6EKxMFpS9Lhy/U1kaZhQftd10c=
   dependencies:
     isobject "^3.0.1"
+
+odd-feed-client@^1.1.0:
+  version "1.1.0"
+  resolved "http://npm.lumigame.com/odd-feed-client/-/odd-feed-client-1.1.0.tgz#67da3396aaf4d1887b279740db0459f653875f64"
+  integrity sha512-J5w9NlzFdF/Gid14TD2LZLZny8ZsmPNcRldSuTgglvdKw23Iei5KN1aSpGc7CZGVgP3oaH7ozIimw85ss5B9hg==
+  dependencies:
+    awilix "^12.0.5"
+    cron "^4.3.3"
 
 on-finished@^2.4.1:
   version "2.4.1"

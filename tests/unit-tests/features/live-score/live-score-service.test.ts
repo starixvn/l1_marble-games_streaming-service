@@ -1,8 +1,31 @@
+jest.mock("odd-feed-client", () => {
+    return {
+        OddFeedEventName: {
+            EventDetailStart: "EventDetailStart",
+            EventStart: "EventStart",
+            EventUpcoming: "EventUpcoming",
+        },
+        Scheduler: class {
+            schedule = jest.fn();
+        },
+        OddFeedEventSource: class {
+            registerEventDetailEventListener = jest.fn();
+            unregisterEventDetailEventListener = jest.fn();
+            registerEventListener = jest.fn();
+            unregisterEventListener = jest.fn();
+            registerSystemDataCleanupEventListener = jest.fn();
+            unregisterSystemDataCleanupEventListener = jest.fn();
+        },
+        OddFeedService: class {
+            getRemoteJson = jest.fn();
+        },
+    };
+});
+
 import { LiveScoreService, LiveScoreState } from "../../../../src/features/live-score/live-score-service";
-import { OddFeedEventSource, OddFeedEventName, EventDetailNotification } from "../../../../src/features/odd-feed-data";
-import { OddsFeedService } from "../../../../src/services/odds-feed-service";
+import { OddFeedEventSource, OddFeedEventName, EventDetailNotification, OddFeedService } from "odd-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "../../../../src/features/scheduler/scheduler";
+import { Scheduler } from "odd-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { idHelper } from "../../../../src/helpers";
@@ -15,10 +38,8 @@ const mockOddFeedEventSource = {
 } as unknown as jest.Mocked<OddFeedEventSource>;
 
 const mockOddsFeedService = {
-    getGoalInfo: jest.fn(),
-} as unknown as jest.Mocked<OddsFeedService>;
-
-type GoalInfo = NonNullable<Awaited<ReturnType<OddsFeedService["getGoalInfo"]>>>;
+    getRemoteJson: jest.fn(),
+} as unknown as jest.Mocked<OddFeedService>;
 
 const mockDelayHandlingService = {
     getDelayedTime: jest.fn(),
@@ -50,6 +71,7 @@ const TEST_INDEX = 0;
 const TEST_INDEX_1 = 1;
 
 // Test data
+type GoalInfo = { result: string[]; timeLine: number[]; frame: number[]; length?: number; duration?: number };
 const mockGoalInfo: GoalInfo = {
     result: ["H", "A", "H"],
     timeLine: [10, 25, 45],
@@ -89,7 +111,7 @@ const mockEventDetailNotification2: EventDetailNotification = {
 // Helper functions for test setup
 interface LiveScoreServiceContainer {
     oddFeedEventSource: OddFeedEventSource;
-    oddsFeedService: OddsFeedService;
+    oddFeedService: OddFeedService;
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
     gameBoardcastService: GameBroadcastService;
@@ -98,7 +120,7 @@ interface LiveScoreServiceContainer {
 
 const createContainer = (): LiveScoreServiceContainer => ({
     oddFeedEventSource: mockOddFeedEventSource,
-    oddsFeedService: mockOddsFeedService,
+    oddFeedService: mockOddsFeedService,
     delayHandlingService: mockDelayHandlingService,
     scheduler: mockScheduler,
     gameBoardcastService: mockGameBoardcastService,
@@ -109,7 +131,8 @@ const setupMocks = () => {
     jest.clearAllMocks();
     mockDelayHandlingService.getDelayedTime.mockReturnValue(TEST_DELAYED_TIME);
     mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(TEST_DELAYED_TIME_WITH_VIDEO);
-    mockOddsFeedService.getGoalInfo.mockResolvedValue(mockGoalInfo);
+    // default remote json mock returns goalInfo for any url
+    mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo as any);
 };
 
 describe('LiveScoreService', () => {
@@ -228,31 +251,31 @@ describe('LiveScoreService', () => {
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(4); // 1 reset + 3 goals
         });
 
         it('should return early when goal info is null', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue(null);
+            mockOddsFeedService.getRemoteJson.mockResolvedValueOnce(null);
 
             // Act
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
             expect(mockScheduler.schedule).not.toHaveBeenCalled();
         });
 
         it('should return early when goal info is undefined', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue(null);
+            mockOddsFeedService.getRemoteJson.mockResolvedValueOnce(null);
 
             // Act
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
             expect(mockScheduler.schedule).not.toHaveBeenCalled();
         });
 
@@ -333,7 +356,7 @@ describe('LiveScoreService', () => {
 
         it('should handle empty timeline gracefully', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue({
+            mockOddsFeedService.getRemoteJson.mockResolvedValue({
                 result: [],
                 timeLine: [],
                 length: 0,
@@ -629,7 +652,7 @@ describe('LiveScoreService', () => {
             await boundHandleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalled();
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalled();
             expect(mockScheduler.schedule).toHaveBeenCalled();
         });
 
@@ -656,7 +679,7 @@ describe('LiveScoreService', () => {
 
         it('should handle goal info with mismatched result and timeline arrays', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue({
+            mockOddsFeedService.getRemoteJson.mockResolvedValue({
                 result: ["H", "A"],
                 timeLine: [10, 25, 45], // More timeline entries than results
                 length: 60,
@@ -705,7 +728,7 @@ describe('LiveScoreService', () => {
 
         it('should handle null goal info gracefully', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue(null);
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(null);
 
             // Act
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
@@ -717,7 +740,7 @@ describe('LiveScoreService', () => {
 
         it('should handle goal info service error', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockRejectedValue(new Error('Service error'));
+            mockOddsFeedService.getRemoteJson.mockRejectedValue(new Error('Service error'));
 
             // Act & Assert
             await expect(liveScoreService.handleEventDetailStart(mockEventDetailNotification))

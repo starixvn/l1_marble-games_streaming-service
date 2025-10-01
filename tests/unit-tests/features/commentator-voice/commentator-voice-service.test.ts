@@ -1,10 +1,33 @@
+jest.mock("odd-feed-client", () => {
+    return {
+        OddFeedEventName: {
+            EventDetailStart: "EventDetailStart",
+            EventStart: "EventStart",
+            EventUpcoming: "EventUpcoming",
+        },
+        Scheduler: class {
+            schedule = jest.fn();
+        },
+        OddFeedEventSource: class {
+            registerEventDetailEventListener = jest.fn();
+            unregisterEventDetailEventListener = jest.fn();
+            registerEventListener = jest.fn();
+            unregisterEventListener = jest.fn();
+            registerSystemDataCleanupEventListener = jest.fn();
+            unregisterSystemDataCleanupEventListener = jest.fn();
+        },
+        OddFeedService: class {
+            getRemoteJson = jest.fn();
+        },
+    };
+});
+
 import { CommentatorVoiceService, CommentatorVoiceServiceContainer, VoiceState } from "../../../../src/features/commentator-voice/commentator-voice-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification } from "../../../../src/features/odd-feed-data";
+import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification, OddFeedService } from "odd-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "../../../../src/features/scheduler/scheduler";
+import { Scheduler } from "odd-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
-import { OddsFeedService } from "../../../../src/services/odds-feed-service";
 import { appSettings } from "../../../../src/app-settings";
 import { generateVoiceWithEventTimeline } from "../../../../src/helpers/voices";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
@@ -43,12 +66,10 @@ const mockFeatureDebugService = {
 } as unknown as jest.Mocked<FeatureDebugService>;
 
 const mockOddsFeedService = {
-    getVoiceConfig: jest.fn(),
-    getInGameEvent: jest.fn(),
-    getGoalInfo: jest.fn(),
-} as unknown as jest.Mocked<OddsFeedService>;
+    getRemoteJson: jest.fn(),
+} as unknown as jest.Mocked<OddFeedService>;
 
-type GoalInfo = NonNullable<Awaited<ReturnType<OddsFeedService["getGoalInfo"]>>>;
+type GoalInfo = import("../../../../src/types").GoalInfoData;
 
 // Test constants
 const TEST_GAME_ID = '1';
@@ -141,15 +162,19 @@ const createContainer = (): CommentatorVoiceServiceContainer => ({
     delayHandlingService: mockDelayHandlingService,
     gameBoardcastService: mockGameBoardcastService,
     featureDebugService: mockFeatureDebugService,
-    oddsFeedService: mockOddsFeedService,
+    oddFeedService: mockOddsFeedService,
 });
 
 const setupMocks = () => {
     jest.clearAllMocks();
     mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(TEST_DELAYED_TIME);
-    mockOddsFeedService.getVoiceConfig.mockResolvedValue(mockVoiceConfig);
-    mockOddsFeedService.getInGameEvent.mockResolvedValue(mockInGameEvent);
-    mockOddsFeedService.getGoalInfo.mockResolvedValue(mockGoalInfo);
+    // default: first call for upcoming voice config, then later calls for inGame and goalInfo
+    mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
+        if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
+        if (url === "test-in-game-event") return mockInGameEvent as any;
+        if (url === "test-goal-info") return mockGoalInfo as any;
+        return null as any;
+    });
     mockGenerateVoiceWithEventTimeline.mockReturnValue({
         voice: ["generated-voice1.mp3", "generated-voice2.mp3"],
         timeline: [5, 15]
@@ -181,7 +206,7 @@ describe('CommentatorVoiceService', () => {
             expect(service['delayHandlingService']).toBe(mockDelayHandlingService);
             expect(service['gameBoardcastService']).toBe(mockGameBoardcastService);
             expect(service['featureDebugService']).toBe(mockFeatureDebugService);
-            expect(service['oddsFeedService']).toBe(mockOddsFeedService);
+            expect(service['oddFeedService']).toBe(mockOddsFeedService);
             expect(service['boundHandleEventDetailScheduleStart']).toBeInstanceOf(Function);
             expect(service['boundHandleEventUpcoming']).toBeInstanceOf(Function);
             expect(service['boundHandleEventCleanup']).toBeInstanceOf(Function);
@@ -264,7 +289,7 @@ describe('CommentatorVoiceService', () => {
 
             // Assert
             expect(commentatorVoiceService['_videoLengthByEventId'][TEST_EVENT_ID]).toBe(TEST_VIDEO_LENGTH);
-            expect(mockOddsFeedService.getVoiceConfig).toHaveBeenCalledWith(TEST_CONFIG_JSON);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON);
             expect(commentatorVoiceService['_commentatorVoiceConfigByEventId'][TEST_EVENT_ID]).toEqual({
                 configJson: TEST_CONFIG_JSON,
                 configVoice: mockVoiceConfig
@@ -328,19 +353,22 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventUpcoming(eventWithoutVoiceConfig as any);
 
             // Assert
-            expect(mockOddsFeedService.getVoiceConfig).not.toHaveBeenCalled();
+            expect(mockOddsFeedService.getRemoteJson).not.toHaveBeenCalledWith(TEST_CONFIG_JSON);
             expect(commentatorVoiceService['_commentatorVoiceConfigByEventId'][TEST_EVENT_ID]).toBeUndefined();
         });
 
         it('should return early when voice config from service is null', async () => {
             // Arrange
-            mockOddsFeedService.getVoiceConfig.mockResolvedValue(null);
+            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
+                if (url === TEST_CONFIG_JSON) return null as any;
+                return mockVoiceConfig as any;
+            });
 
             // Act
             await commentatorVoiceService.handleEventUpcoming(mockEventNotificationWithConfig);
 
             // Assert
-            expect(mockOddsFeedService.getVoiceConfig).toHaveBeenCalledWith(TEST_CONFIG_JSON);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON);
             expect(commentatorVoiceService['_commentatorVoiceConfigByEventId'][TEST_EVENT_ID]).toBeUndefined();
         });
     });
@@ -485,7 +513,7 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getInGameEvent).not.toHaveBeenCalled();
+            expect(mockOddsFeedService.getRemoteJson).not.toHaveBeenCalledWith("test-in-game-event");
         });
 
         it('should process voice generation with all data sources', async () => {
@@ -493,19 +521,19 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalledWith("test-in-game-event");
-            expect(mockOddsFeedService.getGoalInfo).toHaveBeenCalledWith("test-goal-info");
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event");
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-goal-info");
             expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalled();
             expect(mockScheduler.schedule).toHaveBeenCalled();
         });
 
         it('should use goal info length when available', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue({ 
-                result: ["1", "0"], 
-                length: 35,
-                frame: [100, 200],
-                timeLine: [50, 60] // GoalInfo timeline is not used for voice generation
+            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
+                if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
+                if (url === "test-in-game-event") return mockInGameEvent as any;
+                if (url === "test-goal-info") return { result: ["1", "0"], length: 35, frame: [100, 200], timeLine: [50, 60] } as any;
+                return null as any;
             });
 
             // Act
@@ -518,10 +546,11 @@ describe('CommentatorVoiceService', () => {
 
         it('should use default video length when goal info length is not available', async () => {
             // Arrange
-            mockOddsFeedService.getGoalInfo.mockResolvedValue({ 
-                result: ["1", "0"],
-                frame: [100, 200],
-                timeLine: [50, 60] // GoalInfo timeline is not used for voice generation
+            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
+                if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
+                if (url === "test-in-game-event") return mockInGameEvent as any;
+                if (url === "test-goal-info") return { result: ["1", "0"], frame: [100, 200], timeLine: [50, 60] } as any;
+                return null as any;
             });
 
             // Act
@@ -564,8 +593,9 @@ describe('CommentatorVoiceService', () => {
                 frame: [300, 400],
                 timeLine: [99, 100] // This timeline should NOT be used
             };
-            mockOddsFeedService.getInGameEvent.mockResolvedValue(customInGameEvent);
-            mockOddsFeedService.getGoalInfo.mockResolvedValue(customGoalInfo);
+            const seq = [customInGameEvent as any, customGoalInfo as any];
+            let i = 0;
+            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => seq[i++]);
 
             // Act
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
@@ -585,12 +615,12 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
             
             // Set up second event detail in the same phase with different goal info
-            mockOddsFeedService.getGoalInfo.mockResolvedValueOnce({ 
+            mockOddsFeedService.getRemoteJson.mockResolvedValueOnce({ 
                 result: ["2", "1"],
                 length: 30, // Different length for second event detail
                 frame: [200, 300],
                 timeLine: [70, 80]
-            });
+            } as any);
             
             const secondEventDetailNotification = {
                 ...mockEventDetailNotification,
@@ -858,8 +888,8 @@ describe('CommentatorVoiceService', () => {
             boundHandleEventStart(mockEventNotification);
 
             // Assert
-            expect(mockOddsFeedService.getVoiceConfig).toHaveBeenCalled();
-            expect(mockOddsFeedService.getInGameEvent).toHaveBeenCalled();
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event");
             
             // Verify voice state was reset for handleEventStart
             const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
@@ -884,6 +914,13 @@ describe('CommentatorVoiceService', () => {
                 },
                 index: 1
             };
+
+            // Ensure goal info returns length for both phases
+            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
+                if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
+                if (url === "test-in-game-event") return mockInGameEvent as any;
+                return { result: ["1", "0"], length: 25, frame: [100,200], timeLine: [1,2] } as any;
+            });
 
             // Act
             await commentatorVoiceService.handleEventDetailScheduleStart(phase1Notification);

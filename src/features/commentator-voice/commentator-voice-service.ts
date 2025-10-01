@@ -1,12 +1,11 @@
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource, SystemNotification } from "../odd-feed-data";
-import { Scheduler } from "../scheduler/scheduler";
-import { OddsFeedService } from "../../services/odds-feed-service";
+import { OddFeedService, Scheduler, OddFeedEventName, OddFeedEventSource, SystemNotification, EventDetailNotification, EventNotification } from "odd-feed-client";
 import { appSettings } from "../../app-settings";
 import { idHelper } from "../../helpers";
 import { generateVoiceWithEventTimeline, VoiceDurationConfig } from "../../helpers/voices";
+import { GoalInfoData, InGameEvent } from "../../types";
 
 const GLOBAL_DEFAULT_VIDEO_LENGTH = 30;
 
@@ -46,7 +45,7 @@ export interface CommentatorVoiceServiceContainer {
     delayHandlingService: DelayHandlingService;
     gameBoardcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
-    oddsFeedService: OddsFeedService;
+    oddFeedService: OddFeedService;
 }
 
 export class CommentatorVoiceService {
@@ -56,7 +55,7 @@ export class CommentatorVoiceService {
     private readonly delayHandlingService: DelayHandlingService;
     private readonly gameBoardcastService: GameBroadcastService;
     private readonly featureDebugService: FeatureDebugService;
-    private readonly oddsFeedService: OddsFeedService;
+    private readonly oddFeedService: OddFeedService;
 
     private _voiceStateByGameId: Record<string, InternalVoiceState> = {};
     private _videoLengthByEventId: Record<number, number> = {};
@@ -73,7 +72,7 @@ export class CommentatorVoiceService {
         this.delayHandlingService = container.delayHandlingService;
         this.gameBoardcastService = container.gameBoardcastService;
         this.featureDebugService = container.featureDebugService;
-        this.oddsFeedService = container.oddsFeedService;
+        this.oddFeedService = container.oddFeedService;
 
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
         this.boundHandleEventUpcoming = this.handleEventUpcoming.bind(this);
@@ -135,7 +134,7 @@ export class CommentatorVoiceService {
         }
 
         const configJson = config.configJson;
-        const configVoice = await this.oddsFeedService.getVoiceConfig(configJson);
+        const configVoice = await this.oddFeedService.getRemoteJson<VoiceDurationConfig>(configJson);
 
         if (!configVoice) {
             return;
@@ -165,9 +164,9 @@ export class CommentatorVoiceService {
 
         const gameId = idHelper.extractGameId(event.eventID);
         // get in game event
-        const inGameEvent = await this.oddsFeedService.getInGameEvent(event.eventDetails[index].inGameEventInfo);
+        const inGameEvent = await this.oddFeedService.getRemoteJson<InGameEvent>(event.eventDetails[index].inGameEventInfo);
         // get goal info for video length
-        const goalInfo = await this.oddsFeedService.getGoalInfo(event.eventDetails[index].goalInfo);
+        const goalInfo = await this.oddFeedService.getRemoteJson<GoalInfoData>(event.eventDetails[index].goalInfo);
         const videoLength = goalInfo?.length ?? this._videoLengthByEventId[event.eventID];
 
         // get previous state

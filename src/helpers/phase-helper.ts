@@ -1,4 +1,4 @@
-import { EventDetailNotification } from "../features/odd-feed-data";
+import { EventDetailNotification } from "odd-feed-client";
 
 export function isPhaseSwitching({ event, index }: EventDetailNotification) {
     return index !== event.eventDetails.length - 1 

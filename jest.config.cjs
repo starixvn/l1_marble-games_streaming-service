@@ -3,11 +3,11 @@ module.exports = async () => {
     rootDir: "./",
     verbose: true,
     transform: {
-      "^.+\\.ts?$": "ts-jest",
+      "^.+\\.ts?$": ['ts-jest', { useESM: true }],
       "^.+\\.js?$": "babel-jest",
     },
     transformIgnorePatterns: [
-      "node_modules/(?!(sc-base-database|sc-common|sc-game-base|sc-base-apis|sc-api-client|jest-auto-fixture|nanoid|crypto-random-string|sc-game-service-integration-utils|sc-game-management-client|prom-client)/.*)",
+      "node_modules/(?!(sc-base-database|sc-common|sc-game-base|sc-base-apis|sc-api-client|jest-auto-fixture|nanoid|crypto-random-string|sc-game-service-integration-utils|sc-game-management-client|prom-client|odd-feed-client)/.*)",
     ],
     preset: "ts-jest",
     testEnvironment: "node",
@@ -15,7 +15,6 @@ module.exports = async () => {
     reporters: ["default", ["jest-junit", { outputDirectory: "coverage", outputName: "unit-tests.xml" }]],
     coverageReporters: ["clover", "lcov", "text-summary", "cobertura"],
     coverageDirectory: "coverage",
-
     collectCoverageFrom: [
       "src/**/*.{js,jsx,ts,tsx}",
       "!src/**/*.d.ts",
@@ -23,5 +22,7 @@ module.exports = async () => {
       "!**/vendor/**",
       "!**/tests/**",
     ],
+    // Ensure mocks are applied before any test code imports run
+    setupFiles: ["<rootDir>/tests/setup-jest.ts"],
   };
 };

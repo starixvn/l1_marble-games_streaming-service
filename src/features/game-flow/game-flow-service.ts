@@ -1,7 +1,6 @@
 import { idHelper } from "../../helpers";
 import { DelayHandlingService } from "../delay/delay-handling-service";
-import { OddFeedEventName, OddFeedEventSource, EventNotification, EventDetailNotification } from "../odd-feed-data";
-import { Scheduler } from "../scheduler/scheduler";
+import { OddFeedEventName, OddFeedEventSource, EventNotification, EventDetailNotification, Scheduler } from "odd-feed-client";
 import { isLastEventDetail, isPhaseSwitching } from "../../helpers/phase-helper";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
