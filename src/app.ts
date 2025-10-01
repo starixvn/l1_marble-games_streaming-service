@@ -5,10 +5,7 @@ import { setupRoutes } from "./routes";
 import { ContainerRegistry } from "./container-registry";
 import { corsMiddleware } from "./middlewares/cors";
 import { errorHandler } from "./middlewares/error-handler";
-import { AwilixDIContainer} from "odd-feed-client/awilix"
-import { register, init } from "odd-feed-client/dependency-injection"
 import path from "path";
-import { extractGameId } from "./helpers/id-helper";
 
 const run = async () => {
   const configuration = new Configuration();
