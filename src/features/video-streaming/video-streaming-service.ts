@@ -20,6 +20,7 @@ export interface VideoState {
     currentTime: number;
     phaseIndex: number;
     timeFromPhaseStart: number;
+    timeFromPhaseEnd: number;
 }
 
 export interface PreloadVideoState {
@@ -79,20 +80,18 @@ export class VideoStreamingService {
         const gameId = idHelper.extractGameId(event.eventID);
         const timeToStream = this.getTimeToStream(event, index);
         const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
+        const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
         this._currentVideoStateByGameId[gameId] = {
             videoLink: event.eventDetails[index].playlist,
             timeToStream: timeToStream.getTime(),
             currentTime: 0,
             phaseIndex: event.eventDetails[index].phase,
             timeFromPhaseStart: timeFromPhaseStart.getTime(),
+            timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
         };
+        const currentVideoState = this.getCurrentVideoStateByGameId(gameId);
         this.log(`video streaming started with event ${event.eventID} and index ${index}
-            {
-                videoLink: ${event.eventDetails[index].playlist},
-                timeToStream: ${timeToStream},
-                phaseIndex: ${event.eventDetails[index].phase},
-            }
-
+            ${JSON.stringify(currentVideoState, null, 2)}
             `, gameId);
         this.gameBoardcastService.broadcastToAllClientByGameId(
             gameId, 
@@ -145,6 +144,16 @@ export class VideoStreamingService {
             event.eventDetails.find(detail => detail.phase === currentPhase) 
             ?? event.eventDetails[index];
         return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(firstEventDetailOfPhase.scheduleStartTs) }, {
+            oddFeedEventType: OddFeedEventName.EventDetailStart,
+        });
+    }
+
+    private getTimeFromPhaseEnd(event: Event, index: number) {
+        const currentPhase = event.eventDetails[index].phase;
+        const lastEventDetailOfPhase = 
+            event.eventDetails.findLast(detail => detail.phase === currentPhase) 
+            ?? event.eventDetails[index];
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(lastEventDetailOfPhase.resultsAvailableTs) }, {
             oddFeedEventType: OddFeedEventName.EventDetailStart,
         });
     }
