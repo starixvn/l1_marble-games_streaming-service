@@ -65,7 +65,8 @@ const mockVideoStreamingData = {
     timeToStream: 1640995200000,
     currentTime: 45000,
     phaseIndex: 1,
-    timeFromPhaseStart: 1640995200000
+    timeFromPhaseStart: 1640995200000,
+    timeFromPhaseEnd: 1640995200000
 };
 
 const mockPreloadVideoData = {
@@ -211,7 +212,7 @@ describe('InGameConsumer', () => {
             // Arrange
             const customGameFlowData = { state: GameFlow.Prebet };
             const customCurrentEventData = { event: 999, eventDetailIndex: 0, phase: 0 };
-            const customVideoData = { videoLink: "custom.m3u8", timeToStream: 0, currentTime: 0, phaseIndex: 0, timeFromPhaseStart: 0 };
+            const customVideoData = { videoLink: "custom.m3u8", timeToStream: 0, currentTime: 0, phaseIndex: 0, timeFromPhaseStart: 0, timeFromPhaseEnd: 0 };
             const customPreloadData = { videoLink: "custom-preload.m3u8" };
             const customResultData = { result: { 1: { homeScore: 0, awayScore: 0 } } };
             const customLiveScoreData = { homeScore: 0, awayScore: 0 };

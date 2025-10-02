@@ -248,6 +248,7 @@ describe("VideoStreamingService", () => {
                 currentTime: 0,
                 phaseIndex: mockEvent1.eventDetails[TEST_INDEX].phase,
 				timeFromPhaseStart: TEST_TIME_TO_STREAM,
+				timeFromPhaseEnd: TEST_TIME_TO_STREAM,
             });
             expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID_1,
@@ -354,6 +355,7 @@ describe("VideoStreamingService", () => {
                 currentTime: 0,
                 phaseIndex: TEST_INDEX,
 				timeFromPhaseStart: TEST_TIME_TO_STREAM,
+                timeFromPhaseEnd: TEST_TIME_TO_STREAM,
             };
             videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
         });
@@ -369,6 +371,7 @@ describe("VideoStreamingService", () => {
                 currentTime: TEST_CURRENT_TIME - TEST_TIME_TO_STREAM, // Calculated difference
 				phaseIndex: TEST_INDEX,
 				timeFromPhaseStart: TEST_TIME_TO_STREAM,
+                timeFromPhaseEnd: TEST_TIME_TO_STREAM,
             });
         });
 
@@ -629,6 +632,7 @@ describe("VideoStreamingService", () => {
                 currentTime: 0,
 				phaseIndex: TEST_INDEX,
 				timeFromPhaseStart: TEST_TIME_TO_STREAM,
+				timeFromPhaseEnd: TEST_TIME_TO_STREAM,
             };
             videoStreamingService['_currentVideoStateByGameId'][TEST_GAME_ID_1] = testVideoState;
 
