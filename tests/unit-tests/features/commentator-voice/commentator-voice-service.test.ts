@@ -289,7 +289,7 @@ describe('CommentatorVoiceService', () => {
 
             // Assert
             expect(commentatorVoiceService['_videoLengthByEventId'][TEST_EVENT_ID]).toBe(TEST_VIDEO_LENGTH);
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON, { eventId: TEST_EVENT_ID });
             expect(commentatorVoiceService['_commentatorVoiceConfigByEventId'][TEST_EVENT_ID]).toEqual({
                 configJson: TEST_CONFIG_JSON,
                 configVoice: mockVoiceConfig
@@ -368,7 +368,7 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventUpcoming(mockEventNotificationWithConfig);
 
             // Assert
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON, { eventId: TEST_EVENT_ID });
             expect(commentatorVoiceService['_commentatorVoiceConfigByEventId'][TEST_EVENT_ID]).toBeUndefined();
         });
     });
@@ -521,8 +521,8 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event");
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-goal-info");
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event", { eventId: TEST_EVENT_ID });
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-goal-info", { eventId: TEST_EVENT_ID });
             expect(mockGenerateVoiceWithEventTimeline).toHaveBeenCalled();
             expect(mockScheduler.schedule).toHaveBeenCalled();
         });
@@ -888,8 +888,8 @@ describe('CommentatorVoiceService', () => {
             boundHandleEventStart(mockEventNotification);
 
             // Assert
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON);
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event");
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_CONFIG_JSON, { eventId: TEST_EVENT_ID });
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event", { eventId: TEST_EVENT_ID });
             
             // Verify voice state was reset for handleEventStart
             const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];

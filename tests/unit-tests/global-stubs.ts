@@ -1,6 +1,6 @@
 import { logger } from "sc-common";
 import { AppContainer } from "../../src/types";
-import { stub } from "jest-auto-stub";
+import { stub } from "jest-mock-extended";
 import { OddFeedService } from "odd-feed-client";
 import { EventStreamService } from "../../src/services/event-stream-service";
 import { ClientManager } from "../../src/managers/client-manager";

@@ -251,7 +251,7 @@ describe('LiveScoreService', () => {
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL, { eventId: TEST_EVENT_ID });
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(4); // 1 reset + 3 goals
         });
 
@@ -263,7 +263,7 @@ describe('LiveScoreService', () => {
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL, { eventId: TEST_EVENT_ID });
             expect(mockScheduler.schedule).not.toHaveBeenCalled();
         });
 
@@ -275,7 +275,7 @@ describe('LiveScoreService', () => {
             await liveScoreService.handleEventDetailStart(mockEventDetailNotification);
 
             // Assert
-            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL);
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith(TEST_GOAL_INFO_URL, { eventId: TEST_EVENT_ID });
             expect(mockScheduler.schedule).not.toHaveBeenCalled();
         });
 

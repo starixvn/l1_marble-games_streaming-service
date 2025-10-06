@@ -68,7 +68,9 @@ export class LiveScoreService {
 
     public async handleEventDetailStart({ event, index }: EventDetailNotification) {
         const goalInfoUrl = event.eventDetails[index].goalInfo;
-        const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl);
+        const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl, {
+            eventId: event.eventID,
+        });
 
         if (!goalInfo) {
             return;

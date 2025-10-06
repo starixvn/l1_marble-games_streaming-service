@@ -134,7 +134,9 @@ export class CommentatorVoiceService {
         }
 
         const configJson = config.configJson;
-        const configVoice = await this.oddFeedService.getRemoteJson<VoiceDurationConfig>(configJson);
+        const configVoice = await this.oddFeedService.getRemoteJson<VoiceDurationConfig>(configJson, {
+            eventId: event.eventID,
+        });
 
         if (!configVoice) {
             return;
@@ -164,9 +166,13 @@ export class CommentatorVoiceService {
 
         const gameId = idHelper.extractGameId(event.eventID);
         // get in game event
-        const inGameEvent = await this.oddFeedService.getRemoteJson<InGameEvent>(event.eventDetails[index].inGameEventInfo);
+        const inGameEvent = await this.oddFeedService.getRemoteJson<InGameEvent>(event.eventDetails[index].inGameEventInfo, {
+            eventId: event.eventID,
+        });
         // get goal info for video length
-        const goalInfo = await this.oddFeedService.getRemoteJson<GoalInfoData>(event.eventDetails[index].goalInfo);
+        const goalInfo = await this.oddFeedService.getRemoteJson<GoalInfoData>(event.eventDetails[index].goalInfo, {
+            eventId: event.eventID,
+        });
         const videoLength = goalInfo?.length ?? this._videoLengthByEventId[event.eventID];
 
         // get previous state
