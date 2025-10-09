@@ -2,7 +2,7 @@ import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventNotification, OddFeedEventName, OddFeedEventSource, Scheduler } from "odd-feed-client";
+import { EventNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler } from "odds-feed-client";
 
 export interface TeamNameState {
     homeTeamName: string;
@@ -10,17 +10,17 @@ export interface TeamNameState {
 }
 
 export type TeamNameServiceContainer = {
-    oddFeedEventSource: OddFeedEventSource;
+    oddsFeedEventSource: OddsFeedEventSource;
     scheduler: Scheduler;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     delayHandlingService: DelayHandlingService;
     featureDebugService: FeatureDebugService;
 }
 
 export class TeamNameService {
-    private readonly oddFeedEventSource: OddFeedEventSource;
+    private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
-    private readonly gameBoardcastService: GameBroadcastService;
+    private readonly gameBroadcastService: GameBroadcastService;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly featureDebugService: FeatureDebugService;
     
@@ -29,9 +29,9 @@ export class TeamNameService {
     private readonly boundHandleEventStart: (notification: EventNotification) => void;
 
     constructor(container: TeamNameServiceContainer) {
-        this.oddFeedEventSource = container.oddFeedEventSource;
+        this.oddsFeedEventSource = container.oddsFeedEventSource;
         this.scheduler = container.scheduler;
-        this.gameBoardcastService = container.gameBoardcastService;
+        this.gameBroadcastService = container.gameBroadcastService;
         this.delayHandlingService = container.delayHandlingService;
         this.featureDebugService = container.featureDebugService;
         
@@ -45,21 +45,21 @@ export class TeamNameService {
     }
 
     public initEvent() {
-        this.oddFeedEventSource.registerEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOn(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
     }
 
     public dispose() {
-        this.oddFeedEventSource.unregisterEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOff(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart);
     }
 
     public handleEventStart({ event }: EventNotification) {
         const timeToUpdate = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
-            oddFeedEventType: OddFeedEventName.EventStart,
+            oddsFeedEventType: OddsFeedEventName.EventStart,
         });
         this.scheduler.schedule(timeToUpdate, this.handleTeamNameUpdate.bind(this, { event }));
     }
@@ -76,7 +76,7 @@ export class TeamNameService {
     private broadcastTeamName({ gameId }: { gameId: string }) {
         this.log(`broadcast team name ${JSON.stringify(this.getCurrentByGameId(gameId))}`, gameId);
 
-        this.gameBoardcastService.broadcastToAllClientByGameId(
+        this.gameBroadcastService.broadcastToAllClientByGameId(
             gameId,
             this.getCurrentByGameId(gameId),
             this.eventName

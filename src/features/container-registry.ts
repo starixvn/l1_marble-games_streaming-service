@@ -14,14 +14,14 @@ import { IntroService } from "./intro/intro-service";
 import { TeamNameService } from "./team-name/team-name-service";
 
 
-export interface OddFeedDataContainer extends DelayHandlingServiceContainer {
+export interface OddsFeedDataContainer extends DelayHandlingServiceContainer {
     logService: typeof logger;
     delayHandlingService: DelayHandlingService;
     currentEventService: CurrentEventService;
     gameFlowService: GameFlowService;
     videoStreamingService: VideoStreamingService;
     inGameConsumer: InGameConsumer;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     liveScoreService: LiveScoreService;
     resultService: ResultService;
     featureDebugService: FeatureDebugService;
@@ -37,7 +37,7 @@ function lazy<T extends object>(resolver: () => T): T {
     }) as T;
   }
 
-export function registerContainer(container: AwilixContainer<OddFeedDataContainer>) {
+export function registerContainer(container: AwilixContainer<OddsFeedDataContainer>) {
     container.register({
         delayHandlingService: asClass(DelayHandlingService).singleton().disposer((service) => service.dispose()),
     });
@@ -46,10 +46,10 @@ export function registerContainer(container: AwilixContainer<OddFeedDataContaine
         gameFlowService: asFunction(
             (cradle) => new GameFlowService({
                 featureDebugService: lazy(() => cradle.featureDebugService),
-                oddFeedEventSource: cradle.oddFeedEventSource,
+                oddsFeedEventSource: cradle.oddsFeedEventSource,
                 scheduler: cradle.scheduler,
                 delayHandlingService: cradle.delayHandlingService,
-                gameBoardcastService: cradle.gameBoardcastService,
+                gameBroadcastService: cradle.gameBroadcastService,
             }),
         ).singleton().proxy().disposer((service) => service.dispose()),
         featureDebugService: asFunction(
@@ -63,7 +63,7 @@ export function registerContainer(container: AwilixContainer<OddFeedDataContaine
         currentEventService: asClass(CurrentEventService).singleton().disposer((service) => service.dispose()),
         videoStreamingService: asClass(VideoStreamingService).singleton().disposer((service) => service.dispose()),
         inGameConsumer: asClass(InGameConsumer).singleton(),
-        gameBoardcastService: asClass(GameBroadcastService).singleton(),
+        gameBroadcastService: asClass(GameBroadcastService).singleton(),
         liveScoreService: asClass(LiveScoreService).singleton().proxy().disposer((service) => service.dispose()),
         resultService: asClass(ResultService).singleton().disposer((service) => service.dispose()),
         commentatorVoiceService: asClass(CommentatorVoiceService).singleton().disposer((service) => service.dispose()),
@@ -74,7 +74,7 @@ export function registerContainer(container: AwilixContainer<OddFeedDataContaine
     return container;
 }
 
-export function initContainer(container: AwilixContainer<OddFeedDataContainer>) {
+export function initContainer(container: AwilixContainer<OddsFeedDataContainer>) {
     container.resolve("delayHandlingService").initEvent();
     container.resolve("currentEventService").initEvent();
     container.resolve("gameFlowService").initEvent();

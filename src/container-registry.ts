@@ -7,10 +7,10 @@ import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
 import { logger } from "sc-common";
 import { ClientManager } from "./managers/client-manager";
-import { initContainer, OddFeedDataContainer, registerContainer } from "./features/container-registry";
+import { initContainer, OddsFeedDataContainer, registerContainer } from "./features/container-registry";
 import { DebugController } from "./controllers/debug-controller";
-import { AwilixDIContainer } from "odd-feed-client/awilix";
-import { init, register } from "odd-feed-client/dependency-injection";
+import { AwilixDIContainer } from "odds-feed-client/awilix";
+import { init, register } from "odds-feed-client/dependency-injection";
 import { appConfigs } from "./app-configs";
 
 export class ContainerRegistry {
@@ -53,13 +53,13 @@ export class ContainerRegistry {
       debugController: asClass(DebugController).disposer((service) => service.dispose()).singleton(),
     });
 
-    registerContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
+    registerContainer(this.container as unknown as AwilixContainer<OddsFeedDataContainer>);
 
     return this.container;
   }
 
   init() {
     init(this.diContainer);
-    initContainer(this.container as unknown as AwilixContainer<OddFeedDataContainer>);
+    initContainer(this.container as unknown as AwilixContainer<OddsFeedDataContainer>);
   }
 }

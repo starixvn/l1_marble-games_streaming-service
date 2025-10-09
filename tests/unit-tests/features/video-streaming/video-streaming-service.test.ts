@@ -1,5 +1,5 @@
 import { VideoStreamingService, VideoState, PreloadVideoState } from "../../../../src/features/video-streaming/video-streaming-service";
-import { OddFeedEventSource, OddFeedEventName, EventDetailNotification,Scheduler } from "odd-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventDetailNotification,Scheduler } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
@@ -7,10 +7,10 @@ import { idHelper } from "../../../../src/helpers";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
 
 // Mock dependencies
-const mockOddFeedEventSource = {
-    registerEventDetailEventListener: jest.fn(),
-    unregisterEventDetailEventListener: jest.fn(),
-} as unknown as jest.Mocked<OddFeedEventSource>;
+const mockOddsFeedEventSource = {
+    eventDetailOn: jest.fn(),
+    eventDetailOff: jest.fn(),
+} as unknown as jest.Mocked<OddsFeedEventSource>;
 
 const mockDelayHandlingService = {
     getDelayedTimeWithVideoDelay: jest.fn(),
@@ -21,7 +21,7 @@ const mockScheduler = {
     schedule: jest.fn(),
 } as unknown as jest.Mocked<Scheduler>;
 
-const mockGameBoardcastService = {
+const mockGameBroadcastService = {
     broadcastToAllClientByGameId: jest.fn(),
 } as unknown as jest.Mocked<GameBroadcastService>;
 
@@ -89,10 +89,10 @@ const mockEventDetailNotification2: EventDetailNotification = {
 
 // Helper functions for test setup
 const createContainer = () => ({
-    oddFeedEventSource: mockOddFeedEventSource,
+    oddsFeedEventSource: mockOddsFeedEventSource,
     delayHandlingService: mockDelayHandlingService,
     scheduler: mockScheduler,
-    gameBoardcastService: mockGameBoardcastService,
+    gameBroadcastService: mockGameBroadcastService,
     featureDebugService: mockFeatureDebugService,
 });
 
@@ -127,10 +127,10 @@ describe("VideoStreamingService", () => {
             const service = new VideoStreamingService(container);
 
             // Assert
-            expect(service['oddFeedEventSource']).toBe(mockOddFeedEventSource);
+            expect(service['oddsFeedEventSource']).toBe(mockOddsFeedEventSource);
             expect(service['delayHandlingService']).toBe(mockDelayHandlingService);
             expect(service['scheduler']).toBe(mockScheduler);
-            expect(service['gameBoardcastService']).toBe(mockGameBoardcastService);
+            expect(service['gameBroadcastService']).toBe(mockGameBroadcastService);
             expect(service['featureDebugService']).toBe(mockFeatureDebugService);
             expect(service['boundHandleEventDetailScheduleStart']).toBeInstanceOf(Function);
         });
@@ -171,8 +171,8 @@ describe("VideoStreamingService", () => {
             videoStreamingService.initEvent();
 
             // Assert
-            expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailStart,
+            expect(mockOddsFeedEventSource.eventDetailOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailStart,
                 videoStreamingService['boundHandleEventDetailScheduleStart']
             );
         });
@@ -184,8 +184,8 @@ describe("VideoStreamingService", () => {
             videoStreamingService.dispose();
 
             // Assert
-            expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailStart,
+            expect(mockOddsFeedEventSource.eventDetailOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailStart,
                 videoStreamingService['boundHandleEventDetailScheduleStart']
             );
         });
@@ -201,13 +201,13 @@ describe("VideoStreamingService", () => {
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
             expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, TEST_DELAYED_TIME_VIDEO, expect.any(Function));
@@ -250,7 +250,7 @@ describe("VideoStreamingService", () => {
 				timeFromPhaseStart: TEST_TIME_TO_STREAM,
 				timeFromPhaseEnd: TEST_TIME_TO_STREAM,
             });
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID_1,
                 expect.objectContaining({
                     videoLink: TEST_PLAYLIST_URL_2,
@@ -314,7 +314,7 @@ describe("VideoStreamingService", () => {
             expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toEqual({
                 videoLink: TEST_PLAYLIST_URL_2, // Index 1 of the event details
             });
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID_1,
                 { videoLink: TEST_PLAYLIST_URL_2 },
                 videoStreamingService.preloadEventName
@@ -342,7 +342,7 @@ describe("VideoStreamingService", () => {
             // Assert
             expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_1]).toBeDefined();
             expect(videoStreamingService['_preloadVideoStateByGameId'][TEST_GAME_ID_2]).toBeDefined();
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -516,7 +516,7 @@ describe("VideoStreamingService", () => {
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             expect(result).toBe(TEST_DELAYED_TIME_VIDEO);
         });
@@ -530,7 +530,7 @@ describe("VideoStreamingService", () => {
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[0].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
         });
     });
@@ -545,7 +545,7 @@ describe("VideoStreamingService", () => {
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             expect(result).toBe(TEST_DELAYED_TIME_PRELOAD);
         });
@@ -559,7 +559,7 @@ describe("VideoStreamingService", () => {
                 eventId: TEST_EVENT_ID_1,
                 time: new Date(mockEvent1.eventDetails[0].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
         });
     });

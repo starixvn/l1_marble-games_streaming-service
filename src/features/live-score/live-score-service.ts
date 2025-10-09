@@ -1,4 +1,4 @@
-import { EventDetailNotification, OddFeedEventName, OddFeedEventSource, OddFeedService, Scheduler } from "odd-feed-client";
+import { EventDetailNotification, OddsFeedEventName, OddsFeedEventSource, OddsFeedService, Scheduler } from "odds-feed-client";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { idHelper } from "../../helpers";
 import { Event, GoalInfoData } from "../../types";
@@ -15,32 +15,32 @@ export interface LiveScoreStateByPhase {
 }
 
 interface LiveScoreServiceContainer {
-    oddFeedEventSource: OddFeedEventSource;
-    oddFeedService: OddFeedService;
+    oddsFeedEventSource: OddsFeedEventSource;
+    oddsFeedService: OddsFeedService;
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
 }
 
 export class LiveScoreService {
 
-    private readonly oddFeedEventSource: OddFeedEventSource;
-    private readonly oddsFeedService: OddFeedService;
+    private readonly oddsFeedEventSource: OddsFeedEventSource;
+    private readonly oddsFeedService: OddsFeedService;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
-    private readonly gameBoardcastService: GameBroadcastService;
+    private readonly gameBroadcastService: GameBroadcastService;
     private readonly featureDebugService: FeatureDebugService;
     private readonly _liveScoreByGameId: Record<string, LiveScoreState> = {};
     
     private readonly boundHandleEventDetailStart: (notification: EventDetailNotification) => void;
 
     constructor(container: LiveScoreServiceContainer) {
-        this.oddFeedEventSource = container.oddFeedEventSource;
-        this.oddsFeedService = container.oddFeedService;
+        this.oddsFeedEventSource = container.oddsFeedEventSource;
+        this.oddsFeedService = container.oddsFeedService;
         this.delayHandlingService = container.delayHandlingService;
         this.scheduler = container.scheduler;
-        this.gameBoardcastService = container.gameBoardcastService;
+        this.gameBroadcastService = container.gameBroadcastService;
         this.featureDebugService = container.featureDebugService;
 
         this.boundHandleEventDetailStart = this.handleEventDetailStart.bind(this);
@@ -53,15 +53,15 @@ export class LiveScoreService {
     }
 
     public initEvent() {
-        this.oddFeedEventSource.registerEventDetailEventListener(
-            OddFeedEventName.EventDetailStart,
+        this.oddsFeedEventSource.eventDetailOn(
+            OddsFeedEventName.EventDetailStart,
             this.boundHandleEventDetailStart
         );
     }
 
     public dispose() {
-        this.oddFeedEventSource.unregisterEventDetailEventListener(
-            OddFeedEventName.EventDetailStart,
+        this.oddsFeedEventSource.eventDetailOff(
+            OddsFeedEventName.EventDetailStart,
             this.boundHandleEventDetailStart
         );
     }
@@ -78,7 +78,7 @@ export class LiveScoreService {
 
         if (index === 0) {
             const timeToReset = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             this.scheduler.schedule(timeToReset, this.resetLiveScore.bind(this, { gameId: idHelper.extractGameId(event.eventID) }));
         }
@@ -86,7 +86,7 @@ export class LiveScoreService {
         goalInfo?.timeLine.forEach((time, goalIndex) => {
             const goalTime = new Date(event.eventDetails[index].scheduleStartTs).getTime() + time * 1000;
             const timeToUpdate = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(goalTime) }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             this.scheduler.schedule(timeToUpdate, this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] }));
         });
@@ -120,7 +120,7 @@ export class LiveScoreService {
         const currentLiveScore = this.getCurrentByGameId(gameId);
         this.log(`broadcast live score ${JSON.stringify(currentLiveScore)}`, gameId);
 
-        this.gameBoardcastService.broadcastToAllClientByGameId(
+        this.gameBroadcastService.broadcastToAllClientByGameId(
             gameId, 
             this.getCurrentByGameId(gameId),
             this.eventName);

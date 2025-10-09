@@ -1,6 +1,6 @@
-jest.mock("odd-feed-client", () => {
+jest.mock("odds-feed-client", () => {
     return {
-        OddFeedEventName: {
+        OddsFeedEventName: {
             EventDetailStart: "EventDetailStart",
             EventStart: "EventStart",
             EventUpcoming: "EventUpcoming",
@@ -8,38 +8,38 @@ jest.mock("odd-feed-client", () => {
         Scheduler: class {
             schedule = jest.fn();
         },
-        OddFeedEventSource: class {
-            registerEventDetailEventListener = jest.fn();
-            unregisterEventDetailEventListener = jest.fn();
-            registerEventListener = jest.fn();
-            unregisterEventListener = jest.fn();
-            registerSystemDataCleanupEventListener = jest.fn();
-            unregisterSystemDataCleanupEventListener = jest.fn();
+        OddsFeedEventSource: class {
+            eventDetailOn = jest.fn();
+            eventDetailOff = jest.fn();
+            eventOn = jest.fn();
+            eventOff = jest.fn();
+            cleanupOn = jest.fn();
+            cleanupOff = jest.fn();
         },
-        OddFeedService: class {
+        OddsFeedService: class {
             getRemoteJson = jest.fn();
         },
     };
 });
 
 import { LiveScoreService, LiveScoreState } from "../../../../src/features/live-score/live-score-service";
-import { OddFeedEventSource, OddFeedEventName, EventDetailNotification, OddFeedService } from "odd-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventDetailNotification, OddsFeedService } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "odd-feed-client";
+import { Scheduler } from "odds-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { idHelper } from "../../../../src/helpers";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
 
 // Mock dependencies
-const mockOddFeedEventSource = {
-    registerEventDetailEventListener: jest.fn(),
-    unregisterEventDetailEventListener: jest.fn(),
-} as unknown as jest.Mocked<OddFeedEventSource>;
+const mockOddsFeedEventSource = {
+    eventDetailOn: jest.fn(),
+    eventDetailOff: jest.fn(),
+} as unknown as jest.Mocked<OddsFeedEventSource>;
 
 const mockOddsFeedService = {
     getRemoteJson: jest.fn(),
-} as unknown as jest.Mocked<OddFeedService>;
+} as unknown as jest.Mocked<OddsFeedService>;
 
 const mockDelayHandlingService = {
     getDelayedTime: jest.fn(),
@@ -50,7 +50,7 @@ const mockScheduler = {
     schedule: jest.fn().mockReturnValue('scheduled-id'),
 } as unknown as jest.Mocked<Scheduler>;
 
-const mockGameBoardcastService = {
+const mockGameBroadcastService = {
     broadcastToAllClientByGameId: jest.fn(),
 } as unknown as jest.Mocked<GameBroadcastService>;
 
@@ -110,20 +110,20 @@ const mockEventDetailNotification2: EventDetailNotification = {
 
 // Helper functions for test setup
 interface LiveScoreServiceContainer {
-    oddFeedEventSource: OddFeedEventSource;
-    oddFeedService: OddFeedService;
+    oddsFeedEventSource: OddsFeedEventSource;
+    oddsFeedService: OddsFeedService;
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
 }
 
 const createContainer = (): LiveScoreServiceContainer => ({
-    oddFeedEventSource: mockOddFeedEventSource,
-    oddFeedService: mockOddsFeedService,
+    oddsFeedEventSource: mockOddsFeedEventSource,
+    oddsFeedService: mockOddsFeedService,
     delayHandlingService: mockDelayHandlingService,
     scheduler: mockScheduler,
-    gameBoardcastService: mockGameBoardcastService,
+    gameBroadcastService: mockGameBroadcastService,
     featureDebugService: mockFeatureDebugService,
 });
 
@@ -157,11 +157,11 @@ describe('LiveScoreService', () => {
             const service = new LiveScoreService(container);
 
             // Assert
-            expect(service['oddFeedEventSource']).toBe(mockOddFeedEventSource);
+            expect(service['oddsFeedEventSource']).toBe(mockOddsFeedEventSource);
             expect(service['oddsFeedService']).toBe(mockOddsFeedService);
             expect(service['delayHandlingService']).toBe(mockDelayHandlingService);
             expect(service['scheduler']).toBe(mockScheduler);
-            expect(service['gameBoardcastService']).toBe(mockGameBoardcastService);
+            expect(service['gameBroadcastService']).toBe(mockGameBroadcastService);
             expect(service['featureDebugService']).toBe(mockFeatureDebugService);
             expect(service['boundHandleEventDetailStart']).toBeInstanceOf(Function);
         });
@@ -221,8 +221,8 @@ describe('LiveScoreService', () => {
             liveScoreService.initEvent();
 
             // Assert
-            expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailStart,
+            expect(mockOddsFeedEventSource.eventDetailOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailStart,
                 liveScoreService['boundHandleEventDetailStart']
             );
         });
@@ -236,8 +236,8 @@ describe('LiveScoreService', () => {
             liveScoreService.dispose();
 
             // Assert
-            expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailStart,
+            expect(mockOddsFeedEventSource.eventDetailOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailStart,
                 liveScoreService['boundHandleEventDetailStart']
             );
         });
@@ -290,7 +290,7 @@ describe('LiveScoreService', () => {
                 eventId: TEST_EVENT_ID,
                 time: new Date(mockEvent.eventDetails[0].scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailStart,
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
@@ -340,17 +340,17 @@ describe('LiveScoreService', () => {
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 1,
                 { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime1) },
-                { oddFeedEventType: OddFeedEventName.EventDetailStart }
+                { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
             );
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 2,
                 { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime2) },
-                { oddFeedEventType: OddFeedEventName.EventDetailStart }
+                { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
             );
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 3,
                 { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime3) },
-                { oddFeedEventType: OddFeedEventName.EventDetailStart }
+                { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
             );
         });
 
@@ -439,7 +439,7 @@ describe('LiveScoreService', () => {
             liveScoreService.handleLiveScoreUpdate(updateData);
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
                 liveScoreService.getCurrentByGameId(TEST_GAME_ID),
                 liveScoreService.eventName
@@ -516,7 +516,7 @@ describe('LiveScoreService', () => {
             liveScoreService['resetLiveScore']({ gameId: TEST_GAME_ID });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
                 { homeScore: 0, awayScore: 0 },
                 liveScoreService.eventName
@@ -547,7 +547,7 @@ describe('LiveScoreService', () => {
             liveScoreService['broadcastLiveScore']({ gameId: TEST_GAME_ID });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
                 testState,
                 liveScoreService.eventName
@@ -577,7 +577,7 @@ describe('LiveScoreService', () => {
             liveScoreService['broadcastLiveScore']({ gameId: TEST_GAME_ID });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
                 undefined,
                 liveScoreService.eventName

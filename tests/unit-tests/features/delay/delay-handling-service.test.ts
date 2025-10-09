@@ -1,12 +1,12 @@
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification } from "odd-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventNotification } from "odds-feed-client";
 import { Event } from "../../../../src/types";
 
 // Mock dependencies
-const mockOddFeedEventSource = {
-    registerEventListener: jest.fn(),
-    unregisterEventListener: jest.fn(),
-} as unknown as jest.Mocked<OddFeedEventSource>;
+const mockOddsFeedEventSource = {
+    eventOn: jest.fn(),
+    eventOff: jest.fn(),
+} as unknown as jest.Mocked<OddsFeedEventSource>;
 
 // Test constants
 const TEST_EVENT_ID = 4294967298; // gameId: 1, roundId: 2
@@ -53,7 +53,7 @@ const mockEventNotificationWithoutDelay: EventNotification = {
 
 // Helper functions for test setup
 const createContainer = () => ({
-    oddFeedEventSource: mockOddFeedEventSource,
+    oddsFeedEventSource: mockOddsFeedEventSource,
 });
 
 const setupMocks = () => {
@@ -80,7 +80,7 @@ describe('DelayHandlingService', () => {
             const service = new DelayHandlingService(container);
 
             // Assert
-            expect(service['oddsFeedEventSource']).toBe(mockOddFeedEventSource);
+            expect(service['oddsFeedEventSource']).toBe(mockOddsFeedEventSource);
             expect(service['boundHandleEventUpcoming']).toBeInstanceOf(Function);
         });
 
@@ -100,8 +100,8 @@ describe('DelayHandlingService', () => {
                 delayHandlingService.initEvent();
 
                 // Assert
-                expect(mockOddFeedEventSource.registerEventListener).toHaveBeenCalledWith(
-                    OddFeedEventName.EventUpcoming,
+                expect(mockOddsFeedEventSource.eventOn).toHaveBeenCalledWith(
+                    OddsFeedEventName.EventUpcoming,
                     delayHandlingService['boundHandleEventUpcoming']
                 );
             });
@@ -113,8 +113,8 @@ describe('DelayHandlingService', () => {
                 const result = delayHandlingService.dispose();
 
                 // Assert
-                expect(mockOddFeedEventSource.unregisterEventListener).toHaveBeenCalledWith(
-                    OddFeedEventName.EventUpcoming,
+                expect(mockOddsFeedEventSource.eventOff).toHaveBeenCalledWith(
+                    OddsFeedEventName.EventUpcoming,
                     delayHandlingService['boundHandleEventUpcoming']
                 );
                 expect(result).toBe(delayHandlingService);

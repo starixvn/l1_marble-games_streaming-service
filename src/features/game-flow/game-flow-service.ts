@@ -1,6 +1,6 @@
 import { idHelper } from "../../helpers";
 import { DelayHandlingService } from "../delay/delay-handling-service";
-import { OddFeedEventName, OddFeedEventSource, EventNotification, EventDetailNotification, Scheduler } from "odd-feed-client";
+import { OddsFeedEventName, OddsFeedEventSource, EventNotification, EventDetailNotification, Scheduler } from "odds-feed-client";
 import { isLastEventDetail, isPhaseSwitching } from "../../helpers/phase-helper";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
@@ -13,19 +13,19 @@ export enum GameFlow {
 }
 
 interface GameFlowServiceContainer {
-    oddFeedEventSource: OddFeedEventSource;
+    oddsFeedEventSource: OddsFeedEventSource;
     scheduler: Scheduler;
     delayHandlingService: DelayHandlingService;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
 }
 
 export class GameFlowService {
 
-    private readonly oddFeedEventSource: OddFeedEventSource;
+    private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
     private readonly delayHandlingService: DelayHandlingService;
-    private readonly gameBoardcastService: GameBroadcastService;
+    private readonly gameBroadcastService: GameBroadcastService;
     private readonly featureDebugService: FeatureDebugService;
 
     private _gameFlowByGameId: Record<string, GameFlow> = {};
@@ -36,10 +36,10 @@ export class GameFlowService {
     private readonly boundHandleEventDetailScheduleStart: (notification: EventDetailNotification) => void;
     
     constructor(container: GameFlowServiceContainer) {
-        this.oddFeedEventSource = container.oddFeedEventSource;
+        this.oddsFeedEventSource = container.oddsFeedEventSource;
         this.scheduler = container.scheduler;
         this.delayHandlingService = container.delayHandlingService;
-        this.gameBoardcastService = container.gameBoardcastService;
+        this.gameBroadcastService = container.gameBroadcastService;
         this.featureDebugService = container.featureDebugService;
 
         this.boundHandleEventStart = this.handleEventStart.bind(this);
@@ -50,16 +50,16 @@ export class GameFlowService {
     public readonly eventName = "gameFlow";
 
     public initEvent() {
-        this.oddFeedEventSource.registerEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOn(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddFeedEventSource.registerEventDetailEventListener(
-            OddFeedEventName.EventDetailResultsAvailable,
+        this.oddsFeedEventSource.eventDetailOn(
+            OddsFeedEventName.EventDetailResultsAvailable,
             this.boundHandleResultAvailable
         );
-        this.oddFeedEventSource.registerEventDetailEventListener(
-            OddFeedEventName.EventDetailStart,
+        this.oddsFeedEventSource.eventDetailOn(
+            OddsFeedEventName.EventDetailStart,
             this.boundHandleEventDetailScheduleStart
         );
     }   
@@ -69,16 +69,16 @@ export class GameFlowService {
     }
 
     public dispose() {
-        this.oddFeedEventSource.unregisterEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOff(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddFeedEventSource.unregisterEventDetailEventListener(
-            OddFeedEventName.EventDetailResultsAvailable,
+        this.oddsFeedEventSource.eventDetailOff(
+            OddsFeedEventName.EventDetailResultsAvailable,
             this.boundHandleResultAvailable
         );
-        this.oddFeedEventSource.unregisterEventDetailEventListener(
-            OddFeedEventName.EventDetailStart,
+        this.oddsFeedEventSource.eventDetailOff(
+            OddsFeedEventName.EventDetailStart,
             this.boundHandleEventDetailScheduleStart
         );
     }
@@ -137,26 +137,26 @@ export class GameFlowService {
         this.log(`switch to \x1b[32m${gameFlow}\x1b[37m`, gameId);
 
         this._gameFlowByGameId[gameId] = gameFlow;
-        this.gameBoardcastService.broadcastToAllClientByGameId(gameId, { 
+        this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { 
             state: gameFlow,
         }, this.eventName);
     }
 
     private delayedEventDetailResultAvailable({ event, index }: EventDetailNotification) {
         return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
-            oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
+            oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         });
     }
 
     private delayedEventDetailtScheduleStartWithVideoDelay({ event, index }: EventDetailNotification) {
         return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
-            oddFeedEventType: OddFeedEventName.EventDetailStart,
+            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
     }
 
     private delayedEventScheduleStart({ event }: EventNotification | EventDetailNotification) {
         return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
-            oddFeedEventType: OddFeedEventName.EventStart,
+            oddsFeedEventType: OddsFeedEventName.EventStart,
         });
     }
 
