@@ -1,4 +1,4 @@
-import { EventNotification, OddFeedEventName, OddFeedEventSource, SystemNotification, Scheduler } from "odd-feed-client";
+import { EventNotification, OddsFeedEventName, OddsFeedEventSource, SystemNotification, Scheduler } from "odds-feed-client";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
@@ -6,10 +6,10 @@ import { idHelper } from "../../helpers";
 import { Event } from "../../types";
 
 interface IntroServiceContainer {
-    oddFeedEventSource: OddFeedEventSource;
+    oddsFeedEventSource: OddsFeedEventSource;
     scheduler: Scheduler;
     delayHandlingService: DelayHandlingService;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
 }
 
@@ -27,10 +27,10 @@ interface IntroConfig {
 }
 
 export class IntroService {
-    private readonly oddFeedEventSource: OddFeedEventSource;
+    private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
     private readonly delayHandlingService: DelayHandlingService;
-    private readonly gameBoardcastService: GameBroadcastService;
+    private readonly gameBroadcastService: GameBroadcastService;
     private readonly featureDebugService: FeatureDebugService;
 
     private readonly _introByGameId: Record<string, IntroState> = {};
@@ -41,10 +41,10 @@ export class IntroService {
     private readonly boundHandleEventCleanup: (notification: SystemNotification) => void;
 
     constructor(container: IntroServiceContainer) {
-        this.oddFeedEventSource = container.oddFeedEventSource;
+        this.oddsFeedEventSource = container.oddsFeedEventSource;
         this.scheduler = container.scheduler;
         this.delayHandlingService = container.delayHandlingService;
-        this.gameBoardcastService = container.gameBoardcastService;
+        this.gameBroadcastService = container.gameBroadcastService;
         this.featureDebugService = container.featureDebugService;
 
         this.boundHandleEventUpcoming = this.handleEventUpcoming.bind(this);
@@ -56,27 +56,27 @@ export class IntroService {
 
     initEvent() {
 
-        this.oddFeedEventSource.registerEventListener(
-            OddFeedEventName.EventUpcoming,
+        this.oddsFeedEventSource.eventOn(
+            OddsFeedEventName.EventUpcoming,
             this.boundHandleEventUpcoming
         );
-        this.oddFeedEventSource.registerEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOn(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddFeedEventSource.registerSystemDataCleanupEventListener(this.boundHandleEventCleanup);
+        this.oddsFeedEventSource.cleanupOn(this.boundHandleEventCleanup);
     }
 
     dispose() {
-        this.oddFeedEventSource.unregisterEventListener(
-            OddFeedEventName.EventUpcoming,
+        this.oddsFeedEventSource.eventOff(
+            OddsFeedEventName.EventUpcoming,
             this.boundHandleEventUpcoming
         );
-        this.oddFeedEventSource.unregisterEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOff(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddFeedEventSource.unregisterSystemDataCleanupEventListener(this.boundHandleEventCleanup);
+        this.oddsFeedEventSource.cleanupOff(this.boundHandleEventCleanup);
     }
 
     handleEventUpcoming({ event }: EventNotification) {
@@ -97,12 +97,12 @@ export class IntroService {
 
         const durationInMillis = duration * 1000;
         const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
-            oddFeedEventType: OddFeedEventName.EventStart,
+            oddsFeedEventType: OddsFeedEventName.EventStart,
         });
         const timeToStopPrebetIntro = new Date(timeToPlayPrebetIntro.getTime() + durationInMillis + 1);
         
         const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMillis) }, {
-            oddFeedEventType: OddFeedEventName.EventDetailStart,
+            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
         const timeToStopHalfTimeIntro = new Date(timeToPlayHalfTimeIntro.getTime() + durationInMillis + 1);
         
@@ -150,7 +150,7 @@ export class IntroService {
 
     private broadcastIntro({ gameId }: { gameId: string }) {
         
-        this.gameBoardcastService.broadcastToAllClientByGameId(
+        this.gameBroadcastService.broadcastToAllClientByGameId(
             gameId,
             this.getCurrentByGameId(gameId) ?? {},
             this.eventName

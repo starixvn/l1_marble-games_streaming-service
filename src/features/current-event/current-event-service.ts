@@ -2,21 +2,21 @@ import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventDetailNotification, EventNotification, OddFeedEventName, OddFeedEventSource, SystemNotification, Scheduler, Event } from "odd-feed-client";
+import { EventDetailNotification, EventNotification, OddsFeedEventName, OddsFeedEventSource, SystemNotification, Scheduler, Event } from "odds-feed-client";
 
 interface CurrentEventServiceContainer {
-    oddFeedEventSource: OddFeedEventSource;
+    oddsFeedEventSource: OddsFeedEventSource;
     delayHandlingService: DelayHandlingService;
     scheduler: Scheduler;
-    gameBoardcastService: GameBroadcastService;
+    gameBroadcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
 }
 
 export class CurrentEventService {
-    private readonly oddFeedEventSource: OddFeedEventSource;
+    private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
-    private readonly gameBoardcastService: GameBroadcastService;
+    private readonly gameBroadcastService: GameBroadcastService;
     private readonly featureDebugService: FeatureDebugService;
     private readonly _currentEventByGameId: Record<string, number> = {};
     private readonly _currentEventDetailIndexByGameId: Record<string, number> = {};
@@ -28,10 +28,10 @@ export class CurrentEventService {
 
 
     constructor(container: CurrentEventServiceContainer) {
-        this.oddFeedEventSource = container.oddFeedEventSource;
+        this.oddsFeedEventSource = container.oddsFeedEventSource;
         this.delayHandlingService = container.delayHandlingService;
         this.scheduler = container.scheduler;
-        this.gameBoardcastService = container.gameBoardcastService;
+        this.gameBroadcastService = container.gameBroadcastService;
         this.featureDebugService = container.featureDebugService;   
 
         this.boundHandleEventStart = this.handleEventStart.bind(this);
@@ -65,21 +65,21 @@ export class CurrentEventService {
     }
 
     public initEvent() {
-        this.oddFeedEventSource.registerEventListener(
-            OddFeedEventName.EventStart,
+        this.oddsFeedEventSource.eventOn(
+            OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddFeedEventSource.registerEventDetailEventListener(
-            OddFeedEventName.EventDetailResultsAvailable,
+        this.oddsFeedEventSource.eventDetailOn(
+            OddsFeedEventName.EventDetailResultsAvailable,
             this.boundHandleEventDetailResultAvailable
         );
-        this.oddFeedEventSource.registerSystemDataCleanupEventListener(this.boundHandleEventCleanup);
+        this.oddsFeedEventSource.cleanupOn(this.boundHandleEventCleanup);
     }
 
     public dispose() {
-        this.oddFeedEventSource.unregisterEventListener(OddFeedEventName.EventStart, this.boundHandleEventStart);
-        this.oddFeedEventSource.unregisterEventDetailEventListener(OddFeedEventName.EventDetailResultsAvailable, this.boundHandleEventDetailResultAvailable);
-        this.oddFeedEventSource.unregisterSystemDataCleanupEventListener(this.boundHandleEventCleanup);
+        this.oddsFeedEventSource.eventOff(OddsFeedEventName.EventStart, this.boundHandleEventStart);
+        this.oddsFeedEventSource.eventDetailOff(OddsFeedEventName.EventDetailResultsAvailable, this.boundHandleEventDetailResultAvailable);
+        this.oddsFeedEventSource.cleanupOff(this.boundHandleEventCleanup);
     }
 
     public cleanup({ eventID }: SystemNotification) {
@@ -88,14 +88,14 @@ export class CurrentEventService {
 
     public handleEventStart({ event }: EventNotification) {
         const whenToSetCurrentEvent = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
-            oddFeedEventType: OddFeedEventName.EventStart,
+            oddsFeedEventType: OddsFeedEventName.EventStart,
         });
         this.scheduler.schedule(whenToSetCurrentEvent, this.handleEventIndexReset.bind(this, { event }));
     }
 
     public handleEventDetailResultAvailable({ event, index }: EventDetailNotification) {
         const delayedTime = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
-            oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
+            oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         });
         this.scheduler.schedule(delayedTime, this.handleEventDetailIndexIncrement.bind(this, { event, index }));
     }
@@ -145,7 +145,7 @@ export class CurrentEventService {
         eventID: number,
         index: number,
     }) {
-        this.gameBoardcastService.broadcastToAllClientByGameId(
+        this.gameBroadcastService.broadcastToAllClientByGameId(
             gameId,
             this.getCurrentByGameId(gameId),
             this.eventName

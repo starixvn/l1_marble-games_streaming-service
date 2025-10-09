@@ -1,5 +1,5 @@
 import { CurrentEventService } from "../../../../src/features/current-event/current-event-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification, Scheduler } from "odd-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventNotification, EventDetailNotification, SystemNotification, Scheduler } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
@@ -8,14 +8,14 @@ import { idHelper } from "../../../../src/helpers";
 import { createMockEvent, createMockEventWithoutDetails } from "../../test-utils/mock-event";
 
 // Mock dependencies
-const mockOddFeedEventSource = {
-    registerEventListener: jest.fn(),
-    unregisterEventListener: jest.fn(),
-    registerEventDetailEventListener: jest.fn(),
-    unregisterEventDetailEventListener: jest.fn(),
-    registerSystemDataCleanupEventListener: jest.fn(),
-    unregisterSystemDataCleanupEventListener: jest.fn(),
-} as unknown as jest.Mocked<OddFeedEventSource>;
+const mockOddsFeedEventSource = {
+    eventOn: jest.fn(),
+    eventOff: jest.fn(),
+    eventDetailOn: jest.fn(),
+    eventDetailOff: jest.fn(),
+    cleanupOn: jest.fn(),
+    cleanupOff: jest.fn(),
+} as unknown as jest.Mocked<OddsFeedEventSource>;
 
 const mockDelayHandlingService = {
     getDelayedTime: jest.fn(),
@@ -25,7 +25,7 @@ const mockScheduler = {
     schedule: jest.fn().mockReturnValue('scheduled-id'),
 } as unknown as jest.Mocked<Scheduler>;
 
-const mockGameBoardcastService = {
+const mockGameBroadcastService = {
     broadcastToAllClientByGameId: jest.fn(),
 } as unknown as jest.Mocked<GameBroadcastService>;
 
@@ -64,10 +64,10 @@ const mockSystemNotification: SystemNotification = {
 
 // Helper functions for test setup
 const createContainer = () => ({
-    oddFeedEventSource: mockOddFeedEventSource,
+    oddsFeedEventSource: mockOddsFeedEventSource,
     delayHandlingService: mockDelayHandlingService,
     scheduler: mockScheduler,
-    gameBoardcastService: mockGameBoardcastService,
+    gameBroadcastService: mockGameBroadcastService,
     featureDebugService: mockFeatureDebugService,
 });
 
@@ -95,10 +95,10 @@ describe('CurrentEventService', () => {
             const service = new CurrentEventService(container);
 
             // Assert
-            expect(service['oddFeedEventSource']).toBe(mockOddFeedEventSource);
+            expect(service['oddsFeedEventSource']).toBe(mockOddsFeedEventSource);
             expect(service['delayHandlingService']).toBe(mockDelayHandlingService);
             expect(service['scheduler']).toBe(mockScheduler);
-            expect(service['gameBoardcastService']).toBe(mockGameBoardcastService);
+            expect(service['gameBroadcastService']).toBe(mockGameBroadcastService);
             expect(service['featureDebugService']).toBe(mockFeatureDebugService);
             expect(service['boundHandleEventStart']).toBeInstanceOf(Function);
             expect(service['boundHandleEventDetailResultAvailable']).toBeInstanceOf(Function);
@@ -320,15 +320,15 @@ describe('CurrentEventService', () => {
             currentEventService.initEvent();
 
             // Assert
-            expect(mockOddFeedEventSource.registerEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventStart,
+            expect(mockOddsFeedEventSource.eventOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventStart,
                 currentEventService['boundHandleEventStart']
             );
-            expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailResultsAvailable,
+            expect(mockOddsFeedEventSource.eventDetailOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailResultsAvailable,
                 currentEventService['boundHandleEventDetailResultAvailable']
             );
-            expect(mockOddFeedEventSource.registerSystemDataCleanupEventListener).toHaveBeenCalledWith(
+            expect(mockOddsFeedEventSource.cleanupOn).toHaveBeenCalledWith(
                 currentEventService['boundHandleEventCleanup']
             );
         });
@@ -340,15 +340,15 @@ describe('CurrentEventService', () => {
             currentEventService.dispose();
 
             // Assert
-            expect(mockOddFeedEventSource.unregisterEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventStart,
+            expect(mockOddsFeedEventSource.eventOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventStart,
                 currentEventService['boundHandleEventStart']
             );
-            expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailResultsAvailable,
+            expect(mockOddsFeedEventSource.eventDetailOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailResultsAvailable,
                 currentEventService['boundHandleEventDetailResultAvailable']
             );
-            expect(mockOddFeedEventSource.unregisterSystemDataCleanupEventListener).toHaveBeenCalledWith(
+            expect(mockOddsFeedEventSource.cleanupOff).toHaveBeenCalledWith(
                 currentEventService['boundHandleEventCleanup']
             );
         });
@@ -368,7 +368,7 @@ describe('CurrentEventService', () => {
                 eventId: mockEvent.eventID,
                 time: new Date(mockEvent.scheduleStartTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventStart,
+                oddsFeedEventType: OddsFeedEventName.EventStart,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 delayedTime,
@@ -410,7 +410,7 @@ describe('CurrentEventService', () => {
                 eventId: mockEvent.eventID,
                 time: new Date(mockEvent.eventDetails[0].resultsAvailableTs)
             }, {
-                oddFeedEventType: OddFeedEventName.EventDetailResultsAvailable,
+                oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 delayedTime,
@@ -462,7 +462,7 @@ describe('CurrentEventService', () => {
             currentEventService.handleEventDetailIndexIncrement(mockEventDetailNotification);
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 gameId,
                 {
                     event: mockEvent.eventID,
@@ -518,7 +518,7 @@ describe('CurrentEventService', () => {
             currentEventService.handleEventDetailIndexIncrement(lastIndexNotification);
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).not.toHaveBeenCalled();
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).not.toHaveBeenCalled();
         });
 
         it('should not call debug log when at last index', () => {
@@ -591,7 +591,7 @@ describe('CurrentEventService', () => {
             currentEventService.handleEventIndexReset(mockEventNotification);
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 gameId,
                 {
                     event: mockEvent.eventID,
@@ -775,7 +775,7 @@ describe('CurrentEventService', () => {
             currentEventService['notifyClient']({ gameId, eventID, index });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 gameId,
                 {
                     event: eventID,
@@ -811,8 +811,8 @@ describe('CurrentEventService', () => {
             currentEventService['notifyClient']({ gameId: gameId2, eventID: eventID2, index: index2 });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
                 1,
                 gameId1,
                 {
@@ -822,7 +822,7 @@ describe('CurrentEventService', () => {
                 },
                 currentEventService.eventName
             );
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
                 2,
                 gameId2,
                 {
@@ -849,7 +849,7 @@ describe('CurrentEventService', () => {
             currentEventService['notifyClient']({ gameId, eventID, index });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 gameId,
                 {
                     event: eventID,
@@ -875,7 +875,7 @@ describe('CurrentEventService', () => {
             currentEventService['notifyClient']({ gameId, eventID, index });
 
             // Assert
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 gameId,
                 {
                     event: eventID,

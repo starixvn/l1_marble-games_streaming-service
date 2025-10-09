@@ -1,6 +1,6 @@
-jest.mock("odd-feed-client", () => {
+jest.mock("odds-feed-client", () => {
     return {
-        OddFeedEventName: {
+        OddsFeedEventName: {
             EventDetailStart: "EventDetailStart",
             EventStart: "EventStart",
             EventUpcoming: "EventUpcoming",
@@ -8,24 +8,24 @@ jest.mock("odd-feed-client", () => {
         Scheduler: class {
             schedule = jest.fn();
         },
-        OddFeedEventSource: class {
-            registerEventDetailEventListener = jest.fn();
-            unregisterEventDetailEventListener = jest.fn();
-            registerEventListener = jest.fn();
-            unregisterEventListener = jest.fn();
-            registerSystemDataCleanupEventListener = jest.fn();
-            unregisterSystemDataCleanupEventListener = jest.fn();
+        OddsFeedEventSource: class {
+            eventDetailOn = jest.fn();
+            eventDetailOff = jest.fn();
+            eventOn = jest.fn();
+            eventOff = jest.fn();
+            cleanupOn = jest.fn();
+            cleanupOff = jest.fn();
         },
-        OddFeedService: class {
+        OddsFeedService: class {
             getRemoteJson = jest.fn();
         },
     };
 });
 
 import { CommentatorVoiceService, CommentatorVoiceServiceContainer, VoiceState } from "../../../../src/features/commentator-voice/commentator-voice-service";
-import { OddFeedEventSource, OddFeedEventName, EventNotification, EventDetailNotification, SystemNotification, OddFeedService } from "odd-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventNotification, EventDetailNotification, SystemNotification, OddsFeedService } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "odd-feed-client";
+import { Scheduler } from "odds-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { appSettings } from "../../../../src/app-settings";
@@ -40,14 +40,14 @@ jest.mock("../../../../src/helpers/voices", () => ({
 const mockGenerateVoiceWithEventTimeline = generateVoiceWithEventTimeline as jest.MockedFunction<typeof generateVoiceWithEventTimeline>;
 
 // Mock dependencies
-const mockOddFeedEventSource = {
-    registerEventDetailEventListener: jest.fn(),
-    unregisterEventDetailEventListener: jest.fn(),
-    registerEventListener: jest.fn(),
-    unregisterEventListener: jest.fn(),
-    registerSystemDataCleanupEventListener: jest.fn(),
-    unregisterSystemDataCleanupEventListener: jest.fn(),
-} as unknown as jest.Mocked<OddFeedEventSource>;
+const mockOddsFeedEventSource = {
+    eventDetailOn: jest.fn(),
+    eventDetailOff: jest.fn(),
+    eventOn: jest.fn(),
+    eventOff: jest.fn(),
+    cleanupOn: jest.fn(),
+    cleanupOff: jest.fn(),
+} as unknown as jest.Mocked<OddsFeedEventSource>;
 
 const mockDelayHandlingService = {
     getDelayedTimeWithVideoDelay: jest.fn(),
@@ -57,7 +57,7 @@ const mockScheduler = {
     schedule: jest.fn(),
 } as unknown as jest.Mocked<Scheduler>;
 
-const mockGameBoardcastService = {
+const mockGameBroadcastService = {
     broadcastToAllClientByGameId: jest.fn(),
 } as unknown as jest.Mocked<GameBroadcastService>;
 
@@ -67,7 +67,7 @@ const mockFeatureDebugService = {
 
 const mockOddsFeedService = {
     getRemoteJson: jest.fn(),
-} as unknown as jest.Mocked<OddFeedService>;
+} as unknown as jest.Mocked<OddsFeedService>;
 
 type GoalInfo = import("../../../../src/types").GoalInfoData;
 
@@ -157,12 +157,12 @@ const mockSystemNotification: SystemNotification = {
 };
 
 const createContainer = (): CommentatorVoiceServiceContainer => ({
-    oddFeedEventSource: mockOddFeedEventSource,
+    oddsFeedEventSource: mockOddsFeedEventSource,
     scheduler: mockScheduler,
     delayHandlingService: mockDelayHandlingService,
-    gameBoardcastService: mockGameBoardcastService,
+    gameBroadcastService: mockGameBroadcastService,
     featureDebugService: mockFeatureDebugService,
-    oddFeedService: mockOddsFeedService,
+    oddsFeedService: mockOddsFeedService,
 });
 
 const setupMocks = () => {
@@ -201,12 +201,12 @@ describe('CommentatorVoiceService', () => {
             const service = new CommentatorVoiceService(container);
 
             // Assert
-            expect(service['oddFeedEventSource']).toBe(mockOddFeedEventSource);
+            expect(service['oddsFeedEventSource']).toBe(mockOddsFeedEventSource);
             expect(service['scheduler']).toBe(mockScheduler);
             expect(service['delayHandlingService']).toBe(mockDelayHandlingService);
-            expect(service['gameBoardcastService']).toBe(mockGameBoardcastService);
+            expect(service['gameBroadcastService']).toBe(mockGameBroadcastService);
             expect(service['featureDebugService']).toBe(mockFeatureDebugService);
-            expect(service['oddFeedService']).toBe(mockOddsFeedService);
+            expect(service['oddsFeedService']).toBe(mockOddsFeedService);
             expect(service['boundHandleEventDetailScheduleStart']).toBeInstanceOf(Function);
             expect(service['boundHandleEventUpcoming']).toBeInstanceOf(Function);
             expect(service['boundHandleEventCleanup']).toBeInstanceOf(Function);
@@ -240,19 +240,19 @@ describe('CommentatorVoiceService', () => {
             commentatorVoiceService.initEvent();
 
             // Assert
-            expect(mockOddFeedEventSource.registerEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventStart,
+            expect(mockOddsFeedEventSource.eventOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventStart,
                 commentatorVoiceService['boundHandleEventStart']
             );
-            expect(mockOddFeedEventSource.registerEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailStart,
+            expect(mockOddsFeedEventSource.eventDetailOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailStart,
                 commentatorVoiceService['boundHandleEventDetailScheduleStart']
             );
-            expect(mockOddFeedEventSource.registerEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventUpcoming,
+            expect(mockOddsFeedEventSource.eventOn).toHaveBeenCalledWith(
+                OddsFeedEventName.EventUpcoming,
                 commentatorVoiceService['boundHandleEventUpcoming']
             );
-            expect(mockOddFeedEventSource.registerSystemDataCleanupEventListener).toHaveBeenCalledWith(
+            expect(mockOddsFeedEventSource.cleanupOn).toHaveBeenCalledWith(
                 commentatorVoiceService['boundHandleEventCleanup']
             );
         });
@@ -264,19 +264,19 @@ describe('CommentatorVoiceService', () => {
             commentatorVoiceService.dispose();
 
             // Assert
-            expect(mockOddFeedEventSource.unregisterEventDetailEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventDetailStart,
+            expect(mockOddsFeedEventSource.eventDetailOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventDetailStart,
                 commentatorVoiceService['boundHandleEventDetailScheduleStart']
             );
-            expect(mockOddFeedEventSource.unregisterEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventUpcoming,
+            expect(mockOddsFeedEventSource.eventOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventUpcoming,
                 commentatorVoiceService['boundHandleEventUpcoming']
             );
-            expect(mockOddFeedEventSource.unregisterEventListener).toHaveBeenCalledWith(
-                OddFeedEventName.EventStart,
+            expect(mockOddsFeedEventSource.eventOff).toHaveBeenCalledWith(
+                OddsFeedEventName.EventStart,
                 commentatorVoiceService['boundHandleEventStart']
             );
-            expect(mockOddFeedEventSource.unregisterSystemDataCleanupEventListener).toHaveBeenCalledWith(
+            expect(mockOddsFeedEventSource.cleanupOff).toHaveBeenCalledWith(
                 commentatorVoiceService['boundHandleEventCleanup']
             );
         });
@@ -662,7 +662,7 @@ describe('CommentatorVoiceService', () => {
                 "Playing voice: test-voice.mp3",
                 TEST_GAME_ID
             );
-            expect(mockGameBoardcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
                 TEST_GAME_ID,
                 voiceState,
                 commentatorVoiceService.eventName

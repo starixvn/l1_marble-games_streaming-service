@@ -1,6 +1,6 @@
-jest.mock("odd-feed-client", () => {
+jest.mock("odds-feed-client", () => {
   return {
-    OddFeedEventName: {
+    OddsFeedEventName: {
       EventDetailStart: "EventDetailStart",
       EventStart: "EventStart",
       EventUpcoming: "EventUpcoming",
@@ -9,22 +9,22 @@ jest.mock("odd-feed-client", () => {
     Scheduler: class {
       schedule = jest.fn();
     },
-    OddFeedEventSource: class {
-      registerEventDetailEventListener = jest.fn();
-      unregisterEventDetailEventListener = jest.fn();
-      registerEventListener = jest.fn();
-      unregisterEventListener = jest.fn();
-      registerSystemDataCleanupEventListener = jest.fn();
-      unregisterSystemDataCleanupEventListener = jest.fn();
+    OddsFeedEventSource: class {
+      eventDetailOn = jest.fn();
+      eventDetailOff = jest.fn();
+      eventOn = jest.fn();
+      eventOff = jest.fn();
+      cleanupOn = jest.fn();
+      cleanupOff = jest.fn();
     },
-    OddFeedService: class {
+    OddsFeedService: class {
       getRemoteJson = jest.fn();
     },
   };
 });
 
-// Mock odd-feed-client awilix bindings and DI helpers used by src/container-registry
-jest.mock("odd-feed-client/awilix", () => {
+// Mock odds-feed-client awilix bindings and DI helpers used by src/container-registry
+jest.mock("odds-feed-client/awilix", () => {
   return {
     AwilixDIContainer: class {
       public container: any;
@@ -36,22 +36,22 @@ jest.mock("odd-feed-client/awilix", () => {
   };
 });
 
-jest.mock("odd-feed-client/dependency-injection", () => {
+jest.mock("odds-feed-client/dependency-injection", () => {
   const { asValue } = require("awilix");
   return {
     register: (diContainer: any) => {
       if (!diContainer?.container?.register) return;
       diContainer.container.register({
-        oddFeedEventSource: asValue({
-          registerEventDetailEventListener() {},
-          unregisterEventDetailEventListener() {},
-          registerEventListener() {},
-          unregisterEventListener() {},
-          registerSystemDataCleanupEventListener() {},
-          unregisterSystemDataCleanupEventListener() {},
+        oddsFeedEventSource: asValue({
+          eventDetailOn() {},
+          eventDetailOff() {},
+          eventOn() {},
+          eventOff() {},
+          cleanupOn() {},
+          cleanupOff() {},
         }),
         scheduler: asValue({ schedule() {} }),
-        oddFeedService: asValue({ getRemoteJson: async () => null }),
+        oddsFeedService: asValue({ getRemoteJson: async () => null }),
       });
     },
     init: (_diContainer: any) => {

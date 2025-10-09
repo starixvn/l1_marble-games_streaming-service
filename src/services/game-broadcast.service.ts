@@ -1,6 +1,6 @@
 import { ClientManager } from "../managers/client-manager";
 
-interface GameBoardcastServiceContainer {
+interface GameBroadcastServiceContainer {
     clientManager: ClientManager;
 }
 
@@ -8,7 +8,7 @@ export class GameBroadcastService {
     
     private readonly clientManager: ClientManager;
 
-    constructor(container: GameBoardcastServiceContainer) {
+    constructor(container: GameBroadcastServiceContainer) {
         this.clientManager = container.clientManager;
     }
 
