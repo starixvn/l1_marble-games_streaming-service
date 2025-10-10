@@ -2,306 +2,490 @@
 
 A real-time event streaming service built with Node.js, TypeScript, and Express. This service manages live sports events, handles client connections, and broadcasts event updates in real-time using Server-Sent Events (SSE).
 
-## 🚀 Features
+## 🚀 Project Overview
 
-- **Real-time Event Streaming**: Broadcast live event updates to connected clients
-- **Multi-Game Support**: Handle multiple games simultaneously (2001, 2002, 2003)
-- **Event Lifecycle Management**: Manage event phases (Schedule, Odds, Video, Results)
-- **Job Scheduling**: Automated scheduling of event updates and transitions
-- **Client Connection Management**: Handle multiple client connections per game
-- **RESTful API**: Health checks and authentication endpoints
-- **Dependency Injection**: Clean architecture with proper separation of concerns
+The Streaming Service is a sophisticated real-time event management system designed for live sports broadcasting. It orchestrates multiple game phases, manages client connections, and provides real-time updates through Server-Sent Events (SSE). The system handles complex event scheduling, video streaming coordination, live scoring, and commentator voice generation.
 
-## 🏗️ Architecture
+**Key Capabilities:**
 
-The service follows a clean, layered architecture with clear separation of concerns:
+- Multi-game concurrent management (Game IDs: 2000, 2001, 2002, 2003)
+- Real-time event phase transitions (Prebet → Streaming → HalfTime → Result)
+- Intelligent delay handling and scheduling
+- Live video streaming with preload capabilities
+- Dynamic commentator voice generation
+- Live scoring and result management
+- Comprehensive debugging and monitoring
+
+## 🏗️ Architecture Map
+
+```mermaid
+graph TB
+    subgraph "External Systems"
+        OF[Odd Feed Client]
+        SENTRY[Sentry Monitoring]
+    end
+
+    subgraph "Application Layer"
+        APP[Express App]
+        ROUTES[Route Handlers]
+        MIDDLEWARE[CORS, JWT, Error Handler]
+    end
+
+    subgraph "Core Services"
+        CM[Client Manager]
+        GBS[Game Broadcast Service]
+        ESS[Event Stream Service]
+        DHS[Delay Handling Service]
+    end
+
+    subgraph "Feature Services"
+        GFS[Game Flow Service]
+        CES[Current Event Service]
+        VSS[Video Streaming Service]
+        LSS[Live Score Service]
+        RS[Result Service]
+        CVS[Commentator Voice Service]
+        IS[Intro Service]
+        TNS[Team Name Service]
+    end
+
+    subgraph "Infrastructure"
+        DI[Dependency Injection - Awilix]
+        SCHEDULER[Event Scheduler]
+        DEBUG[Feature Debug Service]
+    end
+
+    OF --> DI
+    APP --> ROUTES
+    ROUTES --> CM
+    CM --> GBS
+    GBS --> ESS
+    DI --> GFS
+    DI --> CES
+    DI --> VSS
+    DI --> LSS
+    DI --> RS
+    DI --> CVS
+    DI --> IS
+    DI --> TNS
+    GFS --> DHS
+    CES --> DHS
+    VSS --> DHS
+    LSS --> DHS
+    RS --> DHS
+    CVS --> DHS
+    IS --> DHS
+    TNS --> DHS
+    DEBUG --> GFS
+    SENTRY --> APP
+```
+
+## 🎯 Features & Services
+
+### Core Event Management
+
+- **Game Flow Service** (`src/features/game-flow/game-flow-service.ts`): Orchestrates game state transitions
+- **Current Event Service** (`src/features/current-event/current-event-service.ts`): Tracks active events and phases
+- **Delay Handling Service** (`src/features/delay/delay-handling-service.ts`): Manages timing and delays
+
+### Media & Broadcasting
+
+- **Video Streaming Service** (`src/features/video-streaming/video-streaming-service.ts`): Handles video stream management
+- **Commentator Voice Service** (`src/features/commentator-voice/commentator-voice-service.ts`): Generates dynamic voice commentary
+- **Intro Service** (`src/features/intro/intro-service.ts`): Manages intro video playback
+
+### Data & Scoring
+
+- **Live Score Service** (`src/features/live-score/live-score-service.ts`): Real-time score tracking
+- **Result Service** (`src/features/result/result-service.ts`): Final result management
+- **Team Name Service** (`src/features/team-name/team-name-service.ts`): Team information management
+
+### Infrastructure
+
+- **Client Manager** (`src/managers/client-manager.ts`): Connection lifecycle management
+- **Game Broadcast Service** (`src/services/game-broadcast.service.ts`): SSE broadcasting
+- **Feature Debug Service** (`src/features/feature-debug/feature-debug-service.ts`): Debug logging and monitoring
+
+## 🔄 Game Flow
+
+The system manages games through four distinct phases:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Prebet: Event Start
+    Prebet --> Streaming: Event Detail Start
+    Streaming --> HalfTime: Phase Switch
+    HalfTime --> Streaming: Next Phase Start
+    Streaming --> Result: Last Event Detail
+    Result --> [*]: Event Complete
+```
+
+### Phase Details
+
+1. **Prebet** (`GameFlow.Prebet`): Initial betting phase before streaming begins
+2. **Streaming** (`GameFlow.Streaming`): Active video streaming and live updates
+3. **HalfTime** (`GameFlow.HalfTime`): Break between game phases
+4. **Result** (`GameFlow.Result`): Final results and game completion
+
+## 🛠️ Technical Stack
+
+### Core Technologies
+
+- **Node.js** (v16+) with TypeScript
+- **Express.js** for HTTP server and routing
+- **Server-Sent Events (SSE)** for real-time communication
+- **Awilix** for dependency injection
+- **Jest** for testing framework
+
+### External Dependencies
+
+- **odd-feed-client**: External event data integration
+- **sc-common**: Shared logging and utilities
+- **jsonwebtoken**: JWT authentication
+- **cors**: Cross-origin resource sharing
+- **chance**: Random voice selection
+
+### Development Tools
+
+- **tsx**: TypeScript execution
+- **prettier**: Code formatting
+- **Docker**: Containerization
+- **Sentry**: Error monitoring
+
+## 📋 Component Guide
+
+### Application Entry Point
+
+**File**: `src/app.ts` (lines 1-58)
+
+- Initializes configuration and Sentry monitoring
+- Sets up dependency injection container
+- Configures Express middleware (CORS, JSON parsing)
+- Establishes graceful shutdown handling
+
+### Dependency Injection
+
+**File**: `src/container-registry.ts` (lines 1-65)
+
+- **ContainerRegistry**: Main DI container setup
+- **register()**: Registers core services and controllers
+- **init()**: Initializes feature services and event listeners
+
+### Feature Services Registration
+
+**File**: `src/features/container-registry.ts` (lines 1-87)
+
+- Registers all feature services with lazy loading
+- Handles circular dependencies with proxy pattern
+- Manages service lifecycle and disposal
+
+### API Endpoints
+
+**File**: `src/routes/index.ts` (lines 1-21)
+
+- `GET /`: Health check endpoint
+- `POST /api/token`: JWT authentication
+- `GET /live/:gameId`: SSE event stream connection
+- `GET /debug-stream/:gameId`: Debug logging stream
+
+### Controllers
+
+#### Health Controller
+
+**File**: `src/controllers/health-controller.ts` (lines 1-15)
+
+- **healthCheck()**: Returns service status and client information
+- Provides IP tracking and connection details
+
+#### Auth Controller
+
+**File**: `src/controllers/auth-controller.ts` (lines 1-22)
+
+- **login()**: Validates credentials and returns JWT token
+- Uses hardcoded credentials from app configs
+
+#### Event Stream Controller
+
+**File**: `src/controllers/event-stream-controller.ts` (lines 1-27)
+
+- **handleEventStreamConnection()**: Establishes SSE connection
+- Sets up proper headers for real-time streaming
+
+#### Debug Controller
+
+**File**: `src/controllers/debug-controller.ts` (lines 85-145)
+
+- **handle()**: Provides real-time debug logging stream
+- Converts ANSI colors to HTML for web display
 
 ### Core Services
 
-- **EventManagementService**: Orchestrates the overall event management flow
-- **EventSchedulerService**: Handles job scheduling and timing for event updates
-- **EventManager**: Manages business logic for event state transitions
-- **EventStreamService**: Handles client connections and real-time broadcasting
-- **OddsFeedService**: External API integration for event data
-- **JobScheduler**: Manages scheduled tasks and timeouts
+#### Game Flow Service
 
-### Data Layer
+**File**: `src/features/game-flow/game-flow-service.ts` (lines 1-166)
 
-- **EventStore**: Pure data store for current events
-- **EventManager**: Business logic layer for state management
+- **Key Methods**:
+  - `handleEventStart()`: Initiates Prebet phase
+  - `handleEventDetailScheduleStart()`: Transitions to Streaming
+  - `handleResultAvailable()`: Manages phase transitions
+- **State Management**: Tracks game flow per game ID
+- **Broadcasting**: Notifies clients of state changes
 
-### Communication
+#### Current Event Service
 
-- **Server-Sent Events (SSE)**: Real-time client communication
-- **REST API**: Health checks and authentication
-- **WebSocket-like**: Persistent connections for live updates
+**File**: `src/features/current-event/current-event-service.ts` (lines 1-154)
 
-## 📋 Prerequisites
+- **Key Methods**:
+  - `getCurrentByGameId()`: Returns current event state
+  - `handleEventDetailIndexIncrement()`: Advances event detail index
+  - `handleEventIndexReset()`: Resets for new events
+- **State Tracking**: Manages current event and detail indices
 
-- Node.js (v16 or higher)
-- Yarn package manager
-- Access to external odds feed API
+#### Delay Handling Service
 
-## 🛠️ Installation
+**File**: `src/features/delay/delay-handling-service.ts` (lines 1-95)
 
-1. **Clone the repository**
+- **Key Methods**:
+  - `getDelayedTime()`: Calculates delayed execution time
+  - `getDelayedTimeWithVideoDelay()`: Adds video-specific delays
+- **Configuration**: Per-event delay settings from external config
 
-   ```bash
-   git clone <repository-url>
-   cd streaming-service
-   ```
+#### Video Streaming Service
 
-2. **Install dependencies**
+**File**: `src/features/video-streaming/video-streaming-service.ts` (lines 1-160)
 
-   ```bash
-   yarn install
-   ```
+- **Key Methods**:
+  - `handleEventDetailScheduleStart()`: Schedules video streaming
+  - `onLiveStreamStart()`: Initiates video playback
+  - `onLiveStreamPreload()`: Preloads next video
+- **State Management**: Tracks current and preload video states
 
-3. **Configure environment**
+#### Commentator Voice Service
 
-   ```bash
-   cp configs/app-configs.LOCAL.js configs/app-configs.js
-   # Edit configs/app-configs.js with your settings
-   ```
+**File**: `src/features/commentator-voice/commentator-voice-service.ts` (lines 1-332)
 
-4. **Build the project**
-   ```bash
-   yarn build
-   ```
+- **Key Methods**:
+  - `handleEventDetailScheduleStart()`: Generates voice timeline
+  - `playVoice()`: Broadcasts voice events
+  - `generateVoiceWithEventTimeline()`: Complex voice generation logic
+- **Voice Generation**: Uses sophisticated algorithms for contextual commentary
 
-## 🚀 Usage
+### Infrastructure Services
 
-### Development
+#### Client Manager
 
-```bash
-# Start development server
-yarn dev
+**File**: `src/managers/client-manager.ts` (lines 1-102)
 
-# Run tests
-yarn test
+- **Key Methods**:
+  - `addClient()`: Registers new SSE connections
+  - `removeClient()`: Cleans up disconnected clients
+  - `cleanupDeadConnections()`: Periodic connection maintenance
+- **Connection Management**: Tracks clients per game ID
 
-# Run tests in watch mode
-yarn test:watch
+#### Game Broadcast Service
 
-# Lint code
-yarn lint
-```
+**File**: `src/services/game-broadcast.service.ts` (lines 1-21)
 
-### Production
+- **Key Methods**:
+  - `broadcastToAllClientByGameId()`: Sends updates to all game clients
+- **Broadcasting**: Formats and sends SSE messages
 
-```bash
-# Build for production
-yarn build
+#### Feature Debug Service
 
-# Start production server
-yarn start
-```
+**File**: `src/features/feature-debug/feature-debug-service.ts` (lines 1-135)
 
-### Docker
+- **Key Methods**:
+  - `log()`: Records service-specific debug messages
+  - `dispose()`: Cleans up event emitters
+- **Debugging**: Provides real-time service monitoring
 
-```bash
-# Build Docker image
-docker build -t streaming-service .
+## 🔧 Improvements & Refactors
 
-# Run container
-docker run -p 3000:3000 streaming-service
-```
+### High Priority
 
-## 📡 API Endpoints
+#### 1. Configuration Management Refactor
 
-### Health Check
+**Scope**: Medium | **Impact**: High
 
-```
-GET /health
-```
+- **Current Issue**: Hardcoded credentials in `src/app-configs.ts` (lines 8-12)
+- **Improvement**: Environment-based configuration with validation
+- **Files**: `src/app-configs.ts`, `src/configuration.ts`
+- **Benefits**: Security, flexibility, environment-specific settings
 
-Returns service health status and uptime information.
+#### 2. Error Handling Enhancement
 
-### Event Stream
+**Scope**: Medium | **Impact**: High
 
-```
-GET /events/:gameId/stream
-```
+- **Current Issue**: Basic error handling in `src/middlewares/error-handler.ts` (lines 1-5)
+- **Improvement**: Structured error responses, error categorization
+- **Files**: `src/middlewares/error-handler.ts`, all service files
+- **Benefits**: Better debugging, user experience, monitoring
 
-Establishes SSE connection for real-time event updates.
+#### 3. Service Interface Standardization
 
-**Headers Required:**
+**Scope**: Large | **Impact**: Medium
 
-- `Authorization: Bearer <jwt-token>`
+- **Current Issue**: Inconsistent service interfaces and event handling patterns
+- **Improvement**: Common base service class with standardized lifecycle
+- **Files**: All `src/features/*/` service files
+- **Benefits**: Maintainability, consistency, reduced duplication
 
-**Response Format:**
+### Medium Priority
 
-```json
-{
-  "gameId": "2001",
-  "eventId": 123456,
-  "eventDetailIndex": 0,
-  "playlist": "https://example.com/video.m3u8",
-  "liveTimeMs": 45000,
-  "liveScore": "1:0",
-  "videoLength": 0,
-  "currentPhase": "UpdateVideoInfo",
-  "result": "1-0",
-  "message": "Broadcasted updated data"
-}
-```
+#### 4. Dependency Injection Optimization
 
-### Authentication
+**Scope**: Medium | **Impact**: Medium
 
-```
-POST /auth/login
-```
+- **Current Issue**: Complex circular dependencies in `src/features/container-registry.ts` (lines 45-60)
+- **Improvement**: Simplify DI registration, reduce circular dependencies
+- **Files**: `src/container-registry.ts`, `src/features/container-registry.ts`
+- **Benefits**: Easier testing, cleaner architecture
 
-Authenticates users and returns JWT tokens.
+#### 5. Type Safety Improvements
 
-## 🔧 Configuration
+**Scope**: Medium | **Impact**: Medium
 
-### App Settings (`src/app-settings.ts`)
+- **Current Issue**: Loose typing in several places (e.g., `(event as any).config`)
+- **Improvement**: Strict typing for all external data structures
+- **Files**: Multiple service files
+- **Benefits**: Runtime safety, better IDE support
 
-```typescript
-export const appSettings = {
-  gameIds: ["2001", "2002", "2003"],
-  scheduleDelay: {
-    "2001": 10 * 1000, // 10 seconds
-    "2002": 10 * 1000,
-    "2003": 10 * 1000,
-  },
-};
-```
+#### 6. Client Connection Resilience
 
-### Environment Configuration
+**Scope**: Small | **Impact**: Medium
 
-Create `configs/app-configs.js` based on `configs/app-configs.LOCAL.js`:
+- **Current Issue**: Basic connection cleanup in `src/managers/client-manager.ts`
+- **Improvement**: Connection health monitoring, automatic reconnection
+- **Files**: `src/managers/client-manager.ts`
+- **Benefits**: Better user experience, reduced connection issues
 
-```javascript
-module.exports = {
-  port: process.env.PORT || 3000,
-  oddsFeedUrl: process.env.ODDS_FEED_URL,
-  jwtSecret: process.env.JWT_SECRET,
-  // ... other configuration
-};
-```
+### Low Priority
 
-## 🏛️ Project Structure
+#### 7. Performance Optimization
 
-```
-src/
-├── app.ts                 # Application entry point
-├── app-settings.ts        # Application settings
-├── configuration.ts       # Configuration management
-├── container-registry.ts  # Dependency injection container
-├── controllers/           # HTTP request handlers
-│   ├── auth-controller.ts
-│   ├── event-stream-controller.ts
-│   └── health-controller.ts
-├── helpers/              # Utility functions
-│   ├── id-helper.ts
-│   └── retry-helper.ts
-├── middlewares/          # Express middlewares
-│   └── verify-jwt.ts
-├── models/               # Data models
-│   └── operators.ts
-├── routes/               # API route definitions
-│   └── index.ts
-├── services/             # Business logic services
-│   ├── authenticate-service.ts
-│   ├── event-management-service.ts
-│   ├── event-scheduler-service.ts
-│   ├── event-stream-service.ts
-│   ├── job-scheduler.ts
-│   └── odds-feed-service.ts
-├── stores/               # Data storage
-│   ├── event-store.ts
-│   └── event-manager.ts
-└── types/                # TypeScript type definitions
-    └── index.ts
-```
+**Scope**: Medium | **Impact**: Low
 
-## 🔄 Event Lifecycle
+- **Current Issue**: Potential memory leaks in long-running services
+- **Improvement**: Memory usage monitoring, optimization
+- **Files**: All service files
+- **Benefits**: Better scalability, resource efficiency
 
-The service manages events through different phases:
+#### 8. Testing Infrastructure
 
-1. **ScheduleEvent**: Event is scheduled and initialized
-2. **UpdateOdds**: Odds become available for betting
-3. **UpdateVideoInfo**: Video stream becomes available
-4. **UpdateResult**: Event results are published
+**Scope**: Large | **Impact**: Medium
 
-Each phase triggers:
+- **Current Issue**: Limited test coverage for complex services
+- **Improvement**: Comprehensive test suite with mocking
+- **Files**: `tests/` directory
+- **Benefits**: Reliability, easier refactoring
 
-- State updates in EventManager
-- Broadcasting to connected clients
-- Scheduling of next phase transitions
+## 🧪 Targeted Test Plan
 
-## 🧪 Testing
+### Unit Testing Strategy
 
-```bash
-# Run all tests
-yarn test
+#### 1. Service Layer Tests
 
-# Run tests with coverage
-yarn test:coverage
+**Target**: All feature services
+**Approach**: Mock dependencies, test business logic
+**Key Areas**:
 
-# Run specific test file
-yarn test event-management-service.test.ts
-```
+- Event handling methods
+- State management
+- Broadcasting logic
+- Error scenarios
 
-## 📊 Monitoring
+#### 2. Integration Tests
 
-The service includes built-in monitoring:
+**Target**: Service interactions
+**Approach**: Test service communication patterns
+**Key Areas**:
 
-- **Health Check Endpoint**: `/health`
-- **Client Connection Counts**: Available via EventStreamService
-- **Event State Monitoring**: Track current events per game
-- **Job Scheduling Status**: Monitor scheduled tasks
+- Game flow transitions
+- Event scheduling
+- Client broadcasting
+- Error propagation
 
-## 🔒 Security
+#### 3. API Endpoint Tests
 
-- **JWT Authentication**: Required for event stream access
-- **Input Validation**: All inputs are validated
-- **Error Handling**: Comprehensive error handling without exposing internals
-- **Rate Limiting**: Built-in protection against abuse
+**Target**: All controllers
+**Approach**: HTTP request/response testing
+**Key Areas**:
+
+- Authentication flow
+- SSE connection handling
+- Error responses
+- Input validation
+
+### Test Implementation Plan
+
+#### Phase 1: Core Services (Week 1-2)
+
+- GameFlowService: State transitions, event handling
+- DelayHandlingService: Timing calculations, configuration
+- ClientManager: Connection lifecycle, cleanup
+
+#### Phase 2: Feature Services (Week 3-4)
+
+- VideoStreamingService: Video state management
+- CommentatorVoiceService: Voice generation logic
+- LiveScoreService: Score tracking and updates
+
+#### Phase 3: Integration & E2E (Week 5-6)
+
+- Full game flow testing
+- Multi-client scenarios
+- Error recovery testing
+- Performance testing
+
+### Test Data Management
+
+- Mock external API responses
+- Create test event configurations
+- Simulate various game scenarios
+- Test edge cases and error conditions
+
+## 📊 Monitoring & Observability
+
+### Current Monitoring
+
+- **Sentry Integration**: Error tracking and performance monitoring
+- **Debug Service**: Real-time service logging via SSE
+- **Health Endpoint**: Basic service status checking
+
+### Recommended Enhancements
+
+- **Metrics Collection**: Service performance metrics
+- **Alerting**: Automated error and performance alerts
+- **Dashboard**: Real-time service status visualization
+- **Log Aggregation**: Centralized logging with search capabilities
 
 ## 🚀 Deployment
 
-### Environment Variables
+### Environment Configuration
 
 ```bash
-PORT=3000
+# Required Environment Variables
 NODE_ENV=production
-ODDS_FEED_URL=https://api.example.com/odds
-JWT_SECRET=your-secret-key
+PORT=5000
+SENTRY_URL=your-sentry-url
+JWT_SECRET=your-jwt-secret
+ODDS_FEED_URL=your-odds-feed-url
 ```
 
 ### Docker Deployment
 
 ```bash
-# Build image
+# Build and run
 docker build -t streaming-service .
-
-# Run with environment variables
-docker run -d \
-  -p 3000:3000 \
-  -e NODE_ENV=production \
-  -e ODDS_FEED_URL=https://api.example.com/odds \
-  -e JWT_SECRET=your-secret-key \
-  streaming-service
+docker run -p 5000:5000 streaming-service
 ```
 
-## 🤝 Contributing
+### Production Considerations
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-
-- Follow TypeScript best practices
-- Write unit tests for new features
-- Maintain clean architecture principles
-- Use dependency injection for services
-- Follow the existing code style
+- **Load Balancing**: Multiple service instances
+- **Health Checks**: Container health monitoring
+- **Graceful Shutdown**: Proper connection cleanup
+- **Resource Limits**: Memory and CPU constraints
 
 ## 📝 License
 
@@ -313,12 +497,5 @@ For support and questions:
 
 - Create an issue in the repository
 - Contact the development team
-- Check the logs for debugging information
-
-## 🔮 Roadmap
-
-- [ ] Implement event persistence and recovery
-- [ ] Add metrics and monitoring dashboard
-- [ ] Support for additional game types
-- [ ] Enhanced error recovery and resilience
-- [ ] Performance optimization for high-load scenarios
+- Check the debug stream for real-time service status
+- Review logs for debugging information
