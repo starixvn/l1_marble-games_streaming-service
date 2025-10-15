@@ -129,10 +129,6 @@ export class CurrentEventService {
         });
     }
     
-    public handleEventDetailStart({ event, index }: EventDetailNotification) {
-        const gameId = idHelper.extractGameId(event.eventID);
-        this._currentEventDetailIndexByGameId[gameId] = index;
-    }
 
     private log(message: string, gameId: string) {
         this.featureDebugService.log(this, message, gameId);
