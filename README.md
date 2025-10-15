@@ -108,6 +108,116 @@ sequenceDiagram
     end
 ```
 
+## 🔄 Event-Driven Flow
+
+This system uses a **scheduler-based event-driven architecture**, not cron jobs. All feature services listen to external OddsFeed events and schedule delayed actions.
+
+### Primary Event Flow
+
+```mermaid
+sequenceDiagram
+    participant OF as OddsFeed<br/>External
+    participant GFS as GameFlow<br/>Service
+    participant DHS as Delay<br/>Handler
+    participant SCHED as Scheduler
+    participant GBS as Broadcast<br/>Service
+    participant CM as Client<br/>Manager
+
+    OF->>GFS: EventStart notification
+    GFS->>DHS: Calculate delayed time
+    DHS-->>GFS: eventStartTime + delays
+    GFS->>SCHED: Schedule switchToPrebet(time)
+
+    Note over SCHED: Waits until scheduled time
+
+    SCHED->>GFS: Execute switchToPrebet()
+    GFS->>GFS: Update _gameFlowByGameId[gameId] = Prebet
+    GFS->>GBS: broadcastToAllClientByGameId(gameId, state)
+    GBS->>CM: Get clients for gameId
+    CM-->>GBS: Set<Response>
+    GBS->>GBS: For each client: write SSE data
+```
+
+### Complete Event Timeline
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant OF as OddsFeed
+    participant Services as Feature Services
+    participant DHS as Delay Handler
+    participant SCHED as Scheduler
+    participant Client as Web Client
+
+    OF->>Services: EventUpcoming
+    Note over Services: Store configs:<br/>delays, voice config,<br/>intro config, video length
+
+    OF->>Services: EventStart
+    Services->>SCHED: Schedule Prebet phase
+    Services->>SCHED: Schedule team names
+    Services->>SCHED: Schedule intro playback
+    Services->>SCHED: Schedule result reset
+
+    SCHED->>Client: [Broadcast] GameFlow: Prebet
+    SCHED->>Client: [Broadcast] TeamName
+    SCHED->>Client: [Broadcast] Intro starts
+
+    OF->>Services: EventDetailStart (index 0)
+    Services->>SCHED: Schedule Streaming phase
+    Services->>SCHED: Schedule video preload
+    Services->>SCHED: Schedule video streaming
+    Services->>SCHED: Schedule voice generation
+    Services->>SCHED: Schedule goal timeline
+
+    SCHED->>Client: [Broadcast] VideoPreload
+    SCHED->>Client: [Broadcast] GameFlow: Streaming
+    SCHED->>Client: [Broadcast] VideoStreaming
+    SCHED->>Client: [Broadcast] Voice #1
+    SCHED->>Client: [Broadcast] LiveScore update
+    SCHED->>Client: [Broadcast] Voice #2
+
+    OF->>Services: EventDetailResultsAvailable
+    Services->>SCHED: Schedule result update
+    Services->>SCHED: Schedule event detail index++
+
+    SCHED->>Client: [Broadcast] Result
+    SCHED->>Client: [Broadcast] CurrentEvent index++
+
+    Note over Services: If phase switching:<br/>schedule HalfTime
+
+    SCHED->>Client: [Broadcast] GameFlow: HalfTime
+
+    Note over Services: Last EventDetail:<br/>schedule Result phase
+
+    SCHED->>Client: [Broadcast] GameFlow: Result
+```
+
+### Scheduler Details
+
+The `Scheduler` is provided by `odds-feed-client` library:
+
+- **API**: `schedule(date: Date, callback: Function)`
+- **Implementation**: Likely uses `setTimeout` or similar
+- **Precision**: Schedules callbacks to execute at specific timestamps
+- **Cleanup**: Services dispose scheduled tasks on shutdown
+
+### OddsFeed Events
+
+**Event Notifications** (Event-level):
+
+- `EventUpcoming`: Pre-event notification with configs
+- `EventStart`: Event begins (triggers Prebet phase)
+- Cleanup: Memory cleanup for old events
+
+**Event Detail Notifications** (Per event detail within an event):
+
+- `EventDetailStart`: Video/detail begins (triggers Streaming phase)
+- `EventDetailResultsAvailable`: Results for this detail (triggers HalfTime/Result)
+
+**System Notifications**:
+
+- Cleanup events for memory management
+
 ## 🎯 Features & Services
 
 ### Core Infrastructure Services
@@ -347,151 +457,6 @@ Used by `EventStreamService` to send initial state to new connections.
 - **EventEmitter**: Broadcasts logs to debug stream clients
 - **Log Format**: `{ serviceName, message, serviceColor, absoluteTime, relativeTime }`
 - **Relative Time**: Calculated from GameFlowService track point (Prebet start)
-
-## 🔄 Event-Driven Flow
-
-This system uses a **scheduler-based event-driven architecture**, not cron jobs. All feature services listen to external OddsFeed events and schedule delayed actions.
-
-### Primary Event Flow
-
-```mermaid
-sequenceDiagram
-    participant OF as OddsFeed<br/>External
-    participant GFS as GameFlow<br/>Service
-    participant DHS as Delay<br/>Handler
-    participant SCHED as Scheduler
-    participant GBS as Broadcast<br/>Service
-    participant CM as Client<br/>Manager
-
-    OF->>GFS: EventStart notification
-    GFS->>DHS: Calculate delayed time
-    DHS-->>GFS: eventStartTime + delays
-    GFS->>SCHED: Schedule switchToPrebet(time)
-
-    Note over SCHED: Waits until scheduled time
-
-    SCHED->>GFS: Execute switchToPrebet()
-    GFS->>GFS: Update _gameFlowByGameId[gameId] = Prebet
-    GFS->>GBS: broadcastToAllClientByGameId(gameId, state)
-    GBS->>CM: Get clients for gameId
-    CM-->>GBS: Set<Response>
-    GBS->>GBS: For each client: write SSE data
-```
-
-### Complete Event Timeline
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant OF as OddsFeed
-    participant Services as Feature Services
-    participant DHS as Delay Handler
-    participant SCHED as Scheduler
-    participant Client as Web Client
-
-    OF->>Services: EventUpcoming
-    Note over Services: Store configs:<br/>delays, voice config,<br/>intro config, video length
-
-    OF->>Services: EventStart
-    Services->>SCHED: Schedule Prebet phase
-    Services->>SCHED: Schedule team names
-    Services->>SCHED: Schedule intro playback
-    Services->>SCHED: Schedule result reset
-
-    SCHED->>Client: [Broadcast] GameFlow: Prebet
-    SCHED->>Client: [Broadcast] TeamName
-    SCHED->>Client: [Broadcast] Intro starts
-
-    OF->>Services: EventDetailStart (index 0)
-    Services->>SCHED: Schedule Streaming phase
-    Services->>SCHED: Schedule video preload
-    Services->>SCHED: Schedule video streaming
-    Services->>SCHED: Schedule voice generation
-    Services->>SCHED: Schedule goal timeline
-
-    SCHED->>Client: [Broadcast] VideoPreload
-    SCHED->>Client: [Broadcast] GameFlow: Streaming
-    SCHED->>Client: [Broadcast] VideoStreaming
-    SCHED->>Client: [Broadcast] Voice #1
-    SCHED->>Client: [Broadcast] LiveScore update
-    SCHED->>Client: [Broadcast] Voice #2
-
-    OF->>Services: EventDetailResultsAvailable
-    Services->>SCHED: Schedule result update
-    Services->>SCHED: Schedule event detail index++
-
-    SCHED->>Client: [Broadcast] Result
-    SCHED->>Client: [Broadcast] CurrentEvent index++
-
-    Note over Services: If phase switching:<br/>schedule HalfTime
-
-    SCHED->>Client: [Broadcast] GameFlow: HalfTime
-
-    Note over Services: Last EventDetail:<br/>schedule Result phase
-
-    SCHED->>Client: [Broadcast] GameFlow: Result
-```
-
-### Scheduler Details
-
-The `Scheduler` is provided by `odds-feed-client` library:
-
-- **API**: `schedule(date: Date, callback: Function)`
-- **Implementation**: Likely uses `setTimeout` or similar
-- **Precision**: Schedules callbacks to execute at specific timestamps
-- **Cleanup**: Services dispose scheduled tasks on shutdown
-
-### OddsFeed Events
-
-**Event Notifications** (Event-level):
-
-- `EventUpcoming`: Pre-event notification with configs
-- `EventStart`: Event begins (triggers Prebet phase)
-- Cleanup: Memory cleanup for old events
-
-**Event Detail Notifications** (Per event detail within an event):
-
-- `EventDetailStart`: Video/detail begins (triggers Streaming phase)
-- `EventDetailResultsAvailable`: Results for this detail (triggers HalfTime/Result)
-
-**System Notifications**:
-
-- Cleanup events for memory management
-
-## 🛠️ Technical Stack
-
-### Core Technologies
-
-- **Node.js** (v24) with **TypeScript 5.9**
-- **Express.js 5.1** for HTTP server and routing
-- **Server-Sent Events (SSE)** for real-time unidirectional communication
-- **Awilix 12.0** for dependency injection (PROXY mode)
-- **Jest 30.1** for testing framework
-
-### External Dependencies
-
-- **odds-feed-client 2.0**: External event data integration
-  - Provides `OddsFeedEventSource`, `Scheduler`, `OddsFeedService`
-  - Event-driven architecture with typed notifications
-- **sc-common 3.0**: Shared logging and utilities
-  - Provides `logger` with Sentry integration
-- **jsonwebtoken 9.0**: JWT authentication
-- **cors 2.8** with **tldts 7.0**: CORS with domain validation
-- **chance 1.1**: Random voice selection
-
-### Development Tools
-
-- **tsx 4.20**: TypeScript execution for development
-- **ts-jest 29.4**: TypeScript Jest transformer
-- **prettier 3.6**: Code formatting
-- **Docker**: Containerization (see `Dockerfile`)
-- **Sentry**: Error monitoring and performance tracking
-
-### Build & Deployment
-
-- **Build**: TypeScript compilation + static files copy
-- **Runtime**: `extensionless` loader for ES modules without extensions
-- **Module System**: ES Modules (`"type": "module"`)
 
 ## 📋 Component Guide
 
@@ -736,270 +701,477 @@ Complex algorithm for voice selection:
 - Uses duration constraints
 - Contextual based on first half score
 
+## 🔌 Integration Guide
+
+### Integration with odds-feed-client
+
+This service integrates with the `odds-feed-client` library to receive real-time sports event data. All feature services follow a common integration pattern.
+
+#### Service Initialization Pattern
+
+Every feature service implements the following lifecycle:
+
+```typescript
+import { OddsFeedEventSource, OddsFeedEventName, EventNotification } from "odds-feed-client";
+
+export class ExampleService {
+  private readonly oddsFeedEventSource: OddsFeedEventSource;
+  private readonly boundHandleEvent: (notification: EventNotification) => void;
+
+  constructor(container) {
+    this.oddsFeedEventSource = container.oddsFeedEventSource;
+
+    // Store bound methods for proper cleanup
+    this.boundHandleEvent = this.handleEvent.bind(this);
+  }
+
+  // 1. Register event listeners
+  public initEvent() {
+    this.oddsFeedEventSource.eventOn(OddsFeedEventName.EventStart, this.boundHandleEvent);
+  }
+
+  // 2. Handle events
+  private handleEvent({ event }: EventNotification) {
+    // Process event...
+  }
+
+  // 3. Cleanup on shutdown
+  public dispose() {
+    this.oddsFeedEventSource.eventOff(OddsFeedEventName.EventStart, this.boundHandleEvent);
+  }
+}
+```
+
+#### Available OddsFeed Events
+
+**Event-level notifications** (triggered per event):
+
+| Event Name      | When Triggered               | Notification Type   | Use Case                                  |
+| --------------- | ---------------------------- | ------------------- | ----------------------------------------- |
+| `EventUpcoming` | Pre-event (receives configs) | `EventNotification` | Load event configs (delays, intro, voice) |
+| `EventStart`    | Event begins                 | `EventNotification` | Initialize Prebet phase, reset state      |
+
+**Event Detail notifications** (triggered per event detail):
+
+| Event Name                    | When Triggered      | Notification Type         | Use Case                               |
+| ----------------------------- | ------------------- | ------------------------- | -------------------------------------- |
+| `EventDetailStart`            | Video/detail begins | `EventDetailNotification` | Start video streaming, schedule voices |
+| `EventDetailResultsAvailable` | Results ready       | `EventDetailNotification` | Update scores, transition phases       |
+
+**System notifications**:
+
+| Event Name | When Triggered | Notification Type    | Use Case                          |
+| ---------- | -------------- | -------------------- | --------------------------------- |
+| `cleanup`  | Event cleanup  | `SystemNotification` | Remove old event data from memory |
+
+#### Event Listener Examples
+
+**Example 1: Listen to multiple event types**
+
+```typescript
+// src/features/game-flow/game-flow-service.ts
+public initEvent() {
+  // Listen to Event-level notifications
+  this.oddsFeedEventSource.eventOn(
+    OddsFeedEventName.EventStart,
+    this.boundHandleEventStart
+  );
+
+  // Listen to EventDetail-level notifications
+  this.oddsFeedEventSource.eventDetailOn(
+    OddsFeedEventName.EventDetailStart,
+    this.boundHandleEventDetailScheduleStart
+  );
+
+  this.oddsFeedEventSource.eventDetailOn(
+    OddsFeedEventName.EventDetailResultsAvailable,
+    this.boundHandleResultAvailable
+  );
+}
+
+public dispose() {
+  this.oddsFeedEventSource.eventOff(
+    OddsFeedEventName.EventStart,
+    this.boundHandleEventStart
+  );
+
+  this.oddsFeedEventSource.eventDetailOff(
+    OddsFeedEventName.EventDetailStart,
+    this.boundHandleEventDetailScheduleStart
+  );
+
+  this.oddsFeedEventSource.eventDetailOff(
+    OddsFeedEventName.EventDetailResultsAvailable,
+    this.boundHandleResultAvailable
+  );
+}
+```
+
+**Example 2: Cleanup listener**
+
+```typescript
+// src/features/current-event/current-event-service.ts
+public initEvent() {
+  this.oddsFeedEventSource.eventOn(
+    OddsFeedEventName.EventStart,
+    this.boundHandleEventStart
+  );
+
+  // System cleanup events
+  this.oddsFeedEventSource.cleanupOn(this.boundHandleEventCleanup);
+}
+
+public cleanup({ eventID }: SystemNotification) {
+  // Remove old event data to prevent memory leaks
+  delete this._eventByEventId[eventID];
+}
+
+public dispose() {
+  this.oddsFeedEventSource.eventOff(
+    OddsFeedEventName.EventStart,
+    this.boundHandleEventStart
+  );
+
+  this.oddsFeedEventSource.cleanupOff(this.boundHandleEventCleanup);
+}
+```
+
+#### Service Registration
+
+Services are registered in `src/features/container-registry.ts` and initialized in order:
+
+```typescript
+export function registerContainer(container) {
+  container.register({
+    delayHandlingService: asClass(DelayHandlingService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+
+    gameFlowService: asClass(GameFlowService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+
+    // ... other services
+  });
+}
+
+export function initContainer(container) {
+  // Initialize event listeners in order
+  container.resolve("delayHandlingService").initEvent();
+  container.resolve("gameFlowService").initEvent();
+  container.resolve("currentEventService").initEvent();
+  // ... other services
+}
+```
+
+### Integration with Admin Event Configuration
+
+Event configuration is provided by the Admin system through the `EventUpcoming` notification. Services listen to this event to receive event-specific configurations.
+
+#### Event Config Structure
+
+The Admin system sends event configuration in the following structure:
+
+```json
+{
+  "eventID": 8589934592,
+  "scheduleStartTs": "2025-01-15T10:00:00Z",
+  "eventDetails": [...],
+  "config": {
+    "delay": {
+      "globalDelayInMillisecond": 10000,
+      "videoDelayInMillisecond": 3000,
+      "eventScheduleStartDelayInMillisecond": 0,
+      "eventDetailScheduleStartDelayInMillisecond": 0,
+      "eventDetailResultAvailableDelayInMillisecond": 0
+    },
+    "intro": {
+      "duration": 8,
+      "resourceServer": "https://d1aof1lwumql9k.cloudfront.net/marble_tv/"
+    },
+    "voice": {
+      "configJson": "https://d1aof1lwumql9k.cloudfront.net/youtube/config_voice.json"
+    },
+    "video": {
+      "defaultLength": 30
+    }
+  }
+}
+```
+
+#### Configuration Fields
+
+**Delay Configuration** (`config.delay`):
+
+| Field                                          | Type   | Description                     | Default |
+| ---------------------------------------------- | ------ | ------------------------------- | ------- |
+| `globalDelayInMillisecond`                     | number | Applied to all scheduled events | 0       |
+| `videoDelayInMillisecond`                      | number | Additional delay for video sync | 0       |
+| `eventScheduleStartDelayInMillisecond`         | number | Delay for EventStart            | 0       |
+| `eventDetailScheduleStartDelayInMillisecond`   | number | Delay for EventDetailStart      | 0       |
+| `eventDetailResultAvailableDelayInMillisecond` | number | Delay for ResultsAvailable      | 0       |
+
+**Intro Configuration** (`config.intro`):
+
+| Field            | Type   | Description                       |
+| ---------------- | ------ | --------------------------------- |
+| `duration`       | number | Intro video duration in seconds   |
+| `resourceServer` | string | CDN URL for intro video resources |
+
+**Voice Configuration** (`config.voice`):
+
+| Field        | Type   | Description                              |
+| ------------ | ------ | ---------------------------------------- |
+| `configJson` | string | URL to voice duration configuration JSON |
+
+**Video Configuration** (`config.video`):
+
+| Field           | Type   | Description                     |
+| --------------- | ------ | ------------------------------- |
+| `defaultLength` | number | Default video length in seconds |
+
+#### Accessing Config in Services
+
+**Example 1: Delay Handling Service**
+
+```typescript
+// src/features/delay/delay-handling-service.ts
+public handleEventUpcoming({ event }: EventNotification) {
+  const config = event.config?.delay;
+  if (config) {
+    this._delayConfigByEventId[event.eventID] = config;
+  }
+}
+
+public getDelayedTime({ eventId, time }, { oddsFeedEventType }) {
+  const config = this._delayConfigByEventId[eventId];
+  if (!config) {
+    return time; // No delay if config not found
+  }
+
+  const globalDelay = config.globalDelayInMillisecond ?? 0;
+  const eventTypeDelay = this.getDelayConfigByEventType(eventId, oddsFeedEventType);
+
+  return new Date(time.getTime() + globalDelay + eventTypeDelay);
+}
+
+public getDelayedTimeWithVideoDelay({ eventId, time }, { oddsFeedEventType }) {
+  const config = this._delayConfigByEventId[eventId];
+  if (!config) {
+    return time;
+  }
+
+  const videoDelay = config.videoDelayInMillisecond ?? 0;
+  const baseDelayedTime = this.getDelayedTime({ eventId, time }, { oddsFeedEventType });
+
+  return new Date(baseDelayedTime.getTime() + videoDelay);
+}
+```
+
+**Example 2: Intro Service**
+
+```typescript
+// src/features/intro/intro-service.ts
+public handleEventUpcoming({ event }: EventNotification) {
+  const config = event.config?.intro;
+  if (config) {
+    this._introConfigByEventId[event.eventID] = {
+      resourceServer: config.resourceServer,
+      duration: config.duration,
+    };
+  }
+}
+
+public handleEventStart({ event }: EventNotification) {
+  const config = this._introConfigByEventId[event.eventID];
+
+  if (!config) {
+    return; // No intro if config not provided
+  }
+
+  const duration = config.duration;
+  const durationInMillis = duration * 1000;
+
+  // Schedule intro playback for Prebet phase
+  const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime(
+    { eventId: event.eventID, time: new Date(event.scheduleStartTs) },
+    { oddsFeedEventType: OddsFeedEventName.EventStart }
+  );
+
+  this.scheduler.schedule(
+    timeToPlayPrebetIntro,
+    this.updateIntroStatus.bind(this, {
+      eventID: event.eventID,
+      timeToPlay: timeToPlayPrebetIntro.getTime()
+    })
+  );
+}
+```
+
+**Example 3: Commentator Voice Service**
+
+```typescript
+// src/features/commentator-voice/commentator-voice-service.ts
+public async handleEventUpcoming({ event }: EventNotification) {
+  // Get video length from config or fallback to app settings
+  const videoLength =
+    event.config?.video?.defaultLength
+    ?? appSettings.videoLength[gameId]
+    ?? 30; // Default 30 seconds
+
+  this._videoLengthByEventId[event.eventID] = videoLength;
+
+  // Get voice config from remote JSON
+  const voiceConfig = event.config?.voice;
+
+  if (!voiceConfig) {
+    return; // No voice generation if config not provided
+  }
+
+  const configJson = voiceConfig.configJson;
+  const voiceDurationConfig = await this.oddsFeedService.getRemoteJson<VoiceDurationConfig>(
+    configJson,
+    { eventId: event.eventID }
+  );
+
+  if (voiceDurationConfig) {
+    this._commentatorVoiceConfigByEventId[event.eventID] = {
+      configJson,
+      configVoice: voiceDurationConfig,
+    };
+  }
+}
+```
+
+#### Config Validation
+
+Currently, the service uses **optional chaining** (`?.`) to handle missing configs gracefully. If a config is not provided, the service either:
+
+1. **Falls back to `appSettings`** (legacy, to be removed)
+2. **Skips the feature** (e.g., no intro if `config.intro` is missing)
+3. **Uses default values** (e.g., 0 delay)
+
+#### Configuration in Admin System
+
+To configure an event in the Admin system:
+
+1. Navigate to Event Management
+2. Create or edit an event
+3. Add the `config` object with required fields
+4. The configuration will be sent via `EventUpcoming` notification
+5. Services will automatically use the config when processing the event
+
+**Example Admin API Request**:
+
+```json
+POST /api/events
+{
+  "eventID": 8589934592,
+  "scheduleStartTs": "2025-01-15T10:00:00Z",
+  "eventDetails": [...],
+  "config": {
+    "delay": {
+      "globalDelayInMillisecond": 10000,
+      "videoDelayInMillisecond": 3000
+    },
+    "intro": {
+      "duration": 8,
+      "resourceServer": "https://d1aof1lwumql9k.cloudfront.net/marble_tv/"
+    },
+    "voice": {
+      "configJson": "https://d1aof1lwumql9k.cloudfront.net/youtube/config_voice.json"
+    },
+    "video": {
+      "defaultLength": 30
+    }
+  }
+}
+```
+
+#### Memory Management
+
+Event configurations are stored per `eventID` and should be cleaned up when events complete:
+
+```typescript
+// Cleanup listener example
+public handleEventCleanup({ eventID }: SystemNotification) {
+  delete this._videoLengthByEventId[eventID];
+  delete this._commentatorVoiceConfigByEventId[eventID];
+  delete this._delayConfigByEventId[eventID];
+  delete this._introConfigByEventId[eventID];
+}
+```
+
+This prevents memory leaks in long-running services handling many events.
+
 ## 🔧 Improvements & Refactors
 
 ### High Priority
 
-#### 1. Security: Remove Hardcoded Credentials
-
-**Scope**: Small | **Impact**: Critical
-
-**Current Issue**:
-
-```typescript
-// src/app-configs.ts (lines 8-12)
-jwt: {
-  username: "marble-tv",
-  password: "marble-tv-123",
-  secret: "stream-service-secret",
-},
-```
-
-**Improvement**:
-
-```typescript
-// Use environment variables
-jwt: {
-  username: process.env.JWT_USERNAME || throwError("JWT_USERNAME required"),
-  password: process.env.JWT_PASSWORD || throwError("JWT_PASSWORD required"),
-  secret: process.env.JWT_SECRET || throwError("JWT_SECRET required"),
-},
-```
-
-**Files to Update**:
-
-- `src/app-configs.ts`: Load from environment variables
-- Add `.env.example` file with template
-- Update `src/configuration.ts` to validate required env vars
-
-**Benefits**: Security, compliance, environment-specific credentials
-
----
-
-#### 2. Security: Add JWT Authentication to Routes
+#### 1. Remove appSettings Fallback - Use Admin Config Only
 
 **Scope**: Small | **Impact**: High
 
 **Current Issue**:
 
+The codebase has two sources of configuration that create confusion and maintenance overhead:
+
 ```typescript
-// src/routes/index.ts (lines 17-18)
-router.get("/live/:gameId", (req, res) => eventStreamController.handleEventStreamConnection(req, res));
-router.get("/debug-stream/:gameId", (req, res) => debugController.handle(req, res));
+// src/app-settings.ts - Legacy fallback configuration
+export const appSettings = {
+  videoLength: {
+    "2000": 30,
+    "2001": 30,
+    "2002": 30,
+    "2003": 30,
+  } as Record<string, number>,
+
+  scheduleDelay: {
+    "2001": 10 * 1000,
+    "2002": 10 * 1000,
+    "2003": 10 * 1000,
+  } as Record<string, number>,
+
+  videoDelay: {
+    "2000": 3 * 1000,
+    "2001": 3 * 1000,
+    "2002": 3 * 1000,
+    "2003": 3 * 1000,
+  } as Record<string, number>,
+};
 ```
 
-The `verifyJWT` middleware exists (`src/middlewares/verify-jwt.ts`) but is **never applied**.
+Services currently fall back to `appSettings` when admin config is missing:
+
+```typescript
+// src/features/commentator-voice/commentator-voice-service.ts (lines 124-127)
+const videoLength =
+  (event as any).config?.video?.videoLength ??
+  appSettings.videoLength[gameId] ?? // ❌ Fallback to hardcoded values
+  GLOBAL_DEFAULT_VIDEO_LENGTH;
+```
+
+**Problems**:
+
+1. **Dual configuration sources**: Changes must be made in two places
+2. **Confusion**: Unclear which config takes precedence
+3. **Maintenance burden**: Hardcoded values need code deployment to update
+4. **Inconsistency**: Not all games have same settings, requires code changes
+5. **Admin UI disconnect**: Admin config should be single source of truth
 
 **Improvement**:
 
-```typescript
-import { verifyJWT } from "../middlewares/verify-jwt";
-
-router.get("/live/:gameId", verifyJWT, (req, res) => eventStreamController.handleEventStreamConnection(req, res));
-router.get("/debug-stream/:gameId", verifyJWT, (req, res) => debugController.handle(req, res));
-```
-
 **Files to Update**:
 
-- `src/routes/index.ts`: Add `verifyJWT` middleware
-
-**Benefits**: Prevents unauthorized access to streaming endpoints
-
----
-
-#### 3. Error Handling Enhancement
-
-**Scope**: Medium | **Impact**: High
-
-**Current Issue**:
-
-```typescript
-// src/middlewares/error-handler.ts (lines 3-5)
-export const errorHandler = (err, req, res, next) => {
-  res.status(400).json({ error: "Bad Request", message: err.message });
-};
-```
-
-All errors return 400. No error categorization, logging, or proper HTTP status codes.
-
-**Improvement**:
-
-Create structured error classes:
-
-```typescript
-// src/errors/AppError.ts
-export class AppError extends Error {
-  constructor(
-    public message: string,
-    public statusCode: number,
-    public isOperational = true
-  ) {
-    super(message);
-  }
-}
-
-export class ValidationError extends AppError {
-  constructor(message: string) {
-    super(message, 400);
-  }
-}
-
-export class AuthenticationError extends AppError {
-  constructor(message: string) {
-    super(message, 401);
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(message: string) {
-    super(message, 404);
-  }
-}
-```
-
-Enhanced error handler:
-
-```typescript
-// src/middlewares/error-handler.ts
-import { logger } from "sc-common";
-import { AppError } from "../errors/AppError";
-
-export const errorHandler = (err, req, res, next) => {
-  // Default to 500 server error
-  let statusCode = 500;
-  let message = "Internal Server Error";
-
-  if (err instanceof AppError) {
-    statusCode = err.statusCode;
-    message = err.message;
-  } else if (err.name === "ValidationError") {
-    statusCode = 400;
-    message = err.message;
-  } else if (err.name === "UnauthorizedError") {
-    statusCode = 401;
-    message = "Unauthorized";
-  }
-
-  // Log error with context
-  logger.error("Request error", {
-    error: err.message,
-    stack: err.stack,
-    statusCode,
-    path: req.path,
-    method: req.method,
-  });
-
-  res.status(statusCode).json({
-    error: message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-  });
-};
-```
-
-**Files to Update**:
-
-- Create `src/errors/AppError.ts`
-- Update `src/middlewares/error-handler.ts`
-- Update controllers to throw specific errors
-
-**Benefits**: Better debugging, proper HTTP status codes, clearer error messages
-
----
-
-#### 4. Type Safety: Remove Type Assertions
-
-**Scope**: Medium | **Impact**: Medium
-
-**Current Issue** (multiple locations):
-
-```typescript
-// src/features/delay/delay-handling-service.ts (line 60)
-const config = (event as any).config.delay as DelayConfig;
-
-// src/features/commentator-voice/commentator-voice-service.ts (lines 126, 130)
-const videoLength = (event as any).config?.video?.videoLength ?? ...;
-const config = (event as any).config.voice as CommentatorVoiceConfig;
-
-// src/features/intro/intro-service.ts (line 83)
-const config = (event as any).config?.intro as IntroConfig;
-```
-
-**Root Cause**: The `Event` type (`src/types/index.ts`) doesn't include the `config` field that comes from OddsFeed.
-
-**Improvement**:
-
-Update type definitions:
-
-```typescript
-// src/types/index.ts
-export type Event = {
-  eventID: number;
-  eventNameAKey: string;
-  eventNameBKey: string;
-  theme?: string;
-  scheduleStartTs: string;
-  productCode: string;
-  productTypeKey: string;
-  eventDetails: EventDetail[];
-  voiceConfig?: string;
-  // Add config field
-  config?: EventConfig;
-};
-
-export type EventConfig = {
-  delay?: DelayConfig;
-  video?: {
-    videoLength?: number;
-  };
-  voice?: CommentatorVoiceConfig;
-  intro?: IntroConfig;
-};
-
-export type DelayConfig = {
-  globalDelayInMillisecond?: number;
-  videoDelayInMillisecond?: number;
-  eventScheduleStartDelayInMillisecond?: number;
-  eventDetailScheduleStartDelayInMillisecond?: number;
-  eventDetailResultAvailableDelayInMillisecond?: number;
-};
-
-export type CommentatorVoiceConfig = {
-  configJson: string;
-  configVoice: VoiceDurationConfig;
-};
-
-export type IntroConfig = {
-  resourceServer: string;
-  duration: number;
-};
-```
-
-Then remove all `as any` casts:
-
-```typescript
-// src/features/delay/delay-handling-service.ts
-const config = event.config?.delay;
-
-// src/features/commentator-voice/commentator-voice-service.ts
-const videoLength = event.config?.video?.videoLength ?? ...;
-const config = event.config?.voice;
-
-// src/features/intro/intro-service.ts
-const config = event.config?.intro;
-```
-
-**Files to Update**:
-
-- `src/types/index.ts`: Add complete type definitions
-- All feature services: Remove type assertions
-
-**Benefits**: Compile-time safety, better IDE autocomplete, catches errors early
+- ❌ **Delete**: `src/app-settings.ts`
+- ✏️ **Update**: `src/features/commentator-voice/commentator-voice-service.ts` (remove appSettings import and fallback)
+- ✏️ **Update**: Any other services importing `appSettings`
 
 ---
 
 ### Medium Priority
 
-#### 5. Circular Dependency Simplification
+#### 2. Circular Dependency Simplification
 
 **Scope**: Medium | **Impact**: Medium
 
@@ -1018,7 +1190,7 @@ featureDebugService: asFunction((cradle) => new FeatureDebugService({
 
 **Root Cause**: `GameFlowService` logs to `FeatureDebugService`, which needs `GameFlowService.getTrackPointByGameId()` for relative time calculation.
 
-**Improvement Option 1** (Better separation):
+**Improvement Recommend**:
 
 Extract timing logic to a separate `TimeTrackingService`:
 
@@ -1042,368 +1214,6 @@ Then:
 - `FeatureDebugService` uses `TimeTrackingService` for relative time
 - No circular dependency
 
-**Improvement Option 2** (Event-based):
-
-Use events instead of direct dependency:
-
-```typescript
-// GameFlowService emits 'trackPointUpdated' event
-// FeatureDebugService listens to it
-```
-
-**Files to Update**:
-
-- Create `src/services/time-tracking-service.ts`
-- Update `src/features/game-flow/game-flow-service.ts`
-- Update `src/features/feature-debug/feature-debug-service.ts`
-- Update `src/features/container-registry.ts`
-
-**Benefits**: Simpler DI setup, easier to test, clearer responsibilities
-
----
-
-#### 6. Client Connection Resilience
-
-**Scope**: Small | **Impact**: Medium
-
-**Current Issue**:
-
-```typescript
-// src/managers/client-manager.ts (lines 62-79)
-cleanupDeadConnections() {
-  for (const [gameId, clients] of this.clients) {
-    for (const client of clients) {
-      if (client.destroyed || client.writableEnded) {
-        clients.delete(client);
-      }
-    }
-  }
-}
-```
-
-- No heartbeat/keepalive mechanism
-- No connection timeout detection
-- No metrics on connection health
-
-**Improvement**:
-
-Add SSE heartbeat:
-
-```typescript
-// Send comment every 30s to keep connection alive
-const HEARTBEAT_INTERVAL = 30000;
-
-class ClientManager {
-  private heartbeatInterval: NodeJS.Timeout;
-
-  constructor(container) {
-    // ... existing code
-
-    // Send heartbeat to all clients
-    this.heartbeatInterval = setInterval(() => {
-      for (const [gameId, clients] of this.clients) {
-        for (const client of clients) {
-          try {
-            if (!client.destroyed && !client.writableEnded) {
-              client.write(": heartbeat\n\n");
-            }
-          } catch (err) {
-            this.logService.error("Heartbeat failed", { gameId, error: err });
-            clients.delete(client);
-          }
-        }
-      }
-    }, HEARTBEAT_INTERVAL);
-  }
-
-  destroy() {
-    clearInterval(this.heartbeatInterval);
-    // ... existing code
-  }
-}
-```
-
-Add connection metrics:
-
-```typescript
-private connectionMetrics = {
-  totalConnections: 0,
-  activeConnections: 0,
-  disconnections: 0,
-  errors: 0,
-};
-
-addClient(res, gameId) {
-  this.connectionMetrics.totalConnections++;
-  this.connectionMetrics.activeConnections++;
-  // ... existing code
-}
-
-removeClient(gameId, res) {
-  this.connectionMetrics.activeConnections--;
-  this.connectionMetrics.disconnections++;
-  // ... existing code
-}
-```
-
-**Files to Update**:
-
-- `src/managers/client-manager.ts`
-- Optionally add `/metrics` endpoint to expose stats
-
-**Benefits**: Better connection stability, improved monitoring, fewer silent failures
-
----
-
-#### 7. Configuration Management Consolidation
-
-**Scope**: Medium | **Impact**: Medium
-
-**Current Issue**:
-
-Multiple configuration sources:
-
-- `src/app-configs.ts`: Hardcoded configs
-- `configs/app-configs.LOCAL.js`: Environment-specific (not loaded)
-- `src/app-settings.ts`: Game-specific fallbacks
-- Event-level configs from OddsFeed
-
-**Improvement**:
-
-Consolidate into layered config system:
-
-```typescript
-// src/config/index.ts
-import { z } from "zod"; // Add zod for validation
-
-const ConfigSchema = z.object({
-  port: z.number().default(5000),
-  nodeEnv: z.enum(["development", "production", "test"]),
-  sentry: z.object({
-    url: z.string().url(),
-    logIdentifier: z.string(),
-    env: z.string(),
-  }),
-  jwt: z.object({
-    secret: z.string().min(32),
-    expiresIn: z.string().default("2h"),
-  }),
-  auth: z.object({
-    username: z.string(),
-    password: z.string(),
-  }),
-  oddsFeed: z.object({
-    url: z.string().url(),
-    operatorId: z.string(),
-    password: z.string(),
-  }),
-  games: z.record(
-    z.object({
-      videoLength: z.number().positive(),
-      scheduleDelay: z.number().nonnegative(),
-      videoDelay: z.number().nonnegative(),
-    })
-  ),
-});
-
-export const loadConfig = () => {
-  const config = {
-    port: Number(process.env.PORT) || 5000,
-    nodeEnv: process.env.NODE_ENV || "development",
-    sentry: {
-      url: process.env.SENTRY_URL!,
-      logIdentifier: "Streaming-Service",
-      env: process.env.NODE_ENV || "DEV",
-    },
-    jwt: {
-      secret: process.env.JWT_SECRET!,
-      expiresIn: process.env.JWT_EXPIRES_IN || "2h",
-    },
-    auth: {
-      username: process.env.AUTH_USERNAME!,
-      password: process.env.AUTH_PASSWORD!,
-    },
-    oddsFeed: {
-      url: process.env.ODDS_FEED_URL!,
-      operatorId: process.env.ODDS_FEED_OPERATOR_ID!,
-      password: process.env.ODDS_FEED_PASSWORD!,
-    },
-    games: {
-      "2000": { videoLength: 30, scheduleDelay: 0, videoDelay: 3000 },
-      "2001": { videoLength: 30, scheduleDelay: 10000, videoDelay: 3000 },
-      // ...
-    },
-  };
-
-  return ConfigSchema.parse(config); // Validates and throws if invalid
-};
-```
-
-**Files to Update**:
-
-- Create `src/config/index.ts`
-- Remove `src/app-configs.ts` and `src/app-settings.ts`
-- Update all imports
-
-**Benefits**: Single source of truth, validation, type safety, easier testing
-
----
-
-### Low Priority
-
-#### 8. Memory Leak Prevention
-
-**Scope**: Small | **Impact**: Low
-
-**Current Issue**:
-
-Event listeners are bound but cleanup might not always happen:
-
-```typescript
-// src/features/game-flow/game-flow-service.ts (lines 34-36)
-private readonly boundHandleEventStart: (notification: EventNotification) => void;
-private readonly boundHandleResultAvailable: (notification: EventDetailNotification) => void;
-private readonly boundHandleEventDetailScheduleStart: (notification: EventDetailNotification) => void;
-```
-
-These are properly disposed in `dispose()`, but if disposal fails, listeners remain.
-
-**Improvement**:
-
-Add defensive cleanup and monitoring:
-
-```typescript
-export class GameFlowService {
-  private disposed = false;
-
-  dispose() {
-    if (this.disposed) {
-      console.warn("GameFlowService already disposed");
-      return;
-    }
-
-    try {
-      this.oddsFeedEventSource.eventOff(OddsFeedEventName.EventStart, this.boundHandleEventStart);
-      // ... other cleanup
-
-      this.disposed = true;
-      console.log("GameFlowService disposed successfully");
-    } catch (err) {
-      console.error("Error disposing GameFlowService", err);
-      throw err;
-    }
-  }
-
-  // Add guard to public methods
-  public handleEventStart({ event }: EventNotification) {
-    if (this.disposed) {
-      console.warn("GameFlowService used after disposal");
-      return;
-    }
-    // ... existing logic
-  }
-}
-```
-
-Add memory monitoring:
-
-```typescript
-// src/helpers/memory-monitor.ts
-export const logMemoryUsage = () => {
-  const used = process.memoryUsage();
-  console.log({
-    rss: `${Math.round(used.rss / 1024 / 1024)}MB`,
-    heapTotal: `${Math.round(used.heapTotal / 1024 / 1024)}MB`,
-    heapUsed: `${Math.round(used.heapUsed / 1024 / 1024)}MB`,
-    external: `${Math.round(used.external / 1024 / 1024)}MB`,
-  });
-};
-
-// In app.ts
-setInterval(logMemoryUsage, 60000); // Log every minute
-```
-
-**Files to Update**:
-
-- All feature services: Add disposal guards
-- `src/app.ts`: Add memory monitoring
-
-**Benefits**: Prevents memory leaks, easier debugging, better production stability
-
----
-
-#### 9. Testing Coverage Expansion
-
-**Scope**: Large | **Impact**: Medium
-
-**Current State**: Tests exist in `tests/unit-tests/` but coverage unknown.
-
-**Improvement Areas**:
-
-1. **Service Integration Tests**:
-
-```typescript
-// tests/integration/event-flow.test.ts
-describe("Event Flow Integration", () => {
-  it("should transition through game phases correctly", async () => {
-    // Mock OddsFeed events
-    // Verify GameFlowService broadcasts
-    // Verify all dependent services update
-  });
-
-  it("should handle video streaming with delays", async () => {
-    // Test delay calculations
-    // Verify video preload before streaming
-    // Verify timing accuracy
-  });
-});
-```
-
-2. **SSE Connection Tests**:
-
-```typescript
-// tests/integration/sse-connection.test.ts
-describe("SSE Connections", () => {
-  it("should send initial state to new connections", async () => {
-    const response = await request(app).get("/live/2000");
-    // Verify SSE headers
-    // Verify initial state message
-  });
-
-  it("should broadcast updates to all clients", async () => {
-    // Connect multiple clients
-    // Trigger game flow change
-    // Verify all clients receive update
-  });
-});
-```
-
-3. **Error Scenarios**:
-
-```typescript
-describe("Error Handling", () => {
-  it("should handle malformed event data", async () => {
-    // Send invalid event
-    // Verify service doesn't crash
-    // Verify error logged
-  });
-
-  it("should handle client disconnection", async () => {
-    // Connect and disconnect
-    // Verify cleanup
-    // Verify no memory leak
-  });
-});
-```
-
-**Files to Create**:
-
-- `tests/integration/` directory
-- `tests/e2e/` directory
-- Update `jest.config.cjs` for integration tests
-
-**Benefits**: Catch regressions early, confidence in refactoring, documentation through tests
-
 ---
 
 ## 📊 Monitoring & Observability
@@ -1414,7 +1224,7 @@ describe("Error Handling", () => {
    - Error tracking via `sc-common` logger
    - Configured with `sentryUrl`, `logIdentifier`, and `env`
 
-2. **Debug Service** (`/debug-stream/:gameId`):
+2. **Debug Service** (`debug/?game=${gameId}`):
    - Real-time service logging via SSE
    - Color-coded by service
    - Shows relative time from Prebet start
@@ -1424,125 +1234,6 @@ describe("Error Handling", () => {
    - Returns service status
    - Client IP and connection info
    - No service health checks
-
-### Recommended Enhancements
-
-1. **Structured Logging**:
-
-```typescript
-logger.info("Client connected", {
-  gameId,
-  clientIP: req.ip,
-  totalClients: clientManager.getTotalClientCount(),
-});
-```
-
-2. **Metrics Collection**:
-   - Connection counts per game
-   - Event processing latency
-   - Scheduler queue depth
-   - Memory usage trends
-
-3. **Health Checks**:
-
-```typescript
-// GET /health
-{
-  status: "healthy",
-  checks: {
-    oddsFeed: "connected",
-    scheduler: "active",
-    sentry: "connected",
-  },
-  metrics: {
-    totalConnections: 42,
-    gamesActive: ["2000", "2001"],
-  }
-}
-```
-
-4. **Alerting**:
-   - High error rate
-   - No events received for X minutes
-   - Memory usage > threshold
-   - Connection drops
-
-## 🚀 Deployment
-
-### Environment Variables
-
-**Required**:
-
-```bash
-NODE_ENV=production
-PORT=5000
-
-# Sentry
-SENTRY_URL=https://...@sentry.../project-id
-
-# JWT
-JWT_SECRET=your-strong-secret-min-32-chars
-JWT_USERNAME=your-username
-JWT_PASSWORD=your-password
-
-# OddsFeed
-ODDS_FEED_URL=https://odds-feed-api.example.com
-ODDS_FEED_OPERATOR_ID=your-operator-id
-ODDS_FEED_PASSWORD=your-password
-```
-
-### Docker Deployment
-
-**Build**:
-
-```bash
-docker build -t streaming-service:latest .
-```
-
-**Run**:
-
-```bash
-docker run -d \
-  -p 5000:5000 \
-  -e NODE_ENV=production \
-  -e SENTRY_URL=$SENTRY_URL \
-  -e JWT_SECRET=$JWT_SECRET \
-  --name streaming-service \
-  streaming-service:latest
-```
-
-**Dockerfile** (at root):
-
-- Multi-stage build
-- Installs dependencies
-- Compiles TypeScript
-- Copies static files
-- Runs with Node.js
-
-### Production Considerations
-
-1. **Load Balancing**:
-   - SSE connections are stateful
-   - Use sticky sessions if load balancing
-   - Or implement Redis pub/sub for multi-instance broadcasting
-
-2. **Health Checks**:
-   - Kubernetes: Readiness probe on `/health`
-   - Liveness probe on `/`
-
-3. **Graceful Shutdown**:
-   - Already implemented (lines 33-48 in `src/app.ts`)
-   - Waits 10 seconds for connections to close
-   - Calls `container.dispose()` to cleanup
-
-4. **Resource Limits**:
-   - Memory: Depends on client count (estimate ~50MB + 1KB per connection)
-   - CPU: Low except during event processing
-
-5. **Monitoring**:
-   - Monitor connection counts
-   - Watch for memory growth
-   - Track event processing latency
 
 ## 📝 Development
 
@@ -1577,12 +1268,6 @@ npm run format
 # Check formatting
 npm run lint
 ```
-
-### Debugging
-
-1. **Debug Stream**: Open `http://localhost:5000/debug-stream/2000` (replace 2000 with gameId)
-2. **Health Check**: `http://localhost:5000/`
-3. **Connect Client**: `http://localhost:5000/live/2000`
 
 ### Project Structure
 
@@ -1631,9 +1316,50 @@ src/
     └── log.ts
 ```
 
+## 🧐 Debugging
+
+1. **Debug Stream**: Open `http://localhost:5000/debug/?game=2000` (replace 2000 with gameId)
+2. **Health Check**: `http://localhost:5000/`
+3. **Connect Client**: `http://localhost:5000/live/2000`
+
+## 🛠️ Technical Stack
+
+### Core Technologies
+
+- **Node.js** (v24) with **TypeScript 5.9**
+- **Express.js 5.1** for HTTP server and routing
+- **Server-Sent Events (SSE)** for real-time unidirectional communication
+- **Awilix 12.0** for dependency injection (PROXY mode)
+- **Jest 30.1** for testing framework
+
+### External Dependencies
+
+- **odds-feed-client 2.0**: External event data integration
+  - Provides `OddsFeedEventSource`, `Scheduler`, `OddsFeedService`
+  - Event-driven architecture with typed notifications
+- **sc-common 3.0**: Shared logging and utilities
+  - Provides `logger` with Sentry integration
+- **jsonwebtoken 9.0**: JWT authentication
+- **cors 2.8** with **tldts 7.0**: CORS with domain validation
+- **chance 1.1**: Random voice selection
+
+### Development Tools
+
+- **tsx 4.20**: TypeScript execution for development
+- **ts-jest 29.4**: TypeScript Jest transformer
+- **prettier 3.6**: Code formatting
+- **Docker**: Containerization (see `Dockerfile`)
+- **Sentry**: Error monitoring and performance tracking
+
+### Build & Deployment
+
+- **Build**: TypeScript compilation + static files copy
+- **Runtime**: `extensionless` loader for ES modules without extensions
+- **Module System**: ES Modules (`"type": "module"`)
+
 ## 📚 Additional Resources
 
-- **odds-feed-client**: External library documentation (not public)
+- **odds-feed-client**: [Odds Feed Client](https://git3.nexdev.net/l1/marble-games/odds-feed-client)
 - **Server-Sent Events**: [MDN SSE Guide](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
 - **Awilix DI**: [Awilix Documentation](https://github.com/jeffijoe/awilix)
 
@@ -1647,7 +1373,7 @@ For support and questions:
 
 - Create an issue in the repository
 - Contact the development team
-- Check the debug stream for real-time service status: `/debug-stream/:gameId`
+- Check the debug stream for real-time service status: `/debug/?game=${gameId}`
 - Review logs for debugging information
 
 ---
