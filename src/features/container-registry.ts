@@ -1,4 +1,4 @@
-import { asClass, asFunction, AwilixContainer } from "awilix";
+import { asClass, AwilixContainer } from "awilix";
 import { logger } from "sc-common";
 import { DelayHandlingServiceContainer, DelayHandlingService } from "./delay/delay-handling-service";
 import { CurrentEventService } from "./current-event/current-event-service";
@@ -31,13 +31,6 @@ export interface OddsFeedDataContainer extends DelayHandlingServiceContainer {
     teamNameService: TeamNameService;
     gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 }
-
-function lazy<T extends object>(resolver: () => T): T {
-    return new Proxy({}, {
-      get: (_, prop) => Reflect.get(resolver(), prop),
-      apply: (_, __, args) => Reflect.apply(resolver() as any, null, args),
-    }) as T;
-  }
 
 export function registerContainer(container: AwilixContainer<OddsFeedDataContainer>) {
     container.register({
