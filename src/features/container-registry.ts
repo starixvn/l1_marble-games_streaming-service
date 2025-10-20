@@ -12,6 +12,7 @@ import { FeatureDebugService } from "./feature-debug/feature-debug-service";
 import { CommentatorVoiceService } from "./commentator-voice/commentator-voice-service";
 import { IntroService } from "./intro/intro-service";
 import { TeamNameService } from "./team-name/team-name-service";
+import { GameFlowTimeTrackingService } from "./game-flow-time-tracking-service/game-flow-time-tracking-service";
 
 
 export interface OddsFeedDataContainer extends DelayHandlingServiceContainer {
@@ -28,6 +29,7 @@ export interface OddsFeedDataContainer extends DelayHandlingServiceContainer {
     commentatorVoiceService: CommentatorVoiceService;
     introService: IntroService;
     teamNameService: TeamNameService;
+    gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 }
 
 function lazy<T extends object>(resolver: () => T): T {
@@ -39,27 +41,10 @@ function lazy<T extends object>(resolver: () => T): T {
 
 export function registerContainer(container: AwilixContainer<OddsFeedDataContainer>) {
     container.register({
+        gameFlowService: asClass(GameFlowService).singleton(),
+        featureDebugService: asClass(FeatureDebugService).singleton(),
         delayHandlingService: asClass(DelayHandlingService).singleton().disposer((service) => service.dispose()),
-    });
-
-    container.register({
-        gameFlowService: asFunction(
-            (cradle) => new GameFlowService({
-                featureDebugService: lazy(() => cradle.featureDebugService),
-                oddsFeedEventSource: cradle.oddsFeedEventSource,
-                scheduler: cradle.scheduler,
-                delayHandlingService: cradle.delayHandlingService,
-                gameBroadcastService: cradle.gameBroadcastService,
-            }),
-        ).singleton().proxy().disposer((service) => service.dispose()),
-        featureDebugService: asFunction(
-            (cradle) => new FeatureDebugService({
-                gameFlowService: lazy(() => cradle.gameFlowService),
-            }),
-        ).singleton().proxy().disposer((service) => service.dispose()),
-    });
-    
-    container.register({
+        gameFlowTimeTrackingService: asClass(GameFlowTimeTrackingService).singleton(),
         currentEventService: asClass(CurrentEventService).singleton().disposer((service) => service.dispose()),
         videoStreamingService: asClass(VideoStreamingService).singleton().disposer((service) => service.dispose()),
         inGameConsumer: asClass(InGameConsumer).singleton(),

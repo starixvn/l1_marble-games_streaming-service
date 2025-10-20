@@ -1013,15 +1013,12 @@ public handleEventStart({ event }: EventNotification) {
 ```typescript
 // src/features/commentator-voice/commentator-voice-service.ts
 public async handleEventUpcoming({ event }: EventNotification) {
-  // Get video length from config or fallback to app settings
   const videoLength =
     event.config?.video?.defaultLength
-    ?? appSettings.videoLength[gameId]
     ?? 30; // Default 30 seconds
 
   this._videoLengthByEventId[event.eventID] = videoLength;
 
-  // Get voice config from remote JSON
   const voiceConfig = event.config?.voice;
 
   if (!voiceConfig) {
@@ -1103,118 +1100,6 @@ public handleEventCleanup({ eventID }: SystemNotification) {
 ```
 
 This prevents memory leaks in long-running services handling many events.
-
-## 🔧 Improvements & Refactors
-
-### High Priority
-
-#### 1. Remove appSettings Fallback - Use Admin Config Only
-
-**Scope**: Small | **Impact**: High
-
-**Current Issue**:
-
-The codebase has two sources of configuration that create confusion and maintenance overhead:
-
-```typescript
-// src/app-settings.ts - Legacy fallback configuration
-export const appSettings = {
-  videoLength: {
-    "2000": 30,
-    "2001": 30,
-    "2002": 30,
-    "2003": 30,
-  } as Record<string, number>,
-
-  scheduleDelay: {
-    "2001": 10 * 1000,
-    "2002": 10 * 1000,
-    "2003": 10 * 1000,
-  } as Record<string, number>,
-
-  videoDelay: {
-    "2000": 3 * 1000,
-    "2001": 3 * 1000,
-    "2002": 3 * 1000,
-    "2003": 3 * 1000,
-  } as Record<string, number>,
-};
-```
-
-Services currently fall back to `appSettings` when admin config is missing:
-
-```typescript
-// src/features/commentator-voice/commentator-voice-service.ts (lines 124-127)
-const videoLength =
-  (event as any).config?.video?.videoLength ??
-  appSettings.videoLength[gameId] ?? // ❌ Fallback to hardcoded values
-  GLOBAL_DEFAULT_VIDEO_LENGTH;
-```
-
-**Problems**:
-
-1. **Dual configuration sources**: Changes must be made in two places
-2. **Confusion**: Unclear which config takes precedence
-3. **Maintenance burden**: Hardcoded values need code deployment to update
-4. **Inconsistency**: Not all games have same settings, requires code changes
-5. **Admin UI disconnect**: Admin config should be single source of truth
-
-**Improvement**:
-
-**Files to Update**:
-
-- ❌ **Delete**: `src/app-settings.ts`
-- ✏️ **Update**: `src/features/commentator-voice/commentator-voice-service.ts` (remove appSettings import and fallback)
-- ✏️ **Update**: Any other services importing `appSettings`
-
----
-
-### Medium Priority
-
-#### 2. Circular Dependency Simplification
-
-**Scope**: Medium | **Impact**: Medium
-
-**Current Issue**:
-
-```typescript
-// src/features/container-registry.ts (lines 45-60)
-gameFlowService: asFunction((cradle) => new GameFlowService({
-  featureDebugService: lazy(() => cradle.featureDebugService),
-  // ...
-})),
-featureDebugService: asFunction((cradle) => new FeatureDebugService({
-  gameFlowService: lazy(() => cradle.gameFlowService),
-})),
-```
-
-**Root Cause**: `GameFlowService` logs to `FeatureDebugService`, which needs `GameFlowService.getTrackPointByGameId()` for relative time calculation.
-
-**Improvement Recommend**:
-
-Extract timing logic to a separate `TimeTrackingService`:
-
-```typescript
-class TimeTrackingService {
-  private trackPointByGameId: Record<string, number> = {};
-
-  setTrackPoint(gameId: string, timestamp: number) {
-    this.trackPointByGameId[gameId] = timestamp;
-  }
-
-  getRelativeTime(gameId: string): number {
-    return (Date.now() - (this.trackPointByGameId[gameId] ?? Date.now())) / 1000;
-  }
-}
-```
-
-Then:
-
-- `GameFlowService` updates track point when switching to Prebet
-- `FeatureDebugService` uses `TimeTrackingService` for relative time
-- No circular dependency
-
----
 
 ## 📊 Monitoring & Observability
 

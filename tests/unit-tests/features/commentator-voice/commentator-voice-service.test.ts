@@ -28,7 +28,6 @@ import { DelayHandlingService } from "../../../../src/features/delay/delay-handl
 import { Scheduler } from "odds-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
-import { appSettings } from "../../../../src/app-settings";
 import { generateVoiceWithEventTimeline } from "../../../../src/helpers/voices";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
 
@@ -296,28 +295,6 @@ describe('CommentatorVoiceService', () => {
             });
         });
 
-        it('should use app settings video length when config video length is not present', async () => {
-            // Arrange
-            const eventWithoutVideoLength = {
-                event: {
-                    ...mockEventWithVoiceConfig,
-                    config: {
-                        voice: {
-                            configJson: TEST_CONFIG_JSON,
-                            configVoice: mockVoiceConfig
-                        }
-                    }
-                }
-            };
-            appSettings.videoLength = { [TEST_GAME_ID]: 45 };
-
-            // Act
-            await commentatorVoiceService.handleEventUpcoming(eventWithoutVideoLength as any);
-
-            // Assert
-            expect(commentatorVoiceService['_videoLengthByEventId'][TEST_EVENT_ID]).toBe(45);
-        });
-
         it('should use global default video length when no config or app settings', async () => {
             // Arrange
             const eventWithoutVideoLength = {
@@ -331,7 +308,6 @@ describe('CommentatorVoiceService', () => {
                     }
                 }
             };
-            appSettings.videoLength = {};
 
             // Act
             await commentatorVoiceService.handleEventUpcoming(eventWithoutVideoLength as any);

@@ -1,6 +1,6 @@
 import EventEmitter from "node:events";
 import { log } from "../../helpers/log";
-import { GameFlowService } from "../game-flow/game-flow-service";
+import { GameFlowTimeTrackingService } from "../game-flow-time-tracking-service/game-flow-time-tracking-service";
 
 export enum ANSIColor {
     Black = "\x1b[30m",
@@ -53,10 +53,10 @@ const debugEnabledServices = new Set<string>([
 ]);
 
 export interface DebugServiceContainer {
-    gameFlowService: GameFlowService;
+    gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 }
 
-function debugLog(service: object, message: string, gameId: string, gameFlowService: GameFlowService) {
+function debugLog(service: object, message: string, gameId: string, gameFlowTimeTrackingService: GameFlowTimeTrackingService) {
     const serviceName = Object.getPrototypeOf(service)?.constructor?.name ?? "UnknownService";
 
     if (!debugEnabledServices.has(serviceName)) {
@@ -64,7 +64,7 @@ function debugLog(service: object, message: string, gameId: string, gameFlowServ
     }
 
     const title = `${colorMap[serviceName as keyof typeof colorMap] ?? colorMap[ServiceWithDebug.Default]}[${serviceName}]${ANSIColor.Reset}:`
-    const diffInSecond = (Date.now() - gameFlowService.getTrackPointByGameId(gameId)) / 1000;
+    const diffInSecond = gameFlowTimeTrackingService.getRelativeTime(gameId);
     const gameIdMessage = `${ANSIColor.Blue}[GameId: ${gameId}]${ANSIColor.Reset}`;
     const relativeTimeMessage = `${ANSIColor.Green}[RelativeTime: ${diffInSecond}s]${ANSIColor.Reset}`;
     log(`${title}${gameIdMessage}${relativeTimeMessage}${message}`);
@@ -81,10 +81,9 @@ export interface LogMessage {
 const MAX_LOG_LENGTH = 1000;
 
 export class FeatureDebugService {
-    private readonly gameFlowService: GameFlowService;
-
+    private readonly gameFlowTimeTrackingService: GameFlowTimeTrackingService;
     constructor(container: DebugServiceContainer) {
-        this.gameFlowService = container.gameFlowService;
+        this.gameFlowTimeTrackingService = container.gameFlowTimeTrackingService;
     }
 
     public logEventSourceByGameId: Record<string, EventEmitter> = {};
@@ -92,7 +91,7 @@ export class FeatureDebugService {
 
 
     public log(service: object, message: string, gameId: string) {
-        debugLog(service, message, gameId, this.gameFlowService);
+        debugLog(service, message, gameId, this.gameFlowTimeTrackingService);
 
         if (!this.logByGameId[gameId]) {
             this.logByGameId[gameId] = [];
@@ -109,7 +108,7 @@ export class FeatureDebugService {
             message,
             serviceName: serviceName,
             absoluteTime: Date.now(),
-            relativeTime: (Date.now() - this.gameFlowService.getTrackPointByGameId(gameId)) / 1000,
+            relativeTime: this.gameFlowTimeTrackingService.getRelativeTime(gameId),
         });
 
         if (this.logByGameId[gameId].length > MAX_LOG_LENGTH) {
@@ -121,7 +120,7 @@ export class FeatureDebugService {
             message,
             serviceName: serviceName,
             absoluteTime: Date.now(),
-            relativeTime: (Date.now() - this.gameFlowService.getTrackPointByGameId(gameId)) / 1000,
+            relativeTime: this.gameFlowTimeTrackingService.getRelativeTime(gameId),
         });
     }
 
