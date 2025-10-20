@@ -2,7 +2,6 @@ import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { OddsFeedService, Scheduler, OddsFeedEventName, OddsFeedEventSource, SystemNotification, EventDetailNotification, EventNotification } from "odds-feed-client";
-import { appSettings } from "../../app-settings";
 import { idHelper } from "../../helpers";
 import { generateVoiceWithEventTimeline, VoiceDurationConfig } from "../../helpers/voices";
 import { GoalInfoData, InGameEvent } from "../../types";
@@ -123,7 +122,6 @@ export class CommentatorVoiceService {
         const gameId = idHelper.extractGameId(event.eventID);
         const videoLength = 
             (event as any).config?.video?.videoLength 
-            ?? appSettings.videoLength[gameId]
             ?? GLOBAL_DEFAULT_VIDEO_LENGTH;
         this._videoLengthByEventId[event.eventID] = videoLength;
 

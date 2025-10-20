@@ -1,10 +1,8 @@
 import { EventStreamService } from "../../../src/services/event-stream-service";
 import { mockContainer } from "../global-stubs";
-import { appSettings } from "../../../src/app-settings";
 import { Event, EventStreamState, JobName } from "../../../src/types";
 
 // Mock dependencies
-jest.mock("../../../src/app-settings");
 jest.mock("sc-common", () => ({
   logger: {
     logError: jest.fn(),
@@ -101,20 +99,6 @@ describe("EventStreamService", () => {
     const extendedContainer = {
       ...mockContainer,
       inGameConsumer: mockInGameConsumer,
-    };
-
-    // Mock appSettings
-    (appSettings as any) = {
-      videoLength: {
-        "2001": 30,
-        "2002": 30,
-        "2003": 30,
-      },
-      videoDelay: {
-        "2001": 3 * 1000,
-        "2002": 3 * 1000,
-        "2003": 3 * 1000,
-      },
     };
 
     // Mock Date.now() to return a fixed timestamp

@@ -4,6 +4,7 @@ import { OddsFeedEventName, OddsFeedEventSource, EventNotification, EventDetailN
 import { isLastEventDetail, isPhaseSwitching } from "../../helpers/phase-helper";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
+import { GameFlowTimeTrackingService } from "../game-flow-time-tracking-service/game-flow-time-tracking-service";
 
 export enum GameFlow {
     Prebet = "Prebet",
@@ -18,6 +19,7 @@ interface GameFlowServiceContainer {
     delayHandlingService: DelayHandlingService;
     gameBroadcastService: GameBroadcastService;
     featureDebugService: FeatureDebugService;
+    gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 }
 
 export class GameFlowService {
@@ -27,9 +29,9 @@ export class GameFlowService {
     private readonly delayHandlingService: DelayHandlingService;
     private readonly gameBroadcastService: GameBroadcastService;
     private readonly featureDebugService: FeatureDebugService;
+    private readonly gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 
     private _gameFlowByGameId: Record<string, GameFlow> = {};
-    private _trackPointByGameId: Record<string, number> = {};
 
     private readonly boundHandleEventStart: (notification: EventNotification) => void;
     private readonly boundHandleResultAvailable: (notification: EventDetailNotification) => void;
@@ -41,7 +43,8 @@ export class GameFlowService {
         this.delayHandlingService = container.delayHandlingService;
         this.gameBroadcastService = container.gameBroadcastService;
         this.featureDebugService = container.featureDebugService;
-
+        this.gameFlowTimeTrackingService = container.gameFlowTimeTrackingService;
+        
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleResultAvailable = this.handleResultAvailable.bind(this);
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
@@ -100,7 +103,7 @@ export class GameFlowService {
     }
 
     public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
-        const whenToSwitchToStreaming = this.delayedEventDetailtScheduleStartWithVideoDelay({ event, index });
+        const whenToSwitchToStreaming = this.delayedEventDetailScheduleStartWithVideoDelay({ event, index });
         this.scheduler.schedule(whenToSwitchToStreaming, this.switchToStreaming.bind(this, { eventId: event.eventID }));
     }
 
@@ -110,12 +113,8 @@ export class GameFlowService {
         }
     }
 
-    public getTrackPointByGameId(gameId: string) {
-        return this._trackPointByGameId[gameId];
-    }
-
     private switchToPrebet({ eventId }: { eventId: number }) {
-        this._trackPointByGameId[idHelper.extractGameId(eventId)] = Date.now();
+        this.gameFlowTimeTrackingService.setTrackPoint(idHelper.extractGameId(eventId), Date.now());
         this.switchGameFlow({ eventId, gameFlow: GameFlow.Prebet });
     }
 
@@ -148,7 +147,7 @@ export class GameFlowService {
         });
     }
 
-    private delayedEventDetailtScheduleStartWithVideoDelay({ event, index }: EventDetailNotification) {
+    private delayedEventDetailScheduleStartWithVideoDelay({ event, index }: EventDetailNotification) {
         return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
