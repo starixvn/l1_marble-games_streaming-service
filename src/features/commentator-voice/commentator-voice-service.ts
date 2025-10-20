@@ -119,7 +119,6 @@ export class CommentatorVoiceService {
     }
 
     async handleEventUpcoming({ event }: EventNotification) {
-        const gameId = idHelper.extractGameId(event.eventID);
         const videoLength = 
             (event as any).config?.video?.videoLength 
             ?? GLOBAL_DEFAULT_VIDEO_LENGTH;
