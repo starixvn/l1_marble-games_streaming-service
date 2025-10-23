@@ -1,6 +1,7 @@
 import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { EventDetailNotification, EventNotification, OddsFeedEventName, OddsFeedEventSource, SystemNotification, Scheduler, Event } from "odds-feed-client";
 
@@ -12,7 +13,13 @@ interface CurrentEventServiceContainer {
     featureDebugService: FeatureDebugService;
 }
 
-export class CurrentEventService {
+interface CurrentEventPayload {
+    eventID: number;
+    eventDetailIndex: number;
+    phase: number;
+}
+
+export class CurrentEventService implements ReplayService<CurrentEventPayload> {
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly delayHandlingService: DelayHandlingService;
     private readonly scheduler: Scheduler;
@@ -37,6 +44,45 @@ export class CurrentEventService {
         this.boundHandleEventStart = this.handleEventStart.bind(this);
         this.boundHandleEventDetailResultAvailable = this.handleEventDetailResultAvailable.bind(this);
         this.boundHandleEventCleanup = this.cleanup.bind(this);
+    }
+    
+    getReplayByEvent(event: Event): Replay<CurrentEventPayload>[] {
+        const eventIndexReset = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
+            oddsFeedEventType: OddsFeedEventName.EventStart,
+        });
+
+        const eventIndexResetReplay = {
+            time: eventIndexReset,
+            payload: {
+                eventID: event.eventID,
+                eventDetailIndex: 0,
+                phase: event.eventDetails[0].phase,
+            },
+        }
+
+        const eventDetailIndexIncrementReplays = event.eventDetails.map((_, index) => {
+
+            if (index === event.eventDetails.length - 1) {
+                return null;
+            }
+
+            const whenToIncrement = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
+                oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
+            });
+            return {
+                time: whenToIncrement,
+                payload: {
+                    eventID: event.eventID,
+                    eventDetailIndex: index + 1,
+                    phase: event.eventDetails[index + 1].phase,
+                }   
+            }
+        });
+
+        return [
+            eventIndexResetReplay,
+            ...eventDetailIndexIncrementReplays,
+        ].filter((replay) => replay !== null);
     }
 
     public readonly eventName = "currentEvent";
@@ -86,15 +132,17 @@ export class CurrentEventService {
         delete this._eventByEventId[eventID];
     }
 
+
+
     public handleEventStart({ event }: EventNotification) {
-        const whenToSetCurrentEvent = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+        const whenToSetCurrentEvent = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventStart,
         });
         this.scheduler.schedule(whenToSetCurrentEvent, this.handleEventIndexReset.bind(this, { event }));
     }
 
     public handleEventDetailResultAvailable({ event, index }: EventDetailNotification) {
-        const delayedTime = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
+        const delayedTime = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         });
         this.scheduler.schedule(delayedTime, this.handleEventDetailIndexIncrement.bind(this, { event, index }));

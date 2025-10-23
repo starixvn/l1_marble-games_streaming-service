@@ -1,9 +1,9 @@
-import { EventNotification, OddsFeedEventName, OddsFeedEventSource, SystemNotification, Scheduler } from "odds-feed-client";
+import { EventNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler, Event } from "odds-feed-client";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { idHelper } from "../../helpers";
-import { Event } from "../../types";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 interface IntroServiceContainer {
     oddsFeedEventSource: OddsFeedEventSource;
@@ -21,12 +21,7 @@ interface IntroState {
     duration: number;
 }
 
-interface IntroConfig {
-    resourceServer: string;
-    duration: number;
-}
-
-export class IntroService {
+export class IntroService implements ReplayService<IntroState> {
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
     private readonly delayHandlingService: DelayHandlingService;
@@ -34,11 +29,8 @@ export class IntroService {
     private readonly featureDebugService: FeatureDebugService;
 
     private readonly _introByGameId: Record<string, IntroState> = {};
-    private readonly _introConfigByEventId: Record<number, IntroConfig> = {};
 
-    private readonly boundHandleEventUpcoming: (notification: EventNotification) => void;
     private readonly boundHandleEventStart: (notification: EventNotification) => void;
-    private readonly boundHandleEventCleanup: (notification: SystemNotification) => void;
 
     constructor(container: IntroServiceContainer) {
         this.oddsFeedEventSource = container.oddsFeedEventSource;
@@ -47,92 +39,136 @@ export class IntroService {
         this.gameBroadcastService = container.gameBroadcastService;
         this.featureDebugService = container.featureDebugService;
 
-        this.boundHandleEventUpcoming = this.handleEventUpcoming.bind(this);
         this.boundHandleEventStart = this.handleEventStart.bind(this);
-        this.boundHandleEventCleanup = this.handleEventCleanup.bind(this);
     }
+	getReplayByEvent(event: Event): Replay<IntroState>[] {
+		const duration = (event as any).config?.intro?.duration ?? 0;
+		const resourceServer = (event as any).config?.intro?.resourceServer ?? "";
+		const durationInMilliseconds = duration * 1000;
+
+		const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
+			oddsFeedEventType: OddsFeedEventName.EventStart,
+		});
+		const timeToStopPrebetIntro = new Date(timeToPlayPrebetIntro.getTime() + durationInMilliseconds + 1);
+
+		const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
+		const timeToPlayHalfTimeIntro = secondHalfIndex >= 0
+			? this.delayHandlingService.getDelayedTime({ event, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMilliseconds) }, {
+				oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+			})
+			: undefined;
+
+		const halftimeReplays: Replay<IntroState>[] = [];
+		if (timeToPlayHalfTimeIntro) {
+			const halfPlayMs = timeToPlayHalfTimeIntro.getTime();
+			const timeToStopHalfTimeIntro = new Date(halfPlayMs + durationInMilliseconds + 1);
+			halftimeReplays.push({
+				time: timeToPlayHalfTimeIntro,
+				payload: {
+					resourceServer,
+					introTime: 0,
+					timeToPlay: halfPlayMs,
+					isPlaying: true,
+					duration,
+				},
+				eventName: this.eventName,
+			});
+			halftimeReplays.push({
+				time: timeToStopHalfTimeIntro,
+				payload: {
+					resourceServer,
+					introTime: duration,
+					timeToPlay: halfPlayMs,
+					isPlaying: false,
+					duration,
+				},
+				eventName: this.eventName,
+			});
+		}
+
+		return [
+			{
+				time: timeToPlayPrebetIntro,
+				payload: {
+					resourceServer,
+					introTime: 0,
+					timeToPlay: timeToPlayPrebetIntro.getTime(),
+					isPlaying: true,
+					duration,
+				},
+				eventName: this.eventName,
+			},
+			{
+				time: timeToStopPrebetIntro,
+				payload: {
+					resourceServer,
+					introTime: duration,
+					timeToPlay: timeToPlayPrebetIntro.getTime(),
+					isPlaying: false,
+					duration,
+				},
+				eventName: this.eventName,
+			},
+			...halftimeReplays,
+		];
+	}
 
     public eventName = "intro";
 
     initEvent() {
-
-        this.oddsFeedEventSource.eventOn(
-            OddsFeedEventName.EventUpcoming,
-            this.boundHandleEventUpcoming
-        );
         this.oddsFeedEventSource.eventOn(
             OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddsFeedEventSource.cleanupOn(this.boundHandleEventCleanup);
     }
 
     dispose() {
         this.oddsFeedEventSource.eventOff(
-            OddsFeedEventName.EventUpcoming,
-            this.boundHandleEventUpcoming
-        );
-        this.oddsFeedEventSource.eventOff(
             OddsFeedEventName.EventStart,
             this.boundHandleEventStart
         );
-        this.oddsFeedEventSource.cleanupOff(this.boundHandleEventCleanup);
-    }
-
-    handleEventUpcoming({ event }: EventNotification) {
-        const config = (event as any).config?.intro as IntroConfig;
-        if (config) {
-            this._introConfigByEventId[event.eventID] = config;
-        }
     }
 
     handleEventStart({ event }: EventNotification) {
-        const duration = this._introConfigByEventId[event.eventID]?.duration;
-        
-        if (!duration) {
-            return;
-        }
+        const duration = (event as any).config?.intro?.duration ?? 0;
 
         const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
 
-        const durationInMillis = duration * 1000;
-        const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+        const durationInMilliseconds = duration * 1000;
+        const timeToPlayPrebetIntro = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventStart,
         });
-        const timeToStopPrebetIntro = new Date(timeToPlayPrebetIntro.getTime() + durationInMillis + 1);
+        const timeToStopPrebetIntro = new Date(timeToPlayPrebetIntro.getTime() + durationInMilliseconds + 1);
         
-        const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMillis) }, {
+        const timeToPlayHalfTimeIntro = this.delayHandlingService.getDelayedTime({ event, time: new Date(new Date(event.eventDetails[secondHalfIndex].scheduleStartTs).getTime() - durationInMilliseconds) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
-        const timeToStopHalfTimeIntro = new Date(timeToPlayHalfTimeIntro.getTime() + durationInMillis + 1);
+        const timeToStopHalfTimeIntro = new Date(timeToPlayHalfTimeIntro.getTime() + durationInMilliseconds + 1);
         
-        this.scheduler.schedule(timeToPlayPrebetIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayPrebetIntro.getTime() }));
-        this.scheduler.schedule(timeToPlayHalfTimeIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
+        this.scheduler.schedule(timeToPlayPrebetIntro, this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() }));
+        this.scheduler.schedule(timeToPlayHalfTimeIntro, this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
         
-        this.scheduler.schedule(timeToStopPrebetIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayPrebetIntro.getTime() }));
-        this.scheduler.schedule(timeToStopHalfTimeIntro, this.updateIntroStatus.bind(this, { eventID: event.eventID, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
+        this.scheduler.schedule(timeToStopPrebetIntro, this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() }));
+        this.scheduler.schedule(timeToStopHalfTimeIntro, this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() }));
     }
 
-    updateIntroStatus({ eventID, timeToPlay }: { eventID: number, timeToPlay: number }) {
+    updateIntroStatus({ event, timeToPlay }: { event: Event, timeToPlay: number }) {
         const introTime = (Date.now() - timeToPlay) / 1000;
-        const duration = this._introConfigByEventId[eventID].duration;
+        const duration = (event as any).config?.intro?.duration;
+        const resourceServer = (event as any).config?.intro?.resourceServer;
 
         const updateIntroState = {
-            resourceServer: this._introConfigByEventId[eventID].resourceServer,
+            resourceServer,
             introTime,
             timeToPlay,
             isPlaying: introTime >= 0 && introTime <= duration,
             duration,
         }
 
-        const gameId = idHelper.extractGameId(eventID);
+        const gameId = idHelper.extractGameId(event.eventID);
         this._introByGameId[gameId] = updateIntroState;
 
         this.broadcastIntro({ gameId });
-    }
-
-    handleEventCleanup({ eventID }: SystemNotification) {
-        delete this._introConfigByEventId[eventID];
     }
 
     getCurrentByGameId(gameId: string) {

@@ -1,6 +1,6 @@
-import { EventNotification, OddsFeedEventName, OddsFeedEventSource } from "odds-feed-client";
+import { OddsFeedEventName, Event } from "odds-feed-client";
 
-type DelayConfig = {
+export type DelayConfig = {
     globalDelayInMillisecond?: number;
     videoDelayInMillisecond?: number;
     eventScheduleStartDelayInMillisecond?: number;
@@ -8,75 +8,42 @@ type DelayConfig = {
     eventDetailResultAvailableDelayInMillisecond?: number;
 }
 
-export interface DelayHandlingServiceContainer {
-    oddsFeedEventSource: OddsFeedEventSource;
-}
-
 interface DelayOptions {
     oddsFeedEventType?: OddsFeedEventName;
 }
 export class DelayHandlingService {
 
-    private readonly _delayConfigByEventId: Record<number, DelayConfig> = {};
-    private readonly oddsFeedEventSource: OddsFeedEventSource;
-    private readonly boundHandleEventUpcoming: (notification: EventNotification) => void;
-
-    constructor(container: DelayHandlingServiceContainer) {
-        this.oddsFeedEventSource = container.oddsFeedEventSource;
-        this.boundHandleEventUpcoming = this.handleEventUpcoming.bind(this);
-    }
-
-    public initEvent() {
-        this.oddsFeedEventSource.eventOn(
-            OddsFeedEventName.EventUpcoming,
-            this.boundHandleEventUpcoming
-        )
-    }
-
-    public getDelayConfig(eventId: number): DelayConfig | undefined {
-        return this._delayConfigByEventId[eventId];
-    }
-
-    public getDelayedTime({ eventId, time }: { eventId: number, time: Date }, { oddsFeedEventType }: DelayOptions = {}): Date {
-        const config = this._delayConfigByEventId[eventId];
+    public getDelayedTime({ event, time }: { event: Event, time: Date }, { oddsFeedEventType }: DelayOptions = {}): Date {
+        const config = (event as any).config?.delay as DelayConfig;
         if (!config) {
             return time;
         }
-        const globalDelayInMillisecond = config.globalDelayInMillisecond ?? 0;
-        const eventTypeDelayMiliseconds = this.getDelayConfigByEventType({ eventId }, { oddsFeedEventType });
-        return new Date(time.getTime() + globalDelayInMillisecond + eventTypeDelayMiliseconds);
+        return this.getDelayedTimeByConfig({ config, time }, { oddsFeedEventType });
     }
-
-    public getDelayedTimeWithVideoDelay({ eventId, time }: { eventId: number, time: Date }, { oddsFeedEventType }: DelayOptions = {}): Date {
-        const config = this._delayConfigByEventId[eventId];
+    
+    public getDelayedTimeWithVideoDelay({ event, time }: { event: Event, time: Date }, { oddsFeedEventType }: DelayOptions = {}): Date {
+        const config = (event as any).config?.delay as DelayConfig;
         if (!config) {
             return time;
         }
+        return this.getDelayedTimeWithVideoDelayByConfig({ config, time }, { oddsFeedEventType });
+    }
+
+    private getDelayedTimeWithVideoDelayByConfig({ config, time }: { config: DelayConfig, time: Date }, { oddsFeedEventType }: DelayOptions = {}): Date {
         const videoDelayInMillisecond = config.videoDelayInMillisecond ?? 0;
-        return new Date(this.getDelayedTime({ eventId, time }, { oddsFeedEventType }).getTime() + videoDelayInMillisecond);
+        return new Date(this.getDelayedTimeByConfig({ config, time }, { oddsFeedEventType }).getTime() + videoDelayInMillisecond);
     }
 
-    public handleEventUpcoming({ event }: EventNotification) {
-        const config = (event as any).config.delay as DelayConfig;
-        if (config) {
-            this._delayConfigByEventId[event.eventID] = config;
-        }
+    private getDelayedTimeByConfig({ config, time }: { config: DelayConfig, time: Date }, { oddsFeedEventType }: DelayOptions = {}): Date {
+        const globalDelayInMillisecond = config.globalDelayInMillisecond ?? 0;
+        const eventTypeDelayMilliseconds = this.getDelayConfigByEventTypeFromConfig({
+            config,
+            oddsFeedEventType
+        })
+        return new Date(time.getTime() + globalDelayInMillisecond + eventTypeDelayMilliseconds);
     }
 
-    public dispose() {
-        this.oddsFeedEventSource.eventOff(
-            OddsFeedEventName.EventUpcoming,
-            this.boundHandleEventUpcoming
-        )
-        return this;
-    }
-
-    private getDelayConfigByEventType({ eventId }: { eventId: number }, { oddsFeedEventType }: DelayOptions = {}): number {
-        const config = this._delayConfigByEventId[eventId];
-        if (!config) {
-            return 0;
-        }
-
+    private getDelayConfigByEventTypeFromConfig({ config, oddsFeedEventType }: { config: DelayConfig, oddsFeedEventType?: OddsFeedEventName }): number {
         if (!oddsFeedEventType) {
             return 0;
         }
@@ -90,6 +57,6 @@ export class DelayHandlingService {
                 return config.eventDetailResultAvailableDelayInMillisecond ?? 0;
             default:
                 return 0;
-        }
+        } 
     }
 }

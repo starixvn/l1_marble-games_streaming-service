@@ -12,6 +12,7 @@ import { DebugController } from "./controllers/debug-controller";
 import { AwilixDIContainer } from "odds-feed-client/awilix";
 import { init, register } from "odds-feed-client/dependency-injection";
 import { appConfigs } from "./app-configs";
+import { ReplayController } from "./controllers/replay-controller";
 
 export class ContainerRegistry {
   container: AwilixContainer<AppContainer>;
@@ -51,6 +52,7 @@ export class ContainerRegistry {
       eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
       debugController: asClass(DebugController).disposer((service) => service.dispose()).singleton(),
+      replayController: asClass(ReplayController).singleton(),
     });
 
     registerContainer(this.container as unknown as AwilixContainer<OddsFeedDataContainer>);

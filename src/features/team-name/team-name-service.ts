@@ -2,7 +2,8 @@ import { idHelper } from "../../helpers";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
-import { EventNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler } from "odds-feed-client";
+import { EventNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler, Event } from "odds-feed-client";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 export interface TeamNameState {
     homeTeamName: string;
@@ -17,7 +18,7 @@ export type TeamNameServiceContainer = {
     featureDebugService: FeatureDebugService;
 }
 
-export class TeamNameService {
+export class TeamNameService implements ReplayService<TeamNameState> {
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
     private readonly gameBroadcastService: GameBroadcastService;
@@ -57,8 +58,24 @@ export class TeamNameService {
             this.boundHandleEventStart);
     }
 
+	getReplayByEvent(event: Event): Replay<TeamNameState>[] {
+		const timeToUpdate = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
+			oddsFeedEventType: OddsFeedEventName.EventStart,
+		});
+		return [
+			{
+				time: timeToUpdate,
+				payload: {
+					homeTeamName: event.eventNameAKey,
+					awayTeamName: event.eventNameBKey,
+				},
+				eventName: this.eventName,
+			},
+		];
+	}
+
     public handleEventStart({ event }: EventNotification) {
-        const timeToUpdate = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+        const timeToUpdate = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventStart,
         });
         this.scheduler.schedule(timeToUpdate, this.handleTeamNameUpdate.bind(this, { event }));

@@ -1,8 +1,9 @@
 import { GameBroadcastService } from "../../services/game-broadcast.service";
-import { EventDetailNotification, EventNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler } from "odds-feed-client";
+import { EventDetailNotification, EventNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler, Event as OddsEvent } from "odds-feed-client";
 import { idHelper } from "../../helpers";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 export type ResultServiceContainer = {
     oddsFeedEventSource: OddsFeedEventSource;
@@ -21,7 +22,7 @@ export interface ResultState {
     result: Record<number, Result>;
 }
 
-export class ResultService {
+export class ResultService implements ReplayService<ResultState> {
 
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
@@ -73,14 +74,14 @@ export class ResultService {
     }
 
     public handleEventDetailResultAvailable({ event, index }: EventDetailNotification) {
-        const timeToUpdate = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
+        const timeToUpdate = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         });
         this.scheduler.schedule(timeToUpdate, this.handleResultUpdate.bind(this, { event, index }));
     }
 
     public handleEventStart({ event }: EventNotification) {
-        const timeToReset = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+        const timeToReset = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventStart,
         });
         this.scheduler.schedule(timeToReset, this.handleResetEvent.bind(this, { event }));
@@ -122,6 +123,45 @@ export class ResultService {
 
         this.broadcastResult({ gameId });
     }
+
+	getReplayByEvent(event: OddsEvent): Replay<ResultState>[] {
+		const replays: Replay<ResultState>[] = [];
+		// Reset at event start
+		const resetTime = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
+			oddsFeedEventType: OddsFeedEventName.EventStart,
+		});
+		replays.push({
+			time: resetTime,
+			payload: { result: { 0: { homeScore: 0, awayScore: 0 } } },
+			eventName: this.eventName,
+		});
+
+		// Build cumulative result per phase at each resultsAvailable
+		const phaseTotals: Record<number, { homeScore: number; awayScore: number }> = {};
+		event.eventDetails.forEach((detail) => {
+			const phase = detail.phase;
+			const [homeStr, awayStr] = (detail.result ?? "0:0").split(":");
+			const home = parseInt(homeStr ?? "0");
+			const away = parseInt(awayStr ?? "0");
+			const current = phaseTotals[phase] ?? { homeScore: 0, awayScore: 0 };
+			const updated = {
+				homeScore: current.homeScore + (isNaN(home) ? 0 : home),
+				awayScore: current.awayScore + (isNaN(away) ? 0 : away),
+			};
+			phaseTotals[phase] = updated;
+
+			const when = this.delayHandlingService.getDelayedTime({ event, time: new Date(detail.resultsAvailableTs) }, {
+				oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
+			});
+			replays.push({
+				time: when,
+				payload: { result: { ...phaseTotals } },
+				eventName: this.eventName,
+			});
+		});
+
+		return replays;
+	}
 
     private broadcastResult({ gameId }: { gameId: string }) {
         const currentResult = this.getCurrentByGameId(gameId);
