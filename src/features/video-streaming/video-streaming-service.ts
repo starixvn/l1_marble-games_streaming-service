@@ -1,9 +1,9 @@
 import { idHelper } from "../../helpers";
-import { Event } from "../../types";
 import { DelayHandlingService } from "../delay/delay-handling-service";
-import { EventDetailNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler } from "odds-feed-client";
+import { Event, EventDetailNotification, OddsFeedEventName, OddsFeedEventSource, Scheduler } from "odds-feed-client";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 interface VideoStreamingServiceContainer {
     oddsFeedEventSource: OddsFeedEventSource;
@@ -27,7 +27,7 @@ export interface PreloadVideoState {
     videoLink: string;
 }
 
-export class VideoStreamingService {
+export class VideoStreamingService implements ReplayService<VideoState | PreloadVideoState> {
 
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly delayHandlingService: DelayHandlingService;
@@ -50,6 +50,37 @@ export class VideoStreamingService {
 
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
     }
+    
+	getReplayByEvent(event: Event): Replay<VideoState | PreloadVideoState>[] {
+		return event.eventDetails.flatMap((_, index) => {
+			const timeToPreload = this.getTimeToPreload(event, index);
+			const timeToStream = this.getTimeToStream(event, index);
+			const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
+			const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
+
+			return [
+				{
+					time: timeToPreload,
+					payload: {
+						videoLink: event.eventDetails[index].playlist,
+					},
+					eventName: this.preloadEventName,
+				},
+				{
+					time: timeToStream,
+					payload: {
+						videoLink: event.eventDetails[index].playlist,
+						timeToStream: timeToStream.getTime(),
+						currentTime: 0,
+						phaseIndex: event.eventDetails[index].phase,
+						timeFromPhaseStart: timeFromPhaseStart.getTime(),
+						timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
+					},
+					eventName: this.streamingEventName,
+				},
+			];
+		});
+	}
 
     
     public readonly streamingEventName = "videoStreaming";
@@ -127,13 +158,13 @@ export class VideoStreamingService {
     }
 
     private getTimeToStream(event: Event, index: number) {
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
     }
 
     private getTimeToPreload(event: Event, index: number) {
-        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+        return this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
     }
@@ -143,7 +174,7 @@ export class VideoStreamingService {
         const firstEventDetailOfPhase = 
             event.eventDetails.find(detail => detail.phase === currentPhase) 
             ?? event.eventDetails[index];
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(firstEventDetailOfPhase.scheduleStartTs) }, {
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(firstEventDetailOfPhase.scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
     }
@@ -153,7 +184,7 @@ export class VideoStreamingService {
         const lastEventDetailOfPhase = 
             event.eventDetails.findLast(detail => detail.phase === currentPhase) 
             ?? event.eventDetails[index];
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(lastEventDetailOfPhase.resultsAvailableTs) }, {
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(lastEventDetailOfPhase.resultsAvailableTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
     }

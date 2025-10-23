@@ -1,10 +1,11 @@
 import { idHelper } from "../../helpers";
 import { DelayHandlingService } from "../delay/delay-handling-service";
-import { OddsFeedEventName, OddsFeedEventSource, EventNotification, EventDetailNotification, Scheduler } from "odds-feed-client";
+import { OddsFeedEventName, OddsFeedEventSource, EventNotification, EventDetailNotification, Scheduler, Event } from "odds-feed-client";
 import { isLastEventDetail, isPhaseSwitching } from "../../helpers/phase-helper";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { GameFlowTimeTrackingService } from "../game-flow-time-tracking-service/game-flow-time-tracking-service";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 export enum GameFlow {
     Prebet = "Prebet",
@@ -22,7 +23,11 @@ interface GameFlowServiceContainer {
     gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 }
 
-export class GameFlowService {
+type GameFlowPayload = {
+    state: GameFlow;
+}
+
+export class GameFlowService implements ReplayService<GameFlowPayload> {
 
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly scheduler: Scheduler;
@@ -49,6 +54,53 @@ export class GameFlowService {
         this.boundHandleResultAvailable = this.handleResultAvailable.bind(this);
         this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
     }
+    getReplayByEvent(event: Event): Replay<GameFlowPayload>[] {
+        const eventStartReplay = {
+            time: this.delayedEventScheduleStart({ event }),
+            payload: {
+                state: GameFlow.Prebet,
+            },
+            eventName: this.eventName,
+        };
+
+        const eventDetailScheduleStartReplay = event.eventDetails.map((_, index) => {
+            return {
+                time: this.delayedEventDetailScheduleStartWithVideoDelay({ event, index }),
+                payload: {
+                    state: GameFlow.Streaming,
+                },
+                eventName: this.eventName,
+            };
+        });
+        const eventDetailResultAvailableReplay = event.eventDetails.map((_, index) => {
+            const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
+            if (isLastEventDetail({ event, index })) {
+                return {
+                    time: whenToSwitch,
+                    payload: {
+                        state: GameFlow.Result,
+                    },
+                    eventName: this.eventName,
+                };
+            }
+            if (isPhaseSwitching({ event, index })) {
+                return {
+                    time: whenToSwitch,
+                    payload: {
+                        state: GameFlow.HalfTime,
+                    },
+                    eventName: this.eventName,
+                };
+            }
+            return null;
+        });
+
+        return [
+            eventStartReplay,
+            ...eventDetailScheduleStartReplay.filter((replay) => replay !== null),
+            ...eventDetailResultAvailableReplay.filter((replay) => replay !== null),
+        ];
+    }
 
     public readonly eventName = "gameFlow";
 
@@ -65,7 +117,7 @@ export class GameFlowService {
             OddsFeedEventName.EventDetailStart,
             this.boundHandleEventDetailScheduleStart
         );
-    }   
+    }
 
     public getCurrentGameFlow(gameId: string) {
         return this._gameFlowByGameId[gameId];
@@ -94,7 +146,6 @@ export class GameFlowService {
     public handleResultAvailable({ event, index }: EventDetailNotification) {
         const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
         if (isLastEventDetail({ event, index })) {
-            
             this.scheduler.schedule(whenToSwitch, this.switchToResult.bind(this, { eventId: event.eventID }));
         }
         if (isPhaseSwitching({ event, index })) {
@@ -142,19 +193,19 @@ export class GameFlowService {
     }
 
     private delayedEventDetailResultAvailable({ event, index }: EventDetailNotification) {
-        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
+        return this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].resultsAvailableTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         });
     }
 
     private delayedEventDetailScheduleStartWithVideoDelay({ event, index }: EventDetailNotification) {
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         });
     }
 
     private delayedEventScheduleStart({ event }: EventNotification | EventDetailNotification) {
-        return this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.scheduleStartTs) }, {
+        return this.delayHandlingService.getDelayedTime({ event, time: new Date(event.scheduleStartTs) }, {
             oddsFeedEventType: OddsFeedEventName.EventStart,
         });
     }
@@ -162,4 +213,5 @@ export class GameFlowService {
     private log(message: string, gameId: string) {
         this.featureDebugService.log(this, message, gameId);
     }
+
 }

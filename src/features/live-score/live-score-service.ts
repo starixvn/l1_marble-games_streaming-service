@@ -1,9 +1,10 @@
-import { EventDetailNotification, OddsFeedEventName, OddsFeedEventSource, OddsFeedService, Scheduler } from "odds-feed-client";
+import { EventDetailNotification, OddsFeedEventName, OddsFeedEventSource, OddsFeedService, Scheduler, Event as OddsEvent } from "odds-feed-client";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { idHelper } from "../../helpers";
 import { Event, GoalInfoData } from "../../types";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
+import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 export interface LiveScoreState {
     homeScore: number;
@@ -23,7 +24,7 @@ interface LiveScoreServiceContainer {
     featureDebugService: FeatureDebugService;
 }
 
-export class LiveScoreService {
+export class LiveScoreService implements ReplayService<LiveScoreState> {
 
     private readonly oddsFeedEventSource: OddsFeedEventSource;
     private readonly oddsFeedService: OddsFeedService;
@@ -66,6 +67,52 @@ export class LiveScoreService {
         );
     }
 
+	async getReplayByEvent(event: OddsEvent): Promise<Replay<LiveScoreState>[]> {
+		const replays: Replay<LiveScoreState>[] = [];
+
+		if (event.eventDetails.length > 0) {
+			const resetTime = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[0].scheduleStartTs) }, {
+				oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+			});
+			replays.push({
+				time: resetTime,
+				payload: { homeScore: 0, awayScore: 0 },
+				eventName: this.eventName,
+			});
+		}
+
+		let homeScore = 0;
+		let awayScore = 0;
+
+		for (const detail of event.eventDetails) {
+			const goalInfoUrl = detail.goalInfo;
+			try {
+				const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl, { eventId: event.eventID });
+				if (!goalInfo) {
+					continue;
+				}
+				(goalInfo.timeLine ?? []).forEach((time, goalIndex) => {
+					const goalTimeMs = new Date(detail.scheduleStartTs).getTime() + time * 1000;
+					const when = this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(goalTimeMs) }, {
+						oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+					});
+					const who = goalInfo.result?.[goalIndex] ?? "";
+					if (who === "H") { homeScore += 1; }
+					if (who === "A") { awayScore += 1; }
+					replays.push({
+						time: when,
+						payload: { homeScore, awayScore },
+						eventName: this.eventName,
+					});
+				});
+			} catch (_) {
+				// ignore missing/invalid goal info for replay
+			}
+		}
+
+		return replays;
+	}
+
     public async handleEventDetailStart({ event, index }: EventDetailNotification) {
         const goalInfoUrl = event.eventDetails[index].goalInfo;
         const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl, {
@@ -77,7 +124,7 @@ export class LiveScoreService {
         }
 
         if (index === 0) {
-            const timeToReset = this.delayHandlingService.getDelayedTime({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+            const timeToReset = this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             this.scheduler.schedule(timeToReset, this.resetLiveScore.bind(this, { gameId: idHelper.extractGameId(event.eventID) }));
@@ -85,7 +132,7 @@ export class LiveScoreService {
 
         goalInfo?.timeLine.forEach((time, goalIndex) => {
             const goalTime = new Date(event.eventDetails[index].scheduleStartTs).getTime() + time * 1000;
-            const timeToUpdate = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(goalTime) }, {
+            const timeToUpdate = this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(goalTime) }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             this.scheduler.schedule(timeToUpdate, this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] }));

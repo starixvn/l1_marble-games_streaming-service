@@ -207,7 +207,7 @@ export class CommentatorVoiceService {
         }, config.configVoice);
 
         this.scheduler.schedule(
-            this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
+            this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             }),
             this.debugVoice.bind(this, gameId, voices, {
@@ -249,7 +249,7 @@ export class CommentatorVoiceService {
 
         scheduledVoiceTimelines.forEach((timeline, voiceIndex) => {
             const voiceTime = new Date(event.eventDetails[index].scheduleStartTs).getTime() + timeline * 1000;
-            const scheduledVoiceTime = this.delayHandlingService.getDelayedTimeWithVideoDelay({ eventId: event.eventID, time: new Date(voiceTime) }, {
+            const scheduledVoiceTime = this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(voiceTime) }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             this.scheduler.schedule(

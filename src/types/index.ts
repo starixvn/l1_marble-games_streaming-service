@@ -8,6 +8,7 @@ import { logger } from "sc-common";
 import { Response } from "express";
 import { ClientManager } from "../managers/client-manager";
 import { DebugController } from "../controllers/debug-controller";
+import { ReplayController } from "../controllers/replay-controller";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
@@ -19,6 +20,7 @@ export interface AppContainer {
   healthController: HealthController;
   clientManager: ClientManager;
   debugController: DebugController;
+  replayController: ReplayController;
 }
 
 export type Event = {

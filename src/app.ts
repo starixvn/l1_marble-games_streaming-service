@@ -1,11 +1,12 @@
 import express from "express";
 import { appConfigs } from "./app-configs";
 import { Configuration } from "./configuration";
-import { setupRoutes } from "./routes";
+import { setupRoutes, RouteContainer } from "./routes";
 import { ContainerRegistry } from "./container-registry";
 import { corsMiddleware } from "./middlewares/cors";
 import { errorHandler } from "./middlewares/error-handler";
 import path from "path";
+import { AwilixContainer } from "awilix";
 
 const run = async () => {
   const configuration = new Configuration();
@@ -20,7 +21,7 @@ const run = async () => {
   app.set("port", appConfigs.hostingPort);
   app.set("trust proxy", 1);
 
-  app.use(setupRoutes(container));
+  app.use(setupRoutes(container as unknown as AwilixContainer<RouteContainer>));
 
   // Error handling middleware (must be last)
   app.use(errorHandler);
