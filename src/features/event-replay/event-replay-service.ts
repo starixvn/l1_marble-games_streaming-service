@@ -119,11 +119,11 @@ export class EventReplayService {
         };
     }
 
-    async getPastEvent(eventID: number) {
+    private  async getPastEvent(eventID: number) {
         return this.oddsFeedService.fetchEventDetails(eventID);
     }
 
-    getRelativeReplays<T>({
+    private getRelativeReplays<T>({
         fromTime,
         replays
     }: {
@@ -139,7 +139,7 @@ export class EventReplayService {
         });
     }
 
-    validatePastEvent(event?: Event | null): Event {
+    private validatePastEvent(event?: Event | null): Event {
         if (!event) {
             throw new NotFoundError();
         }

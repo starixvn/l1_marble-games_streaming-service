@@ -9,6 +9,7 @@ import { AuthController } from "../../src/controllers/auth-controller";
 import { EventStreamController } from "../../src/controllers/event-stream-controller";
 import { HealthController } from "../../src/controllers/health-controller";
 import { DebugController } from "../../src/controllers/debug-controller";
+import { ReplayController } from "../../src/controllers/replay-controller";
 
 // Mock logger
 const mockLogService: typeof logger = {
@@ -26,6 +27,7 @@ const mockAuthController = stub<AuthController>();
 const mockEventStreamController = stub<EventStreamController>();
 const mockHealthController = stub<HealthController>();
 const mockDebugController = stub<DebugController>();
+const mockReplayController = stub<ReplayController>();
 
 const mockContainer: AppContainer = {
   logService: mockLogService,
@@ -37,6 +39,7 @@ const mockContainer: AppContainer = {
   eventStreamController: mockEventStreamController,
   healthController: mockHealthController,
   debugController: mockDebugController,
+  replayController: mockReplayController,
 };
 
 export { mockContainer };

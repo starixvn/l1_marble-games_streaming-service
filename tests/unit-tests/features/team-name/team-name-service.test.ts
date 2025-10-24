@@ -227,7 +227,7 @@ describe('TeamNameService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEvent,
                 time: new Date(mockEvent.scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventStart,
@@ -608,6 +608,109 @@ describe('TeamNameService', () => {
                 `broadcast team name ${JSON.stringify(teamNamesWithSpecialChars)}`,
                 TEST_GAME_ID
             );
+        });
+    });
+
+    describe('getReplayByEvent', () => {
+        it('should return array of replay events for a given event', () => {
+            // Arrange & Act
+            const replays = teamNameService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBeGreaterThan(0);
+            expect(replays[0]).toHaveProperty('time');
+            expect(replays[0]).toHaveProperty('payload');
+            expect(replays[0]).toHaveProperty('eventName', 'teamName');
+        });
+
+        it('should call delay handling service with event object', () => {
+            // Act
+            teamNameService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEvent,
+                    time: new Date(mockEvent.scheduleStartTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventStart,
+                }
+            );
+        });
+
+        it('should include team name replay with correct payload structure', () => {
+            // Act
+            const replays = teamNameService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays.length).toBe(1);
+            const teamNameReplay = replays[0];
+            expect(teamNameReplay.payload).toHaveProperty('homeTeamName');
+            expect(teamNameReplay.payload).toHaveProperty('awayTeamName');
+            expect(teamNameReplay.payload.homeTeamName).toBe(mockEvent.eventNameAKey);
+            expect(teamNameReplay.payload.awayTeamName).toBe(mockEvent.eventNameBKey);
+        });
+
+        it('should use delayed time from delay handling service', () => {
+            // Arrange
+            const expectedDelayedTime = new Date('2023-01-01T10:05:00Z');
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(expectedDelayedTime);
+
+            // Act
+            const replays = teamNameService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays[0].time).toBe(expectedDelayedTime);
+        });
+
+        it('should handle events with empty team names', () => {
+            // Arrange
+            const eventWithEmptyNames = {
+                ...mockEvent,
+                eventNameAKey: "",
+                eventNameBKey: ""
+            };
+
+            // Act
+            const replays = teamNameService.getReplayByEvent(eventWithEmptyNames);
+
+            // Assert
+            expect(replays[0].payload).toEqual({
+                homeTeamName: "",
+                awayTeamName: ""
+            });
+        });
+
+        it('should handle events with special characters in team names', () => {
+            // Arrange
+            const eventWithSpecialNames = {
+                ...mockEvent,
+                eventNameAKey: "Team \"A\"",
+                eventNameBKey: "Team 'B'"
+            };
+
+            // Act
+            const replays = teamNameService.getReplayByEvent(eventWithSpecialNames);
+
+            // Assert
+            expect(replays[0].payload).toEqual({
+                homeTeamName: "Team \"A\"",
+                awayTeamName: "Team 'B'"
+            });
+        });
+
+        it('should return pure function result (not mutate state)', () => {
+            // Arrange
+            const initialStateKeys = Object.keys(teamNameService['teamNameByGameId']);
+
+            // Act
+            teamNameService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const finalStateKeys = Object.keys(teamNameService['teamNameByGameId']);
+            expect(finalStateKeys).toEqual(initialStateKeys);
         });
     });
 });
