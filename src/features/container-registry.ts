@@ -14,7 +14,6 @@ import { IntroService } from "./intro/intro-service";
 import { TeamNameService } from "./team-name/team-name-service";
 import { GameFlowTimeTrackingService } from "./game-flow-time-tracking-service/game-flow-time-tracking-service";
 import { EventReplayService } from "./event-replay/event-replay-service";
-import { EventProcessService } from "./event-process/event-process-service";
 
 
 export interface OddsFeedDataContainer {
@@ -33,7 +32,6 @@ export interface OddsFeedDataContainer {
     teamNameService: TeamNameService;
     gameFlowTimeTrackingService: GameFlowTimeTrackingService;
     eventReplayService: EventReplayService;
-    eventProcessService: EventProcessService;
 }
 
 
@@ -53,7 +51,6 @@ export function registerContainer(container: AwilixContainer<OddsFeedDataContain
         introService: asClass(IntroService).singleton().disposer((service) => service.dispose()),
         teamNameService: asClass(TeamNameService).singleton().disposer((service) => service.dispose()),
         eventReplayService: asClass(EventReplayService).singleton(),
-        eventProcessService: asClass(EventProcessService).singleton(),
     });
 
     return container;
@@ -61,7 +58,6 @@ export function registerContainer(container: AwilixContainer<OddsFeedDataContain
 
 export function initContainer(container: AwilixContainer<OddsFeedDataContainer>) {
     container.resolve("gameFlowService").initEvent();
-    container.resolve("eventProcessService").initEvent();
     container.resolve("currentEventService").initEvent();
     container.resolve("videoStreamingService").initEvent();
     container.resolve("liveScoreService").initEvent();

@@ -1,27 +1,17 @@
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { OddsFeedEventSource, OddsFeedEventName, EventNotification } from "odds-feed-client";
-import { Event } from "../../../../src/types";
+import { Event } from "odds-feed-client";
 
-// Mock dependencies
-const mockOddsFeedEventSource = {
-    eventOn: jest.fn(),
-    eventOff: jest.fn(),
-} as unknown as jest.Mocked<OddsFeedEventSource>;
-
-// Test constants
-const TEST_EVENT_ID = 4294967298; // gameId: 1, roundId: 2
-const TEST_GLOBAL_DELAY = 5000; // 5 seconds
-const TEST_VIDEO_DELAY = 2000; // 2 seconds
+const TEST_GLOBAL_DELAY = 5000;
+const TEST_VIDEO_DELAY = 2000;
 const TEST_BASE_TIME = '2023-01-01T10:00:00Z';
 
-// Test data
 const mockDelayConfig = {
     globalDelayInMillisecond: TEST_GLOBAL_DELAY,
     videoDelayInMillisecond: TEST_VIDEO_DELAY,
 };
 
 const mockEventWithDelay: Event & { config: { delay: typeof mockDelayConfig } } = {
-    eventID: TEST_EVENT_ID,
+    eventID: 4294967298,
     eventNameAKey: "Team A",
     eventNameBKey: "Team B",
     scheduleStartTs: TEST_BASE_TIME,
@@ -43,433 +33,254 @@ const mockEventWithoutDelay: Event = {
     eventDetails: [],
 } as any;
 
-const mockEventNotificationWithDelay: EventNotification = {
-    event: mockEventWithDelay
-};
-
-const mockEventNotificationWithoutDelay: EventNotification = {
-    event: mockEventWithoutDelay
-};
-
-// Helper functions for test setup
-const createContainer = () => ({
-    oddsFeedEventSource: mockOddsFeedEventSource,
-});
-
-const setupMocks = () => {
-    jest.clearAllMocks();
-};
-
 describe('DelayHandlingService', () => {
     let delayHandlingService: DelayHandlingService;
-    let container: any;
 
     beforeEach(() => {
-        setupMocks();
-        container = createContainer();
-        delayHandlingService = new DelayHandlingService(container);
+        delayHandlingService = new DelayHandlingService();
     });
 
-    afterEach(() => {
-        jest.restoreAllMocks();
-    });
+    describe('getDelayedTime', () => {
+        it('should return time with global delay when config exists', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            const expectedTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY);
 
-    describe('Constructor', () => {
-        it('should initialize with dependencies and bind event handlers', () => {
-            // Arrange & Act
-            const service = new DelayHandlingService(container);
+            // Act
+            const result = delayHandlingService.getDelayedTime({
+                event: mockEventWithDelay,
+                time: baseTime
+            });
 
             // Assert
-            expect(service['oddsFeedEventSource']).toBe(mockOddsFeedEventSource);
-            expect(service['boundHandleEventUpcoming']).toBeInstanceOf(Function);
+            expect(result).toEqual(expectedTime);
         });
 
-        it('should initialize empty delay config tracking object', () => {
-            // Arrange & Act
-            const service = new DelayHandlingService(container);
+        it('should return same time object when no config exists', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            const eventWithoutConfig: Event = mockEventWithoutDelay;
+
+            // Act
+            const result = delayHandlingService.getDelayedTime({
+                event: eventWithoutConfig,
+                time: baseTime
+            });
 
             // Assert
-            expect(service['_delayConfigByEventId']).toEqual({});
+            expect(result).toEqual(baseTime);
+            expect(result).toBe(baseTime);
+        });
+
+        it('should not mutate the original time object', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            const originalTime = baseTime.getTime();
+
+            // Act
+            delayHandlingService.getDelayedTime({
+                event: mockEventWithDelay,
+                time: baseTime
+            });
+
+            // Assert
+            expect(baseTime.getTime()).toBe(originalTime);
+        });
+
+        it('should handle zero global delay correctly', () => {
+            // Arrange
+            const zeroGlobalDelayConfig = {
+                globalDelayInMillisecond: 0,
+                videoDelayInMillisecond: TEST_VIDEO_DELAY,
+            };
+            const baseTime = new Date(TEST_BASE_TIME);
+            const eventWithConfig: any = {
+                ...mockEventWithDelay,
+                config: { delay: zeroGlobalDelayConfig }
+            };
+
+            // Act
+            const result = delayHandlingService.getDelayedTime({
+                event: eventWithConfig,
+                time: baseTime
+            });
+
+            // Assert
+            expect(result).toEqual(baseTime);
+        });
+
+        it('should handle negative delays correctly', () => {
+            // Arrange
+            const negativeDelayConfig = {
+                globalDelayInMillisecond: -1000,
+                videoDelayInMillisecond: -500,
+            };
+            const baseTime = new Date(TEST_BASE_TIME);
+            const eventWithConfig: any = {
+                ...mockEventWithDelay,
+                config: { delay: negativeDelayConfig }
+            };
+
+            // Act
+            const result = delayHandlingService.getDelayedTime({
+                event: eventWithConfig,
+                time: baseTime
+            });
+
+            // Assert
+            expect(result).toEqual(new Date(baseTime.getTime() - 1000));
         });
     });
 
-    describe('Event Listener Management', () => {
-        describe('initEvent', () => {
-            it('should register event listener for EventUpcoming', () => {
-                // Arrange & Act
-                delayHandlingService.initEvent();
+    describe('getDelayedTimeWithVideoDelay', () => {
+        it('should return time with both global and video delay when config exists', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            const expectedTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
 
-                // Assert
-                expect(mockOddsFeedEventSource.eventOn).toHaveBeenCalledWith(
-                    OddsFeedEventName.EventUpcoming,
-                    delayHandlingService['boundHandleEventUpcoming']
-                );
+            // Act
+            const result = delayHandlingService.getDelayedTimeWithVideoDelay({
+                event: mockEventWithDelay,
+                time: baseTime
             });
+
+            // Assert
+            expect(result).toEqual(expectedTime);
         });
 
-        describe('dispose', () => {
-            it('should unregister event listener for EventUpcoming', () => {
-                // Arrange & Act
-                const result = delayHandlingService.dispose();
+        it('should return same time object when no config exists', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            const eventWithoutConfig: Event = mockEventWithoutDelay;
 
-                // Assert
-                expect(mockOddsFeedEventSource.eventOff).toHaveBeenCalledWith(
-                    OddsFeedEventName.EventUpcoming,
-                    delayHandlingService['boundHandleEventUpcoming']
-                );
-                expect(result).toBe(delayHandlingService);
+            // Act
+            const result = delayHandlingService.getDelayedTimeWithVideoDelay({
+                event: eventWithoutConfig,
+                time: baseTime
             });
 
-            it('should return the service instance for method chaining', () => {
-                // Arrange & Act
-                const result = delayHandlingService.dispose();
-
-                // Assert
-                expect(result).toBe(delayHandlingService);
-            });
-        });
-    });
-
-    describe('Delay Configuration Management', () => {
-        beforeEach(() => {
-            // Set up some test delay configurations
-            delayHandlingService['_delayConfigByEventId'][TEST_EVENT_ID] = mockDelayConfig;
+            // Assert
+            expect(result).toEqual(baseTime);
+            expect(result).toBe(baseTime);
         });
 
-        describe('getDelayConfig', () => {
-            it('should return delay config for existing event ID', () => {
-                // Arrange
-                const eventId = TEST_EVENT_ID;
+        it('should not mutate the original time object', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            const originalTime = baseTime.getTime();
 
-                // Act
-                const result = delayHandlingService.getDelayConfig(eventId);
-
-                // Assert
-                expect(result).toEqual(mockDelayConfig);
+            // Act
+            delayHandlingService.getDelayedTimeWithVideoDelay({
+                event: mockEventWithDelay,
+                time: baseTime
             });
 
-            it('should return undefined for non-existing event ID', () => {
-                // Arrange
-                const eventId = 999999;
-
-                // Act
-                const result = delayHandlingService.getDelayConfig(eventId);
-
-                // Assert
-                expect(result).toBeUndefined();
-            });
+            // Assert
+            expect(baseTime.getTime()).toBe(originalTime);
         });
 
-        describe('handleEventUpcoming', () => {
-            it('should store delay config when event has delay configuration', () => {
-                // Arrange
-                const eventId = mockEventWithDelay.eventID;
-
-                // Act
-                delayHandlingService.handleEventUpcoming(mockEventNotificationWithDelay);
-
-                // Assert
-                expect(delayHandlingService['_delayConfigByEventId'][eventId]).toEqual(mockDelayConfig);
+        it('should apply delays in correct order (global first, then video)', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
+            
+            // Act
+            const globalDelayedTime = delayHandlingService.getDelayedTime({
+                event: mockEventWithDelay,
+                time: baseTime
+            });
+            const fullDelayedTime = delayHandlingService.getDelayedTimeWithVideoDelay({
+                event: mockEventWithDelay,
+                time: baseTime
             });
 
-            it('should throw error when event has no config property', () => {
-                // Arrange & Act & Assert
-                expect(() => {
-                    delayHandlingService.handleEventUpcoming(mockEventNotificationWithoutDelay);
-                }).toThrow('Cannot read properties of undefined');
-            });
-
-            it('should overwrite existing delay config for the same event ID', () => {
-                // Arrange
-                const eventId = TEST_EVENT_ID;
-                const newDelayConfig = {
-                    globalDelayInMillisecond: 10000,
-                    videoDelayInMillisecond: 3000,
-                };
-                const eventWithNewDelay = {
-                    ...mockEventWithDelay,
-                    config: { delay: newDelayConfig }
-                };
-                const notification: EventNotification = { event: eventWithNewDelay as any };
-
-                // Act
-                delayHandlingService.handleEventUpcoming(notification);
-
-                // Assert
-                expect(delayHandlingService['_delayConfigByEventId'][eventId]).toEqual(newDelayConfig);
-            });
-        });
-    });
-
-    describe('Time Delay Calculations', () => {
-        beforeEach(() => {
-            // Set up test delay configuration
-            delayHandlingService['_delayConfigByEventId'][TEST_EVENT_ID] = mockDelayConfig;
+            // Assert
+            const expectedIntermediateTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY);
+            const expectedFinalTime = new Date(expectedIntermediateTime.getTime() + TEST_VIDEO_DELAY);
+            
+            expect(globalDelayedTime).toEqual(expectedIntermediateTime);
+            expect(fullDelayedTime).toEqual(expectedFinalTime);
         });
 
-        describe('getDelayedTime', () => {
-            it('should return time with global delay when config exists', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                const expectedTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY);
+        it('should handle zero video delay correctly', () => {
+            // Arrange
+            const zeroVideoDelayConfig = {
+                globalDelayInMillisecond: TEST_GLOBAL_DELAY,
+                videoDelayInMillisecond: 0,
+            };
+            const baseTime = new Date(TEST_BASE_TIME);
+            const eventWithConfig: any = {
+                ...mockEventWithDelay,
+                config: { delay: zeroVideoDelayConfig }
+            };
 
-                // Act
-                const result = delayHandlingService.getDelayedTime({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(result).toEqual(expectedTime);
+            // Act
+            const result = delayHandlingService.getDelayedTimeWithVideoDelay({
+                event: eventWithConfig,
+                time: baseTime
             });
 
-            it('should return same time object when no config exists', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                const nonExistentEventId = 999999;
-
-                // Act
-                const result = delayHandlingService.getDelayedTime({
-                    eventId: nonExistentEventId,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(result).toEqual(baseTime);
-                expect(result).toBe(baseTime); // Returns the same Date object
-            });
-
-            it('should not mutate the original time object', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                const originalTime = baseTime.getTime();
-
-                // Act
-                delayHandlingService.getDelayedTime({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(baseTime.getTime()).toBe(originalTime);
-            });
+            // Assert
+            expect(result).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY));
         });
 
-        describe('getDelayedTimeWithVideoDelay', () => {
-            it('should return time with both global and video delay when config exists', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                const expectedTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
+        it('should handle negative delays correctly', () => {
+            // Arrange
+            const negativeDelayConfig = {
+                globalDelayInMillisecond: -1000,
+                videoDelayInMillisecond: -500,
+            };
+            const baseTime = new Date(TEST_BASE_TIME);
+            const eventWithConfig: any = {
+                ...mockEventWithDelay,
+                config: { delay: negativeDelayConfig }
+            };
 
-                // Act
-                const result = delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(result).toEqual(expectedTime);
+            // Act
+            const result = delayHandlingService.getDelayedTimeWithVideoDelay({
+                event: eventWithConfig,
+                time: baseTime
             });
 
-            it('should return same time object when no config exists', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                const nonExistentEventId = 999999;
-
-                // Act
-                const result = delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: nonExistentEventId,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(result).toEqual(baseTime);
-                expect(result).toBe(baseTime); // Returns the same Date object
-            });
-
-            it('should not mutate the original time object', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                const originalTime = baseTime.getTime();
-
-                // Act
-                delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(baseTime.getTime()).toBe(originalTime);
-            });
-
-            it('should apply delays in correct order (global first, then video)', () => {
-                // Arrange
-                const baseTime = new Date(TEST_BASE_TIME);
-                
-                // Act
-                const globalDelayedTime = delayHandlingService.getDelayedTime({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-                const fullDelayedTime = delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                const expectedIntermediateTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY);
-                const expectedFinalTime = new Date(expectedIntermediateTime.getTime() + TEST_VIDEO_DELAY);
-                
-                expect(globalDelayedTime).toEqual(expectedIntermediateTime);
-                expect(fullDelayedTime).toEqual(expectedFinalTime);
-            });
+            // Assert
+            expect(result).toEqual(new Date(baseTime.getTime() - 1500));
         });
     });
 
-    describe('Edge Cases and Error Scenarios', () => {
-        describe('Zero delay configurations', () => {
-            it('should handle zero global delay correctly', () => {
-                // Arrange
-                const zeroGlobalDelayConfig = {
-                    globalDelayInMillisecond: 0,
-                    videoDelayInMillisecond: TEST_VIDEO_DELAY,
-                };
-                delayHandlingService['_delayConfigByEventId'][TEST_EVENT_ID] = zeroGlobalDelayConfig;
-                const baseTime = new Date(TEST_BASE_TIME);
+    describe('Pure function behavior', () => {
+        it('should be a pure function - same inputs produce same output', () => {
+            // Arrange
+            const baseTime = new Date(TEST_BASE_TIME);
 
-                // Act
-                const globalDelayResult = delayHandlingService.getDelayedTime({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-                const videoDelayResult = delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(globalDelayResult).toEqual(baseTime);
-                expect(videoDelayResult).toEqual(new Date(baseTime.getTime() + TEST_VIDEO_DELAY));
+            // Act
+            const result1 = delayHandlingService.getDelayedTime({
+                event: mockEventWithDelay,
+                time: baseTime
+            });
+            const result2 = delayHandlingService.getDelayedTime({
+                event: mockEventWithDelay,
+                time: baseTime
             });
 
-            it('should handle zero video delay correctly', () => {
-                // Arrange
-                const zeroVideoDelayConfig = {
-                    globalDelayInMillisecond: TEST_GLOBAL_DELAY,
-                    videoDelayInMillisecond: 0,
-                };
-                delayHandlingService['_delayConfigByEventId'][TEST_EVENT_ID] = zeroVideoDelayConfig;
-                const baseTime = new Date(TEST_BASE_TIME);
-
-                // Act
-                const globalDelayResult = delayHandlingService.getDelayedTime({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-                const videoDelayResult = delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-
-                // Assert
-                expect(globalDelayResult).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY));
-                expect(videoDelayResult).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY));
-            });
+            // Assert
+            expect(result1).toEqual(result2);
         });
 
-        describe('Negative delay configurations', () => {
-            it('should handle negative delays correctly', () => {
-                // Arrange
-                const negativeDelayConfig = {
-                    globalDelayInMillisecond: -1000,
-                    videoDelayInMillisecond: -500,
-                };
-                delayHandlingService['_delayConfigByEventId'][TEST_EVENT_ID] = negativeDelayConfig;
-                const baseTime = new Date(TEST_BASE_TIME);
+        it('should handle multiple events with different delay configurations independently', () => {
+            // Arrange
+            const config1 = { globalDelayInMillisecond: 1000, videoDelayInMillisecond: 500 };
+            const config2 = { globalDelayInMillisecond: 2000, videoDelayInMillisecond: 1000 };
+            
+            const baseTime = new Date(TEST_BASE_TIME);
+            const event1: any = { ...mockEventWithDelay, config: { delay: config1 } };
+            const event2: any = { ...mockEventWithDelay, eventID: 8589934594, config: { delay: config2 } };
 
-                // Act
-                const globalDelayResult = delayHandlingService.getDelayedTime({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
-                const videoDelayResult = delayHandlingService.getDelayedTimeWithVideoDelay({
-                    eventId: TEST_EVENT_ID,
-                    time: baseTime
-                });
+            // Act
+            const result1 = delayHandlingService.getDelayedTime({ event: event1, time: baseTime });
+            const result2 = delayHandlingService.getDelayedTime({ event: event2, time: baseTime });
 
-                // Assert
-                expect(globalDelayResult).toEqual(new Date(baseTime.getTime() - 1000));
-                expect(videoDelayResult).toEqual(new Date(baseTime.getTime() - 1500));
-            });
-        });
-
-        describe('Multiple events handling', () => {
-            it('should handle multiple events with different delay configurations independently', () => {
-                // Arrange
-                const eventId1 = TEST_EVENT_ID;
-                const eventId2 = 8589934594; // Different event ID
-                const config1 = { globalDelayInMillisecond: 1000, videoDelayInMillisecond: 500 };
-                const config2 = { globalDelayInMillisecond: 2000, videoDelayInMillisecond: 1000 };
-                
-                delayHandlingService['_delayConfigByEventId'][eventId1] = config1;
-                delayHandlingService['_delayConfigByEventId'][eventId2] = config2;
-                
-                const baseTime = new Date(TEST_BASE_TIME);
-
-                // Act
-                const result1 = delayHandlingService.getDelayedTime({ eventId: eventId1, time: baseTime });
-                const result2 = delayHandlingService.getDelayedTime({ eventId: eventId2, time: baseTime });
-
-                // Assert
-                expect(result1).toEqual(new Date(baseTime.getTime() + 1000));
-                expect(result2).toEqual(new Date(baseTime.getTime() + 2000));
-            });
-        });
-
-        describe('Bound methods preservation', () => {
-            it('should maintain correct context when bound method is called directly', () => {
-                // Arrange
-                const boundHandler = delayHandlingService['boundHandleEventUpcoming'];
-                const eventId = mockEventWithDelay.eventID;
-
-                // Act - Call bound method directly (as it would be called by event emitter)
-                boundHandler(mockEventNotificationWithDelay);
-
-                // Assert
-                expect(delayHandlingService['_delayConfigByEventId'][eventId]).toEqual(mockDelayConfig);
-            });
-        });
-
-        describe('Event with malformed config', () => {
-            it('should throw error when event has null config', () => {
-                // Arrange
-                const eventWithNullConfig = {
-                    ...mockEventWithDelay,
-                    config: null
-                };
-                const notification: EventNotification = { event: eventWithNullConfig as any };
-
-                // Act & Assert
-                expect(() => {
-                    delayHandlingService.handleEventUpcoming(notification);
-                }).toThrow('Cannot read properties of null');
-            });
-
-            it('should not store config when event has undefined config.delay', () => {
-                // Arrange
-                const eventWithUndefinedDelay = {
-                    ...mockEventWithDelay,
-                    config: { delay: undefined }
-                };
-                const notification: EventNotification = { event: eventWithUndefinedDelay as any };
-                const initialConfigCount = Object.keys(delayHandlingService['_delayConfigByEventId']).length;
-
-                // Act
-                delayHandlingService.handleEventUpcoming(notification);
-
-                // Assert - should not store anything since delay is undefined
-                expect(Object.keys(delayHandlingService['_delayConfigByEventId']).length).toBe(initialConfigCount);
-            });
+            // Assert
+            expect(result1).toEqual(new Date(baseTime.getTime() + 1000));
+            expect(result2).toEqual(new Date(baseTime.getTime() + 2000));
         });
     });
 });

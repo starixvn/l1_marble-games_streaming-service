@@ -365,7 +365,7 @@ describe('CurrentEventService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: mockEvent.eventID,
+                event: mockEvent,
                 time: new Date(mockEvent.scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventStart,
@@ -407,7 +407,7 @@ describe('CurrentEventService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: mockEvent.eventID,
+                event: mockEvent,
                 time: new Date(mockEvent.eventDetails[0].resultsAvailableTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
@@ -435,6 +435,104 @@ describe('CurrentEventService', () => {
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(1);
             // Verify the scheduled function updates the event detail index
             expect(currentEventService['_currentEventDetailIndexByGameId']['1']).toBe(1);
+        });
+    });
+
+    describe('getReplayByEvent', () => {
+        it('should return array of replay events for a given event', () => {
+            // Arrange
+            const delayedTime = new Date(TEST_DELAYED_TIME);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(delayedTime);
+
+            // Act
+            const replays = currentEventService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBeGreaterThan(0);
+            expect(replays[0]).toHaveProperty('time');
+            expect(replays[0]).toHaveProperty('payload');
+        });
+
+        it('should call delay handling service with event object', () => {
+            // Arrange
+            const delayedTime = new Date(TEST_DELAYED_TIME);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(delayedTime);
+
+            // Act
+            currentEventService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEvent,
+                    time: new Date(mockEvent.scheduleStartTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventStart,
+                }
+            );
+        });
+
+        it('should include event index reset as first replay', () => {
+            // Arrange
+            const delayedTime = new Date(TEST_DELAYED_TIME);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(delayedTime);
+
+            // Act
+            const replays = currentEventService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays[0].payload).toEqual({
+                eventID: mockEvent.eventID,
+                eventDetailIndex: 0,
+                phase: mockEvent.eventDetails[0].phase,
+            });
+        });
+
+        it('should include event detail index increment replays', () => {
+            // Arrange
+            const delayedTime = new Date(TEST_DELAYED_TIME);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(delayedTime);
+
+            // Act
+            const replays = currentEventService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const incrementReplays = replays.slice(1);
+            expect(incrementReplays.length).toBeGreaterThan(0);
+            incrementReplays.forEach((replay, index) => {
+                expect(replay.payload.eventDetailIndex).toBe(index + 1);
+            });
+        });
+
+        it('should not include replay for last event detail index', () => {
+            // Arrange
+            const delayedTime = new Date(TEST_DELAYED_TIME);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(delayedTime);
+
+            // Act
+            const replays = currentEventService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const lastIndex = mockEvent.eventDetails.length - 1;
+            replays.forEach((replay) => {
+                expect(replay.payload.eventDetailIndex).not.toBe(lastIndex + 1);
+            });
+        });
+
+        it('should return pure function result (not mutate state)', () => {
+            // Arrange
+            const delayedTime = new Date(TEST_DELAYED_TIME);
+            mockDelayHandlingService.getDelayedTime.mockReturnValue(delayedTime);
+            const initialStateKeys = Object.keys(currentEventService['_currentEventByGameId']);
+
+            // Act
+            currentEventService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const finalStateKeys = Object.keys(currentEventService['_currentEventByGameId']);
+            expect(finalStateKeys).toEqual(initialStateKeys);
         });
     });
 

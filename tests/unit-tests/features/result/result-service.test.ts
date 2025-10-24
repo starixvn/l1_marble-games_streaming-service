@@ -243,7 +243,7 @@ describe('ResultService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEvent,
                 time: new Date(mockEvent.eventDetails[0].resultsAvailableTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
@@ -278,7 +278,7 @@ describe('ResultService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEvent,
                 time: new Date(mockEvent.scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventStart,
@@ -829,6 +829,160 @@ describe('ResultService', () => {
                 homeScore: 2,
                 awayScore: 1
             });
+        });
+    });
+
+    describe('getReplayByEvent', () => {
+        it('should return array of replay events for a given event', () => {
+            // Arrange & Act
+            const replays = resultService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBeGreaterThan(0);
+            expect(replays[0]).toHaveProperty('time');
+            expect(replays[0]).toHaveProperty('payload');
+            expect(replays[0]).toHaveProperty('eventName', 'result');
+        });
+
+        it('should call delay handling service with event object for event start reset', () => {
+            // Act
+            resultService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEvent,
+                    time: new Date(mockEvent.scheduleStartTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventStart,
+                }
+            );
+        });
+
+        it('should call delay handling service with event object for results available', () => {
+            // Act
+            resultService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEvent,
+                    time: new Date(mockEvent.eventDetails[0].resultsAvailableTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
+                }
+            );
+        });
+
+        it('should include reset replay as first item', () => {
+            // Act
+            const replays = resultService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const resetReplay = replays[0];
+            expect(resetReplay.payload).toEqual({ 
+                result: { 0: { homeScore: 0, awayScore: 0 } }
+            });
+        });
+
+        it('should include result update replays for each event detail', () => {
+            // Act
+            const replays = resultService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const resultReplays = replays.slice(1); // Skip reset replay
+            expect(resultReplays.length).toBe(mockEvent.eventDetails.length);
+        });
+
+        it('should build cumulative results per phase correctly', () => {
+            // Arrange
+            const eventWithMultiPhaseResults = {
+                ...mockEvent,
+                eventDetails: [
+                    createMockEventDetail({
+                        eventID: TEST_EVENT_ID,
+                        result: "1:0",
+                        phase: 1,
+                        resultsAvailableTs: "2023-01-01T10:15:00Z"
+                    }),
+                    createMockEventDetail({
+                        eventID: TEST_EVENT_ID,
+                        result: "2:1",
+                        phase: 1,
+                        resultsAvailableTs: "2023-01-01T10:25:00Z"
+                    }),
+                    createMockEventDetail({
+                        eventID: TEST_EVENT_ID,
+                        result: "0:1",
+                        phase: 2,
+                        resultsAvailableTs: "2023-01-01T10:35:00Z"
+                    })
+                ]
+            };
+
+            // Act
+            const replays = resultService.getReplayByEvent(eventWithMultiPhaseResults);
+
+            // Assert
+            const resultReplays = replays.slice(1); // Skip reset
+            expect(resultReplays[0].payload.result).toEqual({
+                1: { homeScore: 1, awayScore: 0 }
+            });
+            expect(resultReplays[1].payload.result).toEqual({
+                1: { homeScore: 3, awayScore: 1 } // Cumulative for phase 1
+            });
+            expect(resultReplays[2].payload.result).toEqual({
+                1: { homeScore: 3, awayScore: 1 },
+                2: { homeScore: 0, awayScore: 1 } // New phase 2
+            });
+        });
+
+        it('should handle invalid result strings gracefully', () => {
+            // Arrange
+            const eventWithInvalidResults = {
+                ...mockEvent,
+                eventDetails: [
+                    createMockEventDetail({
+                        eventID: TEST_EVENT_ID,
+                        result: "invalid",
+                        phase: 1,
+                        resultsAvailableTs: "2023-01-01T10:15:00Z"
+                    }),
+                    createMockEventDetail({
+                        eventID: TEST_EVENT_ID,
+                        result: undefined,
+                        phase: 1,
+                        resultsAvailableTs: "2023-01-01T10:25:00Z"
+                    })
+                ]
+            };
+
+            // Act
+            const replays = resultService.getReplayByEvent(eventWithInvalidResults);
+
+            // Assert
+            const resultReplays = replays.slice(1);
+            expect(resultReplays[0].payload.result).toEqual({
+                1: { homeScore: 0, awayScore: 0 } // Invalid results default to 0:0
+            });
+            expect(resultReplays[1].payload.result).toEqual({
+                1: { homeScore: 0, awayScore: 0 } // Still 0:0
+            });
+        });
+
+        it('should return pure function result (not mutate state)', () => {
+            // Arrange
+            const initialStateKeys = Object.keys(resultService['_resultByGameId']);
+
+            // Act
+            resultService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const finalStateKeys = Object.keys(resultService['_resultByGameId']);
+            expect(finalStateKeys).toEqual(initialStateKeys);
         });
     });
 });

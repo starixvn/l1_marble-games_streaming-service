@@ -280,7 +280,7 @@ describe('GameFlowService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEventWithDetails,
                 time: new Date(mockEventWithDetails.scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventStart,
@@ -335,7 +335,7 @@ describe('GameFlowService', () => {
             // Assert
             expect(mockIsLastEventDetail).toHaveBeenCalledWith(mockLastEventDetailNotification);
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEventWithDetails,
                 time: new Date(mockEventWithDetails.eventDetails[2].resultsAvailableTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
@@ -358,7 +358,7 @@ describe('GameFlowService', () => {
             // Assert
             expect(mockIsPhaseSwitching).toHaveBeenCalledWith(mockPhaseSwitchingNotification);
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEventWithDetails,
                 time: new Date(mockEventWithDetails.eventDetails[0].resultsAvailableTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
@@ -469,7 +469,7 @@ describe('GameFlowService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEventWithDetails,
                 time: new Date(mockEventWithDetails.eventDetails[0].scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
@@ -500,6 +500,109 @@ describe('GameFlowService', () => {
                 'switch to \x1b[32mStreaming\x1b[37m',
                 TEST_GAME_ID
             );
+        });
+    });
+
+    describe('getReplayByEvent', () => {
+        it('should return array of replay events for a given event', () => {
+            // Arrange & Act
+            const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBeGreaterThan(0);
+            expect(replays[0]).toHaveProperty('time');
+            expect(replays[0]).toHaveProperty('payload');
+            expect(replays[0]).toHaveProperty('eventName', 'gameFlow');
+        });
+
+        it('should call delay handling service with event object for event start', () => {
+            // Act
+            gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEventWithDetails,
+                    time: new Date(mockEventWithDetails.scheduleStartTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventStart,
+                }
+            );
+        });
+
+        it('should call delay handling service with event object for event detail start', () => {
+            // Act
+            gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith(
+                {
+                    event: mockEventWithDetails,
+                    time: new Date(mockEventWithDetails.eventDetails[0].scheduleStartTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+                }
+            );
+        });
+
+        it('should include event start replay with prebet state', () => {
+            // Act
+            const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            const eventStartReplay = replays.find(r => r.payload.state === GameFlow.Prebet);
+            expect(eventStartReplay).toBeDefined();
+            expect(eventStartReplay?.payload.state).toBe(GameFlow.Prebet);
+        });
+
+        it('should include event detail start replays with streaming state', () => {
+            // Act
+            const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            const streamingReplays = replays.filter(r => r.payload.state === GameFlow.Streaming);
+            expect(streamingReplays.length).toBe(mockEventWithDetails.eventDetails.length);
+        });
+
+        it('should include result replay when is last event detail', () => {
+            // Arrange
+            mockIsLastEventDetail.mockReturnValue(true);
+            mockIsPhaseSwitching.mockReturnValue(false);
+
+            // Act
+            const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            const resultReplays = replays.filter(r => r.payload.state === GameFlow.Result);
+            expect(resultReplays.length).toBeGreaterThan(0);
+        });
+
+        it('should include half time replay when is phase switching', () => {
+            // Arrange
+            mockIsLastEventDetail.mockReturnValue(false);
+            mockIsPhaseSwitching.mockReturnValue(true);
+
+            // Act
+            const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            const halfTimeReplays = replays.filter(r => r.payload.state === GameFlow.HalfTime);
+            expect(halfTimeReplays.length).toBeGreaterThan(0);
+        });
+
+        it('should return pure function result (not mutate state)', () => {
+            // Arrange
+            const initialState = gameFlowService.getCurrentGameFlow(TEST_GAME_ID);
+
+            // Act
+            gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+            // Assert
+            const finalState = gameFlowService.getCurrentGameFlow(TEST_GAME_ID);
+            expect(finalState).toBe(initialState);
         });
     });
 });

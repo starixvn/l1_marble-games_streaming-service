@@ -62,7 +62,6 @@ describe("Feature Container Registry", () => {
             expect(reg.gameFlowService).toBeTruthy();
             expect(reg.gameFlowService.__meta.singletonCalled).toBe(true);
             expect(reg.gameFlowService.__meta.proxyCalled).toBe(false);
-            expect(reg.gameFlowService.__meta.disposerFn).toBeUndefined();
         });
 
         it("should register feature debug service", () => {
@@ -81,10 +80,7 @@ describe("Feature Container Registry", () => {
             const reg = container.__getRegistered();
             expect(reg.delayHandlingService).toBeTruthy();
             expect(reg.delayHandlingService.__meta.singletonCalled).toBe(true);
-            expect(typeof reg.delayHandlingService.__meta.disposerFn).toBe("function");
-            const spy = { dispose: jest.fn() };
-            reg.delayHandlingService.__meta.disposerFn?.(spy);
-            expect(spy.dispose).toHaveBeenCalledTimes(1);
+            expect(reg.featureDebugService.__meta.disposerFn).toBeUndefined();
         });
 
         it("should register game flow time tracking service", () => {
@@ -213,11 +209,6 @@ describe("Feature Container Registry", () => {
                 stubs[name] = { initEvent: jest.fn() } as any;
                 container.__setResolved(name, stubs[name]);
             });
-        });
-
-        it("should call init event delay handling service", () => {
-            initContainer(container);
-            expect(stubs.delayHandlingService.initEvent).toHaveBeenCalledTimes(1);
         });
 
         it("should call init current event service", () => {

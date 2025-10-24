@@ -287,7 +287,7 @@ describe('LiveScoreService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID,
+                event: mockEvent,
                 time: new Date(mockEvent.eventDetails[0].scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
@@ -306,7 +306,7 @@ describe('LiveScoreService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTime).not.toHaveBeenCalled();
-            expect(mockScheduler.schedule).toHaveBeenCalledTimes(3); // Only 3 goals, no reset
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(3);
         });
 
         it('should schedule score updates for each goal in timeline', async () => {
@@ -317,10 +317,10 @@ describe('LiveScoreService', () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledTimes(3);
-            expect(mockScheduler.schedule).toHaveBeenCalledTimes(4); // 1 reset + 3 goals
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(4);
             
             // Verify each goal is scheduled
-            const goalCalls = mockScheduler.schedule.mock.calls.slice(1); // Skip reset call
+            const goalCalls = mockScheduler.schedule.mock.calls.slice(1);
             goalCalls.forEach((call, index) => {
                 expect(call[0]).toBe(TEST_DELAYED_TIME_WITH_VIDEO);
                 expect(call[1]).toBeInstanceOf(Function);
@@ -339,17 +339,17 @@ describe('LiveScoreService', () => {
             // Assert
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 1,
-                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime1) },
+                { event: mockEvent, time: new Date(expectedGoalTime1) },
                 { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
             );
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 2,
-                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime2) },
+                { event: mockEvent, time: new Date(expectedGoalTime2) },
                 { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
             );
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenNthCalledWith(
                 3,
-                { eventId: TEST_EVENT_ID, time: new Date(expectedGoalTime3) },
+                { event: mockEvent, time: new Date(expectedGoalTime3) },
                 { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
             );
         });
@@ -745,6 +745,135 @@ describe('LiveScoreService', () => {
             // Act & Assert
             await expect(liveScoreService.handleEventDetailStart(mockEventDetailNotification))
                 .rejects.toThrow('Service error');
+        });
+    });
+
+    describe('getReplayByEvent', () => {
+        it('should return array of replay events for a given event', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo);
+
+            // Act
+            const replays = await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBeGreaterThan(0);
+            expect(replays[0]).toHaveProperty('time');
+            expect(replays[0]).toHaveProperty('payload');
+            expect(replays[0]).toHaveProperty('eventName', 'liveScore');
+        });
+
+        it('should return empty array when event has no details', async () => {
+            // Arrange
+            const eventWithoutDetails = createMockEvent({
+                eventID: TEST_EVENT_ID,
+                scheduleStartTs: TEST_SCHEDULE_START_TS,
+                eventDetails: []
+            });
+
+            // Act
+            const replays = await liveScoreService.getReplayByEvent(eventWithoutDetails);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBe(0);
+        });
+
+        it('should call delay handling service with event object for score reset', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo);
+
+            // Act
+            await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEvent,
+                    time: new Date(mockEvent.eventDetails[0].scheduleStartTs)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+                }
+            );
+        });
+
+        it('should call delay handling service with event object for goal scoring', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo);
+
+            // Act
+            await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            // Should be called once per goal, per event detail (2 event details * 3 goals = 6 calls)
+            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledTimes(6);
+        });
+
+        it('should include score reset replay as first item when event has details', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo);
+
+            // Act
+            const replays = await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const resetReplay = replays[0];
+            expect(resetReplay.payload).toEqual({ homeScore: 0, awayScore: 0 });
+        });
+
+        it('should include goal scoring replays with correct cumulative scores', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo);
+
+            // Act
+            const replays = await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const goalReplays = replays.slice(1); // Skip reset replay
+            expect(goalReplays[0].payload).toEqual({ homeScore: 1, awayScore: 0 }); // First H
+            expect(goalReplays[1].payload).toEqual({ homeScore: 1, awayScore: 1 }); // Then A
+            expect(goalReplays[2].payload).toEqual({ homeScore: 2, awayScore: 1 }); // Finally H
+        });
+
+        it('should handle missing goal info gracefully', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(null);
+
+            // Act
+            const replays = await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBe(1); // Only reset replay
+            expect(replays[0].payload).toEqual({ homeScore: 0, awayScore: 0 });
+        });
+
+        it('should handle goal info service error gracefully', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockRejectedValue(new Error('Service error'));
+
+            // Act
+            const replays = await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBe(1); // Only reset replay, errors ignored
+            expect(replays[0].payload).toEqual({ homeScore: 0, awayScore: 0 });
+        });
+
+        it('should return pure function result (not mutate state)', async () => {
+            // Arrange
+            mockOddsFeedService.getRemoteJson.mockResolvedValue(mockGoalInfo);
+            const initialStateKeys = Object.keys(liveScoreService['_liveScoreByGameId']);
+
+            // Act
+            await liveScoreService.getReplayByEvent(mockEvent);
+
+            // Assert
+            const finalStateKeys = Object.keys(liveScoreService['_liveScoreByGameId']);
+            expect(finalStateKeys).toEqual(initialStateKeys);
         });
     });
 });

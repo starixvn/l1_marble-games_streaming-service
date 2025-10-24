@@ -1,8 +1,7 @@
 import { setupRoutes } from "../../../src/routes/index";
-import { Router } from "express";
 import { AppContainer } from "../../../src/types";
 import { AwilixContainer } from "awilix";
-import { Request, Response } from "express";
+import { Request, Response, Router } from "express";
 
 // Mock Express Router
 jest.mock("express", () => ({
@@ -29,6 +28,10 @@ const mockAuthController = {
 };
 
 const mockDebugController = {
+  handle: jest.fn(),
+};
+
+const mockReplayController = {
   handle: jest.fn(),
 };
 
@@ -92,6 +95,8 @@ describe("setupRoutes", () => {
           return mockMonitorController;
         case "debugController":
           return mockDebugController;
+        case "replayController":
+          return mockReplayController;
         default:
           throw new Error(`Unknown key: ${key}`);
       }
@@ -108,7 +113,8 @@ describe("setupRoutes", () => {
       expect(mockContainer.resolve).toHaveBeenCalledWith("healthController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("authController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("debugController");
-      expect(mockContainer.resolve).toHaveBeenCalledTimes(4);
+      expect(mockContainer.resolve).toHaveBeenCalledWith("replayController");
+      expect(mockContainer.resolve).toHaveBeenCalledTimes(5);
     });
 
     it("should throw error when container fails to resolve controllers", () => {
@@ -159,13 +165,18 @@ describe("setupRoutes", () => {
       expect(mockRouter.get).toHaveBeenCalledWith("/live/:gameId", expect.any(Function));
     });
 
-    it("should register debug routes at /debug-stream/:gameId and /debug/:gameId", () => {
+    it("should register debug routes at /debug-stream/:gameId", () => {
       expect(mockRouter.get).toHaveBeenCalledWith("/debug-stream/:gameId", expect.any(Function));
+    });
+
+    it("should register replay route at /replay/:eventID", () => {
+      // Assert
+      expect(mockRouter.get).toHaveBeenCalledWith("/replay/:eventID", expect.any(Function));
     });
 
     it("should register expected number of routes", () => {
       // Assert
-      expect(mockRouter.get).toHaveBeenCalledTimes(3); // health, live, debug-stream, debug page
+      expect(mockRouter.get).toHaveBeenCalledTimes(4); // health, live, debug-stream, replay
       expect(mockRouter.post).toHaveBeenCalledTimes(1); // auth
       expect(mockRouter.put).not.toHaveBeenCalled();
       expect(mockRouter.delete).not.toHaveBeenCalled();
@@ -351,6 +362,76 @@ describe("setupRoutes", () => {
     });
   });
 
+  describe("replay route handler", () => {
+    it("should call replayController.handle when /replay/:eventID route is accessed", () => {
+      // Arrange
+      const mockReq = createMockRequest({ eventID: "4294967298" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/replay/:eventID")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockReplayController.handle).toHaveBeenCalledWith(mockReq, mockRes);
+      expect(mockReplayController.handle).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle replay route with different event IDs", () => {
+      // Arrange
+      const mockReq1 = createMockRequest({ eventID: "4294967298" });
+      const mockReq2 = createMockRequest({ eventID: "8589934594" });
+      const mockReq3 = createMockRequest({ eventID: "12884901890" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/replay/:eventID")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq1, mockRes);
+        routeHandler(mockReq2, mockRes);
+        routeHandler(mockReq3, mockRes);
+      }
+
+      // Assert
+      expect(mockReplayController.handle).toHaveBeenCalledWith(mockReq1, mockRes);
+      expect(mockReplayController.handle).toHaveBeenCalledWith(mockReq2, mockRes);
+      expect(mockReplayController.handle).toHaveBeenCalledWith(mockReq3, mockRes);
+      expect(mockReplayController.handle).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle replay route with query parameters", () => {
+      // Arrange
+      const mockReq = createMockRequest({ eventID: "4294967298" }, { token: "abc123", format: "json" });
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/replay/:eventID")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockReplayController.handle).toHaveBeenCalledWith(mockReq, mockRes);
+    });
+
+    it("should handle replay route with missing event ID", () => {
+      // Arrange
+      const mockReq = createMockRequest({});
+      const mockRes = createMockResponse();
+      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/replay/:eventID")?.[1];
+
+      // Act
+      if (routeHandler) {
+        routeHandler(mockReq, mockRes);
+      }
+
+      // Assert
+      expect(mockReplayController.handle).toHaveBeenCalledWith(mockReq, mockRes);
+    });
+  });
+
   describe("route handler error handling", () => {
     it("should handle controller method throwing errors", () => {
       // Arrange
@@ -401,6 +482,8 @@ describe("setupRoutes", () => {
       // Check that routes are registered
       expect(getCalls.some((call: any) => call[0] === "/")).toBe(true);
       expect(getCalls.some((call: any) => call[0] === "/live/:gameId")).toBe(true);
+      expect(getCalls.some((call: any) => call[0] === "/debug-stream/:gameId")).toBe(true);
+      expect(getCalls.some((call: any) => call[0] === "/replay/:eventID")).toBe(true);
       expect(postCalls.some((call: any) => call[0] === "/api/token")).toBe(true);
     });
 

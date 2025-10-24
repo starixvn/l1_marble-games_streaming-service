@@ -198,13 +198,13 @@ describe("VideoStreamingService", () => {
 
             // Assert
             expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID_1,
+                event: mockEvent1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
             });
             expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID_1,
+                event: mockEvent1,
                 time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
             }, {
                 oddsFeedEventType: OddsFeedEventName.EventDetailStart,
@@ -212,6 +212,15 @@ describe("VideoStreamingService", () => {
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
             expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, TEST_DELAYED_TIME_VIDEO, expect.any(Function));
             expect(mockScheduler.schedule).toHaveBeenNthCalledWith(2, TEST_DELAYED_TIME_PRELOAD, expect.any(Function));
+        });
+
+        it("should call private delay calculation methods indirectly", () => {
+            // Act
+            videoStreamingService.handleEventDetailScheduleStart(mockEventDetailNotification1);
+
+            // Assert - Verify delay methods are called through handleEventDetailScheduleStart
+            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledTimes(1); // getTimeToStream
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledTimes(1); // getTimeToPreload
         });
 
         it("should schedule with correct bound methods", () => {
@@ -270,6 +279,27 @@ describe("VideoStreamingService", () => {
                 expect.stringContaining(`video streaming started with event ${TEST_EVENT_ID_1} and index ${TEST_INDEX}`),
                 TEST_GAME_ID_1
             );
+        });
+
+        it("should call delay handling service with video delay indirectly", () => {
+            // Act
+            videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
+                event: mockEvent1,
+                time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
+            }, {
+                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+            });
+        });
+
+        it("should call all private delay calculation methods indirectly", () => {
+            // Act
+            videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
+
+            // Assert - Verify all private delay methods are called through onLiveStreamStart
+            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledTimes(3); // getTimeToStream + getTimeFromPhaseStart + getTimeFromPhaseEnd
         });
 
         it("should extract correct game ID using idHelper", () => {
@@ -448,119 +478,179 @@ describe("VideoStreamingService", () => {
         });
     });
 
-    describe("log", () => {
-        it("should call featureDebugService.log with correct parameters", () => {
+    describe("getReplayByEvent", () => {
+        it("should return array of replay events for a given event", () => {
+            // Arrange & Act
+            const replays = videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBeGreaterThan(0);
+            expect(replays[0]).toHaveProperty('time');
+            expect(replays[0]).toHaveProperty('payload');
+            expect(replays[0]).toHaveProperty('eventName');
+        });
+
+        it("should return empty array for event without event details", () => {
             // Arrange
-            const message = 'test message';
-            const gameId = TEST_GAME_ID_1;
+            const eventWithoutDetails = createMockEvent({
+                eventID: TEST_EVENT_ID_1,
+                eventDetails: []
+            });
 
             // Act
-            videoStreamingService['log'](message, gameId);
+            const replays = videoStreamingService.getReplayByEvent(eventWithoutDetails);
 
             // Assert
-            expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
-                videoStreamingService,
-                message,
-                gameId
+            expect(replays).toBeInstanceOf(Array);
+            expect(replays.length).toBe(0);
+        });
+
+        it("should call delay handling service with event object for preload", () => {
+            // Act
+            videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
+                {
+                    event: mockEvent1,
+                    time: expect.any(Date)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+                }
             );
         });
 
-        it("should handle empty message", () => {
+        it("should call delay handling service with event object for streaming", () => {
+            // Act
+            videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith(
+                {
+                    event: mockEvent1,
+                    time: expect.any(Date)
+                },
+                {
+                    oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+                }
+            );
+        });
+
+        it("should include preload replay for each event detail with video config", () => {
+            // Act
+            const replays = videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            const preloadReplays = replays.filter(r => r.eventName === videoStreamingService.preloadEventName);
+            expect(preloadReplays.length).toBe(mockEvent1.eventDetails.length);
+            
+            preloadReplays.forEach((replay, index) => {
+                const payload = replay.payload as any;
+                expect(payload).toHaveProperty('videoLink');
+                expect(payload.videoLink).toBe(mockEvent1.eventDetails[index].playlist);
+            });
+        });
+
+        it("should include streaming replay for each event detail with video config", () => {
+            // Act
+            const replays = videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            const streamingReplays = replays.filter(r => r.eventName === videoStreamingService.streamingEventName);
+            expect(streamingReplays.length).toBe(mockEvent1.eventDetails.length);
+            
+            streamingReplays.forEach((replay, index) => {
+                const payload = replay.payload as any;
+                expect(payload).toHaveProperty('videoLink');
+                expect(payload).toHaveProperty('currentTime', 0);
+                expect(payload).toHaveProperty('timeToStream');
+                expect(payload).toHaveProperty('phaseIndex');
+                expect(payload).toHaveProperty('timeFromPhaseStart');
+                expect(payload).toHaveProperty('timeFromPhaseEnd');
+            });
+        });
+
+        it("should use correct video URLs from event detail configurations", () => {
+            // Act
+            const replays = videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            const preloadReplays = replays.filter(r => r.eventName === videoStreamingService.preloadEventName);
+            const streamingReplays = replays.filter(r => r.eventName === videoStreamingService.streamingEventName);
+            
+            expect((preloadReplays[0].payload as any).videoLink).toBe(TEST_PLAYLIST_URL_1);
+            expect((streamingReplays[0].payload as any).videoLink).toBe(TEST_PLAYLIST_URL_1);
+            
+            if (mockEvent1.eventDetails.length > 1) {
+                expect((preloadReplays[1].payload as any).videoLink).toBe(TEST_PLAYLIST_URL_2);
+                expect((streamingReplays[1].payload as any).videoLink).toBe(TEST_PLAYLIST_URL_2);
+            }
+        });
+
+        it("should calculate correct phase information in streaming replays", () => {
+            // Act
+            const replays = videoStreamingService.getReplayByEvent(mockEvent1);
+
+            // Assert
+            const streamingReplays = replays.filter(r => r.eventName === videoStreamingService.streamingEventName);
+            
+            streamingReplays.forEach((replay, index) => {
+                expect((replay.payload as any).phaseIndex).toBe(mockEvent1.eventDetails[index].phase);
+                expect(replay.payload).toHaveProperty('timeFromPhaseStart');
+                expect(replay.payload).toHaveProperty('timeFromPhaseEnd');
+            });
+        });
+
+        it("should return pure function result (not mutate state)", () => {
             // Arrange
-            const message = '';
-            const gameId = TEST_GAME_ID_1;
+            const initialStateKeys = Object.keys(videoStreamingService['_currentVideoStateByGameId']);
+            const initialPreloadKeys = Object.keys(videoStreamingService['_preloadVideoStateByGameId']);
 
             // Act
-            videoStreamingService['log'](message, gameId);
+            videoStreamingService.getReplayByEvent(mockEvent1);
 
             // Assert
-            expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
-                videoStreamingService,
-                message,
-                gameId
-            );
+            const finalStateKeys = Object.keys(videoStreamingService['_currentVideoStateByGameId']);
+            const finalPreloadKeys = Object.keys(videoStreamingService['_preloadVideoStateByGameId']);
+            expect(finalStateKeys).toEqual(initialStateKeys);
+            expect(finalPreloadKeys).toEqual(initialPreloadKeys);
         });
 
-        it("should handle different game IDs", () => {
+        it("should handle events with mixed video configurations", () => {
             // Arrange
-            const message = 'test message';
-
-            // Act
-            videoStreamingService['log'](message, TEST_GAME_ID_1);
-            videoStreamingService['log'](message, TEST_GAME_ID_2);
-
-            // Assert
-            expect(mockFeatureDebugService.log).toHaveBeenCalledTimes(2);
-            expect(mockFeatureDebugService.log).toHaveBeenNthCalledWith(
-                1,
-                videoStreamingService,
-                message,
-                TEST_GAME_ID_1
-            );
-            expect(mockFeatureDebugService.log).toHaveBeenNthCalledWith(
-                2,
-                videoStreamingService,
-                message,
-                TEST_GAME_ID_2
-            );
-        });
-    });
-
-    describe("getTimeToStream", () => {
-        it("should call delay handling service with video delay", () => {
-            // Act
-            const result = videoStreamingService['getTimeToStream'](mockEvent1, TEST_INDEX);
-
-            // Assert
-            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID_1,
-                time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
-            }, {
-                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+            const eventWithMixedConfig = createMockEvent({
+                eventID: TEST_EVENT_ID_1,
+                eventDetails: [
+                    createMockEventDetail({ 
+                        scheduleStartTs: TEST_SCHEDULE_START_TS,
+                        playlist: TEST_PLAYLIST_URL_1,
+                        phase: 1
+                    }),
+                    createMockEventDetail({ 
+                        scheduleStartTs: "2023-01-01T10:30:00Z",
+                        playlist: undefined, // No playlist for this detail
+                        phase: 2
+                    }),
+                    createMockEventDetail({ 
+                        scheduleStartTs: "2023-01-01T10:45:00Z",
+                        playlist: TEST_PLAYLIST_URL_2,
+                        phase: 3
+                    })
+                ]
             });
-            expect(result).toBe(TEST_DELAYED_TIME_VIDEO);
-        });
 
-        it("should handle different event indices", () => {
             // Act
-            videoStreamingService['getTimeToStream'](mockEvent1, 0);
+            const replays = videoStreamingService.getReplayByEvent(eventWithMixedConfig);
 
             // Assert
-            expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID_1,
-                time: new Date(mockEvent1.eventDetails[0].scheduleStartTs)
-            }, {
-                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-            });
-        });
-    });
-
-    describe("getTimeToPreload", () => {
-        it("should call delay handling service without video delay", () => {
-            // Act
-            const result = videoStreamingService['getTimeToPreload'](mockEvent1, TEST_INDEX);
-
-            // Assert
-            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID_1,
-                time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs)
-            }, {
-                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-            });
-            expect(result).toBe(TEST_DELAYED_TIME_PRELOAD);
-        });
-
-        it("should handle different event indices", () => {
-            // Act
-            videoStreamingService['getTimeToPreload'](mockEvent1, 0);
-
-            // Assert
-            expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith({
-                eventId: TEST_EVENT_ID_1,
-                time: new Date(mockEvent1.eventDetails[0].scheduleStartTs)
-            }, {
-                oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-            });
+            // Should have replays for all details, even those without video config
+            const preloadReplays = replays.filter(r => r.eventName === videoStreamingService.preloadEventName);
+            const streamingReplays = replays.filter(r => r.eventName === videoStreamingService.streamingEventName);
+            
+            expect(preloadReplays.length).toBe(3);
+            expect(streamingReplays.length).toBe(3);
         });
     });
 
