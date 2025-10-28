@@ -375,16 +375,13 @@ describe('IntroService', () => {
             expect(replays[0]).toHaveProperty('eventName', 'intro');
         });
 
-        it('should return array with default values for event without intro config', () => {
+        it('should return no intro replays for event without intro config', () => {
             // Arrange & Act
             const replays = introService.getReplayByEvent(mockEventWithoutIntroConfig as any);
 
             // Assert
             expect(replays).toBeInstanceOf(Array);
-            expect(replays.length).toBeGreaterThan(0);
-            // Should still create replays but with default values (duration = 0, resourceServer = "")
-            expect(replays[0].payload.duration).toBe(0);
-            expect(replays[0].payload.resourceServer).toBe("");
+            expect(replays.length).toBe(0);
         });
 
         it('should call delay handling service with event object for prebet intro', () => {
