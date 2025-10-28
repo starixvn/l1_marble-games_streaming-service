@@ -42,6 +42,10 @@ export class IntroService implements ReplayService<IntroState> {
         this.boundHandleEventStart = this.handleEventStart.bind(this);
     }
 	getReplayByEvent(event: Event): Replay<IntroState>[] {
+        if (!(event as any).config?.intro) {
+            return [];
+        }
+
 		const duration = (event as any).config?.intro?.duration ?? 0;
 		const resourceServer = (event as any).config?.intro?.resourceServer ?? "";
 		const durationInMilliseconds = duration * 1000;
