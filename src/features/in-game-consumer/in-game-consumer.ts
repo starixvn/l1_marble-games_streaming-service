@@ -38,9 +38,15 @@ export class InGameConsumer {
     }
     
     public getCurrentByGameId(gameId: string) {
+
+        const currentEvent = this.currentEventService.getCurrentByGameId(gameId);
+        if (!currentEvent) {
+            return {};
+        }
+
         return {
             [this.gameFlowService.eventName]: this.gameFlowService.getCurrentByGameId(gameId),
-            [this.currentEventService.eventName]: this.currentEventService.getCurrentByGameId(gameId),
+            [this.currentEventService.eventName]: currentEvent,
             [this.videoStreamingService.streamingEventName]: this.videoStreamingService.getCurrentVideoStateByGameId(gameId),
             [this.videoStreamingService.preloadEventName]: this.videoStreamingService.getCurrentPreloadVideoStateByGameId(gameId),
             [this.resultService.eventName]: this.resultService.getCurrentByGameId(gameId),

@@ -103,6 +103,11 @@ export class CurrentEventService implements ReplayService<CurrentEventPayload> {
     }
 
     public getCurrentByGameId(gameId: string) {
+
+        if (!this._currentEventByGameId[gameId]) {
+            return null;
+        }
+
         return {
             event: this.getCurrentEventByGameId(gameId),
             eventDetailIndex: this.getCurrentEventDetailIndexByGameId(gameId),
@@ -189,10 +194,13 @@ export class CurrentEventService implements ReplayService<CurrentEventPayload> {
         eventID: number,
         index: number,
     }) {
-        this.gameBroadcastService.broadcastToAllClientByGameId(
-            gameId,
-            this.getCurrentByGameId(gameId),
-            this.eventName
-        );
+        const currentEvent = this.getCurrentByGameId(gameId);
+        if (currentEvent) {
+            this.gameBroadcastService.broadcastToAllClientByGameId(
+                gameId,
+                currentEvent,
+                this.eventName
+            );
+        }
     }
 }
