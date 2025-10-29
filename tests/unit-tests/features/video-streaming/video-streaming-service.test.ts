@@ -333,6 +333,29 @@ describe("VideoStreamingService", () => {
                 })
             );
         });
+
+        it("should broadcast empty object when getCurrentVideoStateByGameId returns null", () => {
+            // Arrange
+            const extractGameIdSpy = jest.spyOn(idHelper, 'extractGameId').mockReturnValue("non-existent-game");
+            const getCurrentVideoStateSpy = jest.spyOn(videoStreamingService, 'getCurrentVideoStateByGameId').mockReturnValue(null);
+            const notification: EventDetailNotification = {
+                event: mockEvent1,
+                index: 0
+            };
+
+            // Act
+            videoStreamingService.onLiveStreamStart(notification);
+
+            // Assert
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+                "non-existent-game",
+                {}, // Empty object fallback
+                videoStreamingService.streamingEventName
+            );
+            
+            extractGameIdSpy.mockRestore();
+            getCurrentVideoStateSpy.mockRestore();
+        });
     });
 
     describe("onLiveStreamPreload", () => {
@@ -395,6 +418,7 @@ describe("VideoStreamingService", () => {
             const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
 
             // Assert
+            expect(result).not.toBeNull();
 			expect(result).toEqual({
                 videoLink: TEST_PLAYLIST_URL_1,
                 timeToStream: TEST_TIME_TO_STREAM,
@@ -413,7 +437,10 @@ describe("VideoStreamingService", () => {
             const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
 
             // Assert
-            expect(result.currentTime).toBe(0);
+            expect(result).not.toBeNull();
+            if (result) {
+                expect(result.currentTime).toBe(0);
+            }
         });
 
         it("should handle negative time difference correctly", () => {
@@ -424,14 +451,18 @@ describe("VideoStreamingService", () => {
             const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
 
             // Assert
-            expect(result.currentTime).toBe(-30000);
+            expect(result).not.toBeNull();
+            if (result) {
+                expect(result.currentTime).toBe(-30000);
+            }
         });
 
-        it("should throw error for non-existent game", () => {
-            // Act & Assert
-            expect(() => {
-                videoStreamingService.getCurrentVideoStateByGameId("non-existent-game");
-            }).toThrow();
+        it("should return null for non-existent game", () => {
+            // Act
+            const result = videoStreamingService.getCurrentVideoStateByGameId("non-existent-game");
+
+            // Assert
+            expect(result).toBeNull();
         });
     });
 
@@ -730,7 +761,10 @@ describe("VideoStreamingService", () => {
             const result = videoStreamingService.getCurrentVideoStateByGameId(TEST_GAME_ID_1);
 
             // Assert
-            expect(result.currentTime).toBe(86400000); // 24 hours in milliseconds
+            expect(result).not.toBeNull();
+            if (result) {
+                expect(result.currentTime).toBe(86400000); // 24 hours in milliseconds
+            }
         });
     });
 });

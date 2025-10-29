@@ -124,9 +124,10 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
         this.log(`video streaming started with event ${event.eventID} and index ${index}
             ${JSON.stringify(currentVideoState, null, 2)}
             `, gameId);
+        const payload = this.getCurrentVideoStateByGameId(gameId) ?? {};
         this.gameBroadcastService.broadcastToAllClientByGameId(
             gameId, 
-            this.getCurrentVideoStateByGameId(gameId),
+            payload,
             this.streamingEventName);
     }
 
@@ -143,6 +144,11 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
     }
 
     getCurrentVideoStateByGameId(gameId: string) {
+
+        if (!this._currentVideoStateByGameId[gameId]) {
+            return null;
+        }
+
         return {
             ...this._currentVideoStateByGameId[gameId],
             currentTime: Date.now() - this._currentVideoStateByGameId[gameId].timeToStream,

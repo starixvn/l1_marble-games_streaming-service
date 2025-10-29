@@ -298,7 +298,7 @@ describe('CurrentEventService', () => {
             });
         });
 
-        it('should return undefined values for non-existing game ID', () => {
+        it('should return null for non-existing game ID', () => {
             // Arrange
             const gameId = '999';
 
@@ -306,11 +306,19 @@ describe('CurrentEventService', () => {
             const result = currentEventService.getCurrentByGameId(gameId);
 
             // Assert
-            expect(result).toEqual({
-                event: undefined,
-                eventDetailIndex: undefined,
-                phase: undefined,
-            });
+            expect(result).toBeNull();
+        });
+
+        it('should return null when current event is falsy', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            currentEventService['_currentEventByGameId'][gameId] = 0; // falsy value
+
+            // Act
+            const result = currentEventService.getCurrentByGameId(gameId);
+
+            // Assert
+            expect(result).toBeNull();
         });
     });
 
@@ -916,6 +924,20 @@ describe('CurrentEventService', () => {
                 },
                 currentEventService.eventName
             );
+        });
+
+        it('should not broadcast when there is no current event', () => {
+            // Arrange
+            const gameId = TEST_GAME_ID;
+            const eventID = mockEvent.eventID;
+            const index = 1;
+            // Don't set up any current event data
+
+            // Act
+            currentEventService['notifyClient']({ gameId, eventID, index });
+
+            // Assert
+            expect(mockGameBroadcastService.broadcastToAllClientByGameId).not.toHaveBeenCalled();
         });
     });
 
