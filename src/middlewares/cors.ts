@@ -30,7 +30,7 @@ export const applyCors = (req: Request, res: Response, next: NextFunction) => {
       }
     },
 
-    credentials: true
+    credentials: true,
   };
 
   return cors(corsOptions)(req, res, next);

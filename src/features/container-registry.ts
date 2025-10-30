@@ -15,54 +15,69 @@ import { TeamNameService } from "./team-name/team-name-service";
 import { GameFlowTimeTrackingService } from "./game-flow-time-tracking-service/game-flow-time-tracking-service";
 import { EventReplayService } from "./event-replay/event-replay-service";
 
-
 export interface OddsFeedDataContainer {
-    logService: typeof logger;
-    delayHandlingService: DelayHandlingService;
-    currentEventService: CurrentEventService;
-    gameFlowService: GameFlowService;
-    videoStreamingService: VideoStreamingService;
-    inGameConsumer: InGameConsumer;
-    gameBroadcastService: GameBroadcastService;
-    liveScoreService: LiveScoreService;
-    resultService: ResultService;
-    featureDebugService: FeatureDebugService;
-    commentatorVoiceService: CommentatorVoiceService;
-    introService: IntroService;
-    teamNameService: TeamNameService;
-    gameFlowTimeTrackingService: GameFlowTimeTrackingService;
-    eventReplayService: EventReplayService;
+  logService: typeof logger;
+  delayHandlingService: DelayHandlingService;
+  currentEventService: CurrentEventService;
+  gameFlowService: GameFlowService;
+  videoStreamingService: VideoStreamingService;
+  inGameConsumer: InGameConsumer;
+  gameBroadcastService: GameBroadcastService;
+  liveScoreService: LiveScoreService;
+  resultService: ResultService;
+  featureDebugService: FeatureDebugService;
+  commentatorVoiceService: CommentatorVoiceService;
+  introService: IntroService;
+  teamNameService: TeamNameService;
+  gameFlowTimeTrackingService: GameFlowTimeTrackingService;
+  eventReplayService: EventReplayService;
 }
 
-
 export function registerContainer(container: AwilixContainer<OddsFeedDataContainer>) {
-    container.register({
-        gameFlowService: asClass(GameFlowService).singleton().disposer((service) => service.dispose()),
-        featureDebugService: asClass(FeatureDebugService).singleton(),
-        delayHandlingService: asClass(DelayHandlingService).singleton(),
-        gameFlowTimeTrackingService: asClass(GameFlowTimeTrackingService).singleton(),
-        currentEventService: asClass(CurrentEventService).singleton().disposer((service) => service.dispose()),
-        videoStreamingService: asClass(VideoStreamingService).singleton().disposer((service) => service.dispose()),
-        inGameConsumer: asClass(InGameConsumer).singleton(),
-        gameBroadcastService: asClass(GameBroadcastService).singleton(),
-        liveScoreService: asClass(LiveScoreService).singleton().proxy().disposer((service) => service.dispose()),
-        resultService: asClass(ResultService).singleton().disposer((service) => service.dispose()),
-        commentatorVoiceService: asClass(CommentatorVoiceService).singleton().disposer((service) => service.dispose()),
-        introService: asClass(IntroService).singleton().disposer((service) => service.dispose()),
-        teamNameService: asClass(TeamNameService).singleton().disposer((service) => service.dispose()),
-        eventReplayService: asClass(EventReplayService).singleton(),
-    });
+  container.register({
+    gameFlowService: asClass(GameFlowService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    featureDebugService: asClass(FeatureDebugService).singleton(),
+    delayHandlingService: asClass(DelayHandlingService).singleton(),
+    gameFlowTimeTrackingService: asClass(GameFlowTimeTrackingService).singleton(),
+    currentEventService: asClass(CurrentEventService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    videoStreamingService: asClass(VideoStreamingService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    inGameConsumer: asClass(InGameConsumer).singleton(),
+    gameBroadcastService: asClass(GameBroadcastService).singleton(),
+    liveScoreService: asClass(LiveScoreService)
+      .singleton()
+      .proxy()
+      .disposer((service) => service.dispose()),
+    resultService: asClass(ResultService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    commentatorVoiceService: asClass(CommentatorVoiceService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    introService: asClass(IntroService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    teamNameService: asClass(TeamNameService)
+      .singleton()
+      .disposer((service) => service.dispose()),
+    eventReplayService: asClass(EventReplayService).singleton(),
+  });
 
-    return container;
+  return container;
 }
 
 export function initContainer(container: AwilixContainer<OddsFeedDataContainer>) {
-    container.resolve("gameFlowService").initEvent();
-    container.resolve("currentEventService").initEvent();
-    container.resolve("videoStreamingService").initEvent();
-    container.resolve("liveScoreService").initEvent();
-    container.resolve("resultService").initEvent();
-    container.resolve("commentatorVoiceService").initEvent();
-    container.resolve("introService").initEvent();
-    container.resolve("teamNameService").initEvent();
+  container.resolve("gameFlowService").initEvent();
+  container.resolve("currentEventService").initEvent();
+  container.resolve("videoStreamingService").initEvent();
+  container.resolve("liveScoreService").initEvent();
+  container.resolve("resultService").initEvent();
+  container.resolve("commentatorVoiceService").initEvent();
+  container.resolve("introService").initEvent();
+  container.resolve("teamNameService").initEvent();
 }
