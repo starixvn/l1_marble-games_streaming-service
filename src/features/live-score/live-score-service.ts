@@ -148,7 +148,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
       );
     }
 
-    goalInfo?.timeLine.forEach((time, goalIndex) => {
+    goalInfo?.timeLine?.forEach((time, goalIndex) => {
       const goalTime = new Date(event.eventDetails[index].scheduleStartTs).getTime() + time * 1000;
       const timeToUpdate = this.delayHandlingService.getDelayedTimeWithVideoDelay(
         { event, time: new Date(goalTime) },
