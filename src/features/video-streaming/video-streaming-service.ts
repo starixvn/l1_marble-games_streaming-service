@@ -6,192 +6,198 @@ import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { Replay, ReplayService } from "../event-replay/event-replay-service";
 
 interface VideoStreamingServiceContainer {
-    oddsFeedEventSource: OddsFeedEventSource;
-    delayHandlingService: DelayHandlingService;
-    scheduler: Scheduler;
-    gameBroadcastService: GameBroadcastService;
-    featureDebugService: FeatureDebugService;
+  oddsFeedEventSource: OddsFeedEventSource;
+  delayHandlingService: DelayHandlingService;
+  scheduler: Scheduler;
+  gameBroadcastService: GameBroadcastService;
+  featureDebugService: FeatureDebugService;
 }
 
-
 export interface VideoState {
-    videoLink: string;
-    timeToStream: number;
-    currentTime: number;
-    phaseIndex: number;
-    timeFromPhaseStart: number;
-    timeFromPhaseEnd: number;
+  videoLink: string;
+  timeToStream: number;
+  currentTime: number;
+  phaseIndex: number;
+  timeFromPhaseStart: number;
+  timeFromPhaseEnd: number;
 }
 
 export interface PreloadVideoState {
-    videoLink: string;
+  videoLink: string;
 }
 
 export class VideoStreamingService implements ReplayService<VideoState | PreloadVideoState> {
+  private readonly oddsFeedEventSource: OddsFeedEventSource;
+  private readonly delayHandlingService: DelayHandlingService;
+  private readonly scheduler: Scheduler;
+  private readonly gameBroadcastService: GameBroadcastService;
+  private readonly featureDebugService: FeatureDebugService;
 
-    private readonly oddsFeedEventSource: OddsFeedEventSource;
-    private readonly delayHandlingService: DelayHandlingService;
-    private readonly scheduler: Scheduler;
-    private readonly gameBroadcastService: GameBroadcastService;
-    private readonly featureDebugService: FeatureDebugService;
-    
-    private readonly _currentVideoStateByGameId: Record<string, VideoState> = {};
-    private readonly _preloadVideoStateByGameId: Record<string, PreloadVideoState> = {};
+  private readonly _currentVideoStateByGameId: Record<string, VideoState> = {};
+  private readonly _preloadVideoStateByGameId: Record<string, PreloadVideoState> = {};
 
-    private readonly boundHandleEventDetailScheduleStart: (notification: EventDetailNotification) => void;
+  private readonly boundHandleEventDetailScheduleStart: (notification: EventDetailNotification) => void;
 
+  constructor(container: VideoStreamingServiceContainer) {
+    this.oddsFeedEventSource = container.oddsFeedEventSource;
+    this.delayHandlingService = container.delayHandlingService;
+    this.scheduler = container.scheduler;
+    this.gameBroadcastService = container.gameBroadcastService;
+    this.featureDebugService = container.featureDebugService;
 
-    constructor(container: VideoStreamingServiceContainer) {
-        this.oddsFeedEventSource = container.oddsFeedEventSource;
-        this.delayHandlingService = container.delayHandlingService;
-        this.scheduler = container.scheduler;
-        this.gameBroadcastService = container.gameBroadcastService;
-        this.featureDebugService = container.featureDebugService;
+    this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
+  }
 
-        this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
-    }
-    
-	getReplayByEvent(event: Event): Replay<VideoState | PreloadVideoState>[] {
-		return event.eventDetails.flatMap((_, index) => {
-			const timeToPreload = this.getTimeToPreload(event, index);
-			const timeToStream = this.getTimeToStream(event, index);
-			const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
-			const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
+  getReplayByEvent(event: Event): Replay<VideoState | PreloadVideoState>[] {
+    return event.eventDetails.flatMap((_, index) => {
+      const timeToPreload = this.getTimeToPreload(event, index);
+      const timeToStream = this.getTimeToStream(event, index);
+      const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
+      const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
 
-			return [
-				{
-					time: timeToPreload,
-					payload: {
-						videoLink: event.eventDetails[index].playlist,
-					},
-					eventName: this.preloadEventName,
-				},
-				{
-					time: timeToStream,
-					payload: {
-						videoLink: event.eventDetails[index].playlist,
-						timeToStream: timeToStream.getTime(),
-						currentTime: 0,
-						phaseIndex: event.eventDetails[index].phase,
-						timeFromPhaseStart: timeFromPhaseStart.getTime(),
-						timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
-					},
-					eventName: this.streamingEventName,
-				},
-			];
-		});
-	}
-
-    
-    public readonly streamingEventName = "videoStreaming";
-    public readonly preloadEventName = "preloadVideo"
-
-    public initEvent() {
-        this.oddsFeedEventSource.eventDetailOn(
-            OddsFeedEventName.EventDetailStart,
-            this.boundHandleEventDetailScheduleStart
-        );
-    }
-
-    public dispose() {
-        this.oddsFeedEventSource.eventDetailOff(
-            OddsFeedEventName.EventDetailStart,
-            this.boundHandleEventDetailScheduleStart
-        );
-    }
-
-    public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
-        const timeToStream = this.getTimeToStream(event, index);
-        const timeToPreload = this.getTimeToPreload(event, index);
-        this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }));
-        this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }));
-    }
-
-    onLiveStreamStart({ event, index }: EventDetailNotification) {
-        const gameId = idHelper.extractGameId(event.eventID);
-        const timeToStream = this.getTimeToStream(event, index);
-        const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
-        const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
-        this._currentVideoStateByGameId[gameId] = {
+      return [
+        {
+          time: timeToPreload,
+          payload: {
+            videoLink: event.eventDetails[index].playlist,
+          },
+          eventName: this.preloadEventName,
+        },
+        {
+          time: timeToStream,
+          payload: {
             videoLink: event.eventDetails[index].playlist,
             timeToStream: timeToStream.getTime(),
             currentTime: 0,
             phaseIndex: event.eventDetails[index].phase,
             timeFromPhaseStart: timeFromPhaseStart.getTime(),
             timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
-        };
-        const currentVideoState = this.getCurrentVideoStateByGameId(gameId);
-        this.log(`video streaming started with event ${event.eventID} and index ${index}
+          },
+          eventName: this.streamingEventName,
+        },
+      ];
+    });
+  }
+
+  public readonly streamingEventName = "videoStreaming";
+  public readonly preloadEventName = "preloadVideo";
+
+  public initEvent() {
+    this.oddsFeedEventSource.eventDetailOn(
+      OddsFeedEventName.EventDetailStart,
+      this.boundHandleEventDetailScheduleStart
+    );
+  }
+
+  public dispose() {
+    this.oddsFeedEventSource.eventDetailOff(
+      OddsFeedEventName.EventDetailStart,
+      this.boundHandleEventDetailScheduleStart
+    );
+  }
+
+  public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
+    const timeToStream = this.getTimeToStream(event, index);
+    const timeToPreload = this.getTimeToPreload(event, index);
+    this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }));
+    this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }));
+  }
+
+  onLiveStreamStart({ event, index }: EventDetailNotification) {
+    const gameId = idHelper.extractGameId(event.eventID);
+    const timeToStream = this.getTimeToStream(event, index);
+    const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
+    const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
+    this._currentVideoStateByGameId[gameId] = {
+      videoLink: event.eventDetails[index].playlist,
+      timeToStream: timeToStream.getTime(),
+      currentTime: 0,
+      phaseIndex: event.eventDetails[index].phase,
+      timeFromPhaseStart: timeFromPhaseStart.getTime(),
+      timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
+    };
+    const currentVideoState = this.getCurrentVideoStateByGameId(gameId);
+    this.log(
+      `video streaming started with event ${event.eventID} and index ${index}
             ${JSON.stringify(currentVideoState, null, 2)}
-            `, gameId);
-        const payload = this.getCurrentVideoStateByGameId(gameId) ?? {};
-        this.gameBroadcastService.broadcastToAllClientByGameId(
-            gameId, 
-            payload,
-            this.streamingEventName);
+            `,
+      gameId
+    );
+    const payload = this.getCurrentVideoStateByGameId(gameId) ?? {};
+    this.gameBroadcastService.broadcastToAllClientByGameId(gameId, payload, this.streamingEventName);
+  }
+
+  onLiveStreamPreload({ event, index }: EventDetailNotification) {
+    const gameId = idHelper.extractGameId(event.eventID);
+    this._preloadVideoStateByGameId[gameId] = {
+      videoLink: event.eventDetails[index].playlist,
+    };
+
+    this.gameBroadcastService.broadcastToAllClientByGameId(
+      gameId,
+      this.getCurrentPreloadVideoStateByGameId(gameId),
+      this.preloadEventName
+    );
+  }
+
+  getCurrentVideoStateByGameId(gameId: string) {
+    if (!this._currentVideoStateByGameId[gameId]) {
+      return null;
     }
 
-    onLiveStreamPreload({ event, index }: EventDetailNotification) {
-        const gameId = idHelper.extractGameId(event.eventID);
-        this._preloadVideoStateByGameId[gameId] = {
-            videoLink: event.eventDetails[index].playlist,
-        };
+    return {
+      ...this._currentVideoStateByGameId[gameId],
+      currentTime: Date.now() - this._currentVideoStateByGameId[gameId].timeToStream,
+    };
+  }
 
-        this.gameBroadcastService.broadcastToAllClientByGameId(
-            gameId, 
-            this.getCurrentPreloadVideoStateByGameId(gameId),
-            this.preloadEventName);
-    }
+  getCurrentPreloadVideoStateByGameId(gameId: string) {
+    return this._preloadVideoStateByGameId[gameId];
+  }
 
-    getCurrentVideoStateByGameId(gameId: string) {
+  private log(message: string, gameId: string) {
+    this.featureDebugService.log(this, message, gameId);
+  }
 
-        if (!this._currentVideoStateByGameId[gameId]) {
-            return null;
-        }
+  private getTimeToStream(event: Event, index: number) {
+    return this.delayHandlingService.getDelayedTimeWithVideoDelay(
+      { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
+      {
+        oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+      }
+    );
+  }
 
-        return {
-            ...this._currentVideoStateByGameId[gameId],
-            currentTime: Date.now() - this._currentVideoStateByGameId[gameId].timeToStream,
-        };
-    }
+  private getTimeToPreload(event: Event, index: number) {
+    return this.delayHandlingService.getDelayedTime(
+      { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
+      {
+        oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+      }
+    );
+  }
 
-    getCurrentPreloadVideoStateByGameId(gameId: string) {
-        return this._preloadVideoStateByGameId[gameId];
-    }
+  private getTimeFromPhaseStart(event: Event, index: number) {
+    const currentPhase = event.eventDetails[index].phase;
+    const firstEventDetailOfPhase =
+      event.eventDetails.find((detail) => detail.phase === currentPhase) ?? event.eventDetails[index];
+    return this.delayHandlingService.getDelayedTimeWithVideoDelay(
+      { event, time: new Date(firstEventDetailOfPhase.scheduleStartTs) },
+      {
+        oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+      }
+    );
+  }
 
-    private log(message: string, gameId: string) {
-        this.featureDebugService.log(this, message, gameId);
-    }
-
-    private getTimeToStream(event: Event, index: number) {
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
-            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-        });
-    }
-
-    private getTimeToPreload(event: Event, index: number) {
-        return this.delayHandlingService.getDelayedTime({ event, time: new Date(event.eventDetails[index].scheduleStartTs) }, {
-            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-        });
-    }
-
-    private getTimeFromPhaseStart(event: Event, index: number) {
-        const currentPhase = event.eventDetails[index].phase;
-        const firstEventDetailOfPhase = 
-            event.eventDetails.find(detail => detail.phase === currentPhase) 
-            ?? event.eventDetails[index];
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(firstEventDetailOfPhase.scheduleStartTs) }, {
-            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-        });
-    }
-
-    private getTimeFromPhaseEnd(event: Event, index: number) {
-        const currentPhase = event.eventDetails[index].phase;
-        const lastEventDetailOfPhase = 
-            event.eventDetails.findLast(detail => detail.phase === currentPhase) 
-            ?? event.eventDetails[index];
-        return this.delayHandlingService.getDelayedTimeWithVideoDelay({ event, time: new Date(lastEventDetailOfPhase.resultsAvailableTs) }, {
-            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-        });
-    }
+  private getTimeFromPhaseEnd(event: Event, index: number) {
+    const currentPhase = event.eventDetails[index].phase;
+    const lastEventDetailOfPhase =
+      event.eventDetails.findLast((detail) => detail.phase === currentPhase) ?? event.eventDetails[index];
+    return this.delayHandlingService.getDelayedTimeWithVideoDelay(
+      { event, time: new Date(lastEventDetailOfPhase.resultsAvailableTs) },
+      {
+        oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+      }
+    );
+  }
 }

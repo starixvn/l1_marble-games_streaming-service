@@ -16,6 +16,6 @@ export class EventStreamService {
     this.clientManager.addClient(res, gameId);
     const currentFeaturePayload = this.inGameConsumer.getCurrentByGameId(gameId);
 
-    res.write(`data: ${JSON.stringify({...currentFeaturePayload, message: "FeatureBroadCast" })}\n\n`);
+    res.write(`data: ${JSON.stringify({ ...currentFeaturePayload, message: "FeatureBroadCast" })}\n\n`);
   }
 }

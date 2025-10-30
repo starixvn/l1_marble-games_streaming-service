@@ -34,8 +34,7 @@ export class ContainerRegistry {
     });
 
     this.container.register({
-      clientManager: 
-        asClass(ClientManager)
+      clientManager: asClass(ClientManager)
         .singleton()
         .disposer((service) => service.destroy()),
     });
@@ -46,12 +45,13 @@ export class ContainerRegistry {
       logService: asValue(logger),
     });
 
-
     this.container.register({
       authController: asClass(AuthController).singleton(),
       eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
-      debugController: asClass(DebugController).disposer((service) => service.dispose()).singleton(),
+      debugController: asClass(DebugController)
+        .disposer((service) => service.dispose())
+        .singleton(),
       replayController: asClass(ReplayController).singleton(),
     });
 

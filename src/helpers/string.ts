@@ -1,3 +1,3 @@
 export function isNullOrUndefinedOrEmpty(value: string) {
-    return value === null || value === undefined || value === "";
+  return value === null || value === undefined || value === "";
 }

@@ -14,7 +14,6 @@ export interface RouteContainer {
   replayController: ReplayController;
 }
 
-
 export function setupRoutes(container: AwilixContainer<RouteContainer>): Router {
   const router = Router();
   const eventStreamController = container.resolve("eventStreamController");
