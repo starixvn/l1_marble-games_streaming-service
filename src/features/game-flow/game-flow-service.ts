@@ -17,6 +17,7 @@ import { Replay, ReplayService } from "../event-replay/event-replay-service";
 export enum GameFlow {
   Prebet = "Prebet",
   Streaming = "Streaming",
+  AfterGoal = "AfterGoal",
   HalfTime = "HalfTime",
   Result = "Result",
 }
@@ -147,9 +148,10 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
     if (isLastEventDetail({ event, index })) {
       this.scheduler.schedule(whenToSwitch, this.switchToResult.bind(this, { eventId: event.eventID }));
-    }
-    if (isPhaseSwitching({ event, index })) {
+    } else if (isPhaseSwitching({ event, index })) {
       this.scheduler.schedule(whenToSwitch, this.switchToHalfTime.bind(this, { eventId: event.eventID }));
+    } else {
+      this.scheduler.schedule(whenToSwitch, this.switchToAfterGoal.bind(this, { eventId: event.eventID }));
     }
   }
 
@@ -171,6 +173,10 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
 
   private switchToStreaming({ eventId }: { eventId: number }) {
     this.switchGameFlow({ eventId, gameFlow: GameFlow.Streaming });
+  }
+
+  private switchToAfterGoal({ eventId }: { eventId: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.AfterGoal });
   }
 
   private switchToHalfTime({ eventId }: { eventId: number }) {
