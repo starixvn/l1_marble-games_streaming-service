@@ -1,0 +1,1 @@
+export const GLOBAL_DEFAULT_VIDEO_LENGTH = 30;
