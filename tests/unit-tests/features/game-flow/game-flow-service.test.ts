@@ -1,11 +1,9 @@
 import { GameFlowService, GameFlow } from "../../../../src/features/game-flow/game-flow-service";
-import { OddsFeedEventSource, OddsFeedEventName, EventNotification, EventDetailNotification } from "odds-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventNotification, EventDetailNotification, Scheduler } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Scheduler } from "odds-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { GameFlowTimeTrackingService } from "../../../../src/features/game-flow-time-tracking-service/game-flow-time-tracking-service";
-import { idHelper } from "../../../../src/helpers";
 import { isLastEventDetail, isPhaseSwitching } from "../../../../src/helpers/phase-helper";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
 import { runLastScheduledCallback, clearScheduler } from "../../test-utils/scheduler-test-utils";
@@ -346,13 +344,12 @@ describe('GameFlowService', () => {
             );
         });
 
-        it('should schedule switch to half time when is phase switching', () => {
+        it('should schedule switch to phase change when is phase switching', () => {
             // Arrange
             mockIsPhaseSwitching.mockReturnValue(true);
 
             // Act
             gameFlowService.handleResultAvailable(mockPhaseSwitchingNotification);
-            runLastScheduledCallback(mockScheduler);
             runLastScheduledCallback(mockScheduler);
 
             // Assert
@@ -369,7 +366,7 @@ describe('GameFlowService', () => {
             );
         });
 
-        it('should schedule both transitions when both conditions are true', () => {
+        it('should prioritize result when both conditions are true', () => {
             // Arrange
             mockIsLastEventDetail.mockReturnValue(true);
             mockIsPhaseSwitching.mockReturnValue(true);
@@ -379,10 +376,10 @@ describe('GameFlowService', () => {
             runLastScheduledCallback(mockScheduler);
 
             // Assert
-            expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(1);
         });
 
-        it('should not schedule any transitions when neither condition is true', () => {
+        it('should schedule switch to event detail change when neither condition is true', () => {
             // Arrange
             mockIsLastEventDetail.mockReturnValue(false);
             mockIsPhaseSwitching.mockReturnValue(false);
@@ -391,7 +388,7 @@ describe('GameFlowService', () => {
             gameFlowService.handleResultAvailable(mockEventDetailNotification);
 
             // Assert
-            expect(mockScheduler.schedule).not.toHaveBeenCalled();
+            expect(mockScheduler.schedule).toHaveBeenCalled();
         });
 
         it('should execute scheduled switch to result correctly', () => {
@@ -406,7 +403,7 @@ describe('GameFlowService', () => {
             expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.Result);
         });
 
-        it('should execute scheduled switch to half time correctly', () => {
+        it('should execute scheduled switch to phase change correctly', () => {
             // Arrange
             mockIsPhaseSwitching.mockReturnValue(true);
 
@@ -415,10 +412,10 @@ describe('GameFlowService', () => {
             runLastScheduledCallback(mockScheduler);
 
             // Assert
-            expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.HalfTime);
+            expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.PhaseChange);
         });
 
-        it('should log when switching to half time', () => {
+        it('should log when switching to phase change', () => {
             // Arrange
             mockIsPhaseSwitching.mockReturnValue(true);
             // Act
@@ -428,7 +425,7 @@ describe('GameFlowService', () => {
             // Assert
             expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
                 gameFlowService,
-                'switch to \x1b[32mHalfTime\x1b[37m',
+                'switch to \x1b[32mPhaseChange\x1b[37m',
                 TEST_GAME_ID
             );
         });
@@ -580,7 +577,7 @@ describe('GameFlowService', () => {
             expect(resultReplays.length).toBeGreaterThan(0);
         });
 
-        it('should include half time replay when is phase switching', () => {
+        it('should include phase change replay when is phase switching', () => {
             // Arrange
             mockIsLastEventDetail.mockReturnValue(false);
             mockIsPhaseSwitching.mockReturnValue(true);
@@ -589,8 +586,8 @@ describe('GameFlowService', () => {
             const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
 
             // Assert
-            const halfTimeReplays = replays.filter(r => r.payload.state === GameFlow.HalfTime);
-            expect(halfTimeReplays.length).toBeGreaterThan(0);
+            const phaseChangeReplays = replays.filter(r => r.payload.state === GameFlow.PhaseChange);
+            expect(phaseChangeReplays.length).toBeGreaterThan(0);
         });
 
         it('should return pure function result (not mutate state)', () => {
