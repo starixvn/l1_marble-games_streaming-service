@@ -17,8 +17,8 @@ import { Replay, ReplayService } from "../event-replay/event-replay-service";
 export enum GameFlow {
   Prebet = "Prebet",
   Streaming = "Streaming",
-  AfterGoal = "AfterGoal",
-  HalfTime = "HalfTime",
+  EventDetailChange = "EventDetailChange",
+  PhaseChange = "PhaseChange",
   Result = "Result",
 }
 
@@ -94,7 +94,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
         return {
           time: whenToSwitch,
           payload: {
-            state: GameFlow.HalfTime,
+            state: GameFlow.PhaseChange,
           },
           eventName: this.eventName,
         };
@@ -149,9 +149,9 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     if (isLastEventDetail({ event, index })) {
       this.scheduler.schedule(whenToSwitch, this.switchToResult.bind(this, { eventId: event.eventID }));
     } else if (isPhaseSwitching({ event, index })) {
-      this.scheduler.schedule(whenToSwitch, this.switchToHalfTime.bind(this, { eventId: event.eventID }));
+      this.scheduler.schedule(whenToSwitch, this.switchToPhaseChange.bind(this, { eventId: event.eventID }));
     } else {
-      this.scheduler.schedule(whenToSwitch, this.switchToAfterGoal.bind(this, { eventId: event.eventID }));
+      this.scheduler.schedule(whenToSwitch, this.switchToEventDetailChange.bind(this, { eventId: event.eventID }));
     }
   }
 
@@ -175,12 +175,12 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     this.switchGameFlow({ eventId, gameFlow: GameFlow.Streaming });
   }
 
-  private switchToAfterGoal({ eventId }: { eventId: number }) {
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.AfterGoal });
+  private switchToEventDetailChange({ eventId }: { eventId: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.EventDetailChange });
   }
 
-  private switchToHalfTime({ eventId }: { eventId: number }) {
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.HalfTime });
+  private switchToPhaseChange({ eventId }: { eventId: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.PhaseChange });
   }
 
   private switchToResult({ eventId }: { eventId: number }) {
