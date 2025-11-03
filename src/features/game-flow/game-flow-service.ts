@@ -63,7 +63,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   }
   getReplayByEvent(event: Event): Replay<GameFlowPayload>[] {
     const eventStartReplay = {
-      time: this.delayedEventScheduleStart({ event }),
+      time: this.delayHandlingService.getTimeToStartEvent(event),
       payload: {
         state: GameFlow.Prebet,
       },
@@ -72,7 +72,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
 
     const eventDetailScheduleStartReplay = event.eventDetails.map((_, index) => {
       return {
-        time: this.delayedEventDetailScheduleStartWithVideoDelay({ event, index }),
+        time: this.delayHandlingService.getTimeToStream(event, index),
         payload: {
           state: GameFlow.Streaming,
         },
@@ -140,7 +140,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   }
 
   public handleEventStart({ event }: EventNotification) {
-    const whenToSwitchToPrebet = this.delayedEventScheduleStart({ event });
+    const whenToSwitchToPrebet = this.delayHandlingService.getTimeToStartEvent(event);
     this.scheduler.schedule(whenToSwitchToPrebet, this.switchToPrebet.bind(this, { eventId: event.eventID }));
   }
 
@@ -156,7 +156,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   }
 
   public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
-    const whenToSwitchToStreaming = this.delayedEventDetailScheduleStartWithVideoDelay({ event, index });
+    const whenToSwitchToStreaming = this.delayHandlingService.getTimeToStream(event, index);
     this.scheduler.schedule(whenToSwitchToStreaming, this.switchToStreaming.bind(this, { eventId: event.eventID }));
   }
 
@@ -207,24 +207,6 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
       { event, time: new Date(event.eventDetails[index].resultsAvailableTs) },
       {
         oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
-      }
-    );
-  }
-
-  private delayedEventDetailScheduleStartWithVideoDelay({ event, index }: EventDetailNotification) {
-    return this.delayHandlingService.getDelayedTimeWithVideoDelay(
-      { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
-      {
-        oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-      }
-    );
-  }
-
-  private delayedEventScheduleStart({ event }: EventNotification | EventDetailNotification) {
-    return this.delayHandlingService.getDelayedTime(
-      { event, time: new Date(event.scheduleStartTs) },
-      {
-        oddsFeedEventType: OddsFeedEventName.EventStart,
       }
     );
   }
