@@ -75,4 +75,22 @@ export class DelayHandlingService {
         return 0;
     }
   }
+
+  public getTimeToStream(event: Event, index: number) {
+    return this.getDelayedTimeWithVideoDelay(
+      { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
+      {
+        oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+      }
+    );
+  }
+
+  public getTimeToStartEvent(event: Event) {
+    return this.getDelayedTime(
+      { event, time: new Date(event.scheduleStartTs) },
+      {
+        oddsFeedEventType: OddsFeedEventName.EventStart,
+      }
+    );
+  }
 }
