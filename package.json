@@ -39,7 +39,7 @@
     "extensionless": "1.9.9",
     "jest-mock-extended": "4.0.0",
     "jsonwebtoken": "9.0.2",
-    "odds-feed-client": "3.0.1",
+    "odds-feed-client": "3.0.2",
     "sc-common": "3.0.0",
     "sc-core-rng": "1.1.0",
     "tldts": "7.0.11"

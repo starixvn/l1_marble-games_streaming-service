@@ -3801,10 +3801,10 @@ object-inspect@^1.13.3:
   resolved "http://npm.lumigame.com/object-inspect/-/object-inspect-1.13.4.tgz#8375265e21bc20d0fa582c22e1b13485d6e00213"
   integrity sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==
 
-odds-feed-client@3.0.1:
-  version "3.0.1"
-  resolved "http://npm.lumigame.com/odds-feed-client/-/odds-feed-client-3.0.1.tgz#62c65e73b20b06a310282723ee6bd9ff2ebacfdc"
-  integrity sha512-2Ix1v6iluJrvS3QbawMdnYCjhJwwBug0HJQRLuAQr8ChIp2/b6j+6XfOXSjOYjtbo0KqGnNxeaINKcsczcD2Wg==
+odds-feed-client@3.0.2:
+  version "3.0.2"
+  resolved "http://npm.lumigame.com/odds-feed-client/-/odds-feed-client-3.0.2.tgz#16cea95cd3972bfc8276a1eca90d7b6de72b3f10"
+  integrity sha512-rNIQcKihrUCpSbt1ZXaUZLkZBLpRkr6bpwDtZ3L8RDz6Ks4q+P6KhYsch+jm2RyMTqnQru3PKqvz65YAivlAhw==
   dependencies:
     "@sentry/node" "^10.20.0"
     awilix "^12.0.5"
