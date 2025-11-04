@@ -61,7 +61,7 @@ export class ContainerRegistry {
   }
 
   init() {
-    init(this.diContainer);
+    init(this.diContainer, true);
     initContainer(this.container as unknown as AwilixContainer<OddsFeedDataContainer>);
   }
 }
