@@ -55,15 +55,15 @@ describe("CORS Middleware", () => {
 
     describe("null/undefined origin", () => {
       it("should return false for null origin", () => {
-        expect(corsModule.validateOrigin(null, mockHost)).toBe(true);
+        expect(corsModule.validateOrigin(null, mockHost)).toBe(false);
       });
 
       it("should return false for undefined origin", () => {
-        expect(corsModule.validateOrigin(undefined, mockHost)).toBe(true);
+        expect(corsModule.validateOrigin(undefined, mockHost)).toBe(false);
       });
 
       it("should return false for empty string origin", () => {
-        expect(corsModule.validateOrigin("", mockHost)).toBe(true);
+        expect(corsModule.validateOrigin("", mockHost)).toBe(false);
       });
     });
 

@@ -1,20 +1,12 @@
 import { verifyJWT } from "../../../src/middlewares/verify-jwt";
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { Response, NextFunction } from "express";
 import { appConfigs } from "../../../src/app-configs";
-
-// Mock dependencies
-jest.mock("jsonwebtoken");
-jest.mock("../../../src/app-configs");
-
-const mockJwt = jwt as jest.Mocked<typeof jwt>;
 
 // Mock Express objects
 const createMockRequest = (headers: any = {}, query: any = {}): any => {
   return {
     headers,
     query,
-    user: undefined,
   } as any;
 };
 
@@ -40,9 +32,7 @@ describe("verifyJWT", () => {
 
     // Mock appConfigs
     (appConfigs as any) = {
-      jwt: {
-        secret: "test-secret-key",
-      },
+      adminToken: "test-admin-token",
     };
 
     mockReq = createMockRequest();
@@ -51,19 +41,14 @@ describe("verifyJWT", () => {
   });
 
   describe("token extraction", () => {
-    it("should extract token from Authorization header with Bearer prefix", () => {
+    it("should extract token from Authorization header with Bearer prefix and call next() when valid", () => {
       // Arrange
-      const token = "valid-jwt-token";
-      const decodedToken = { userId: "123", name: "test-user" };
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockReturnValue(decodedToken as any);
+      mockReq.headers.authorization = `Bearer test-admin-token`;
 
       // Act
       verifyJWT(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockReq.user).toEqual(decodedToken);
       expect(mockNext).toHaveBeenCalled();
       expect(mockRes.status).not.toHaveBeenCalled();
       expect(mockRes.json).not.toHaveBeenCalled();
@@ -71,17 +56,12 @@ describe("verifyJWT", () => {
 
     it("should extract token from query parameter when Authorization header is missing", () => {
       // Arrange
-      const token = "valid-jwt-token";
-      const decodedToken = { userId: "123", name: "test-user" };
-      mockReq.query.token = token;
-      mockJwt.verify.mockReturnValue(decodedToken as any);
+      mockReq.query.token = "test-admin-token";
 
       // Act
       verifyJWT(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockReq.user).toEqual(decodedToken);
       expect(mockNext).toHaveBeenCalled();
       expect(mockRes.status).not.toHaveBeenCalled();
       expect(mockRes.json).not.toHaveBeenCalled();
@@ -89,25 +69,19 @@ describe("verifyJWT", () => {
 
     it("should prioritize Authorization header over query parameter", () => {
       // Arrange
-      const headerToken = "header-token";
-      const queryToken = "query-token";
-      const decodedToken = { userId: "123", name: "test-user" };
-      mockReq.headers.authorization = `Bearer ${headerToken}`;
-      mockReq.query.token = queryToken;
-      mockJwt.verify.mockReturnValue(decodedToken as any);
+      mockReq.headers.authorization = `Bearer test-admin-token`;
+      mockReq.query.token = "wrong-token";
 
       // Act
       verifyJWT(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(headerToken, "test-secret-key");
-      expect(mockJwt.verify).not.toHaveBeenCalledWith(queryToken, "test-secret-key");
-      expect(mockReq.user).toEqual(decodedToken);
       expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
     });
   });
 
-  describe("missing token scenarios", () => {
+  describe("missing or invalid token scenarios", () => {
     it("should return 401 when no token is provided", () => {
       // Arrange
       mockReq.headers = {};
@@ -120,7 +94,6 @@ describe("verifyJWT", () => {
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith({ error: "Missing token" });
       expect(mockNext).not.toHaveBeenCalled();
-      expect(mockJwt.verify).not.toHaveBeenCalled();
     });
 
     it("should return 401 when Authorization header is empty", () => {
@@ -174,158 +147,72 @@ describe("verifyJWT", () => {
       expect(mockRes.json).toHaveBeenCalledWith({ error: "Missing token" });
       expect(mockNext).not.toHaveBeenCalled();
     });
-  });
 
-  describe("valid token scenarios", () => {
-    it("should call next() with valid JWT token", () => {
+    it("should return 401 when token does not match admin token", () => {
       // Arrange
-      const token = "valid-jwt-token";
-      const decodedToken = { userId: "123", name: "test-user" };
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockReturnValue(decodedToken as any);
+      mockReq.headers.authorization = "Bearer wrong-token";
 
       // Act
       verifyJWT(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockReq.user).toEqual(decodedToken);
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: "Missing token" });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it("should return 401 when Authorization header does not have Bearer prefix", () => {
+      // Arrange
+      mockReq.headers.authorization = "test-admin-token";
+
+      // Act
+      verifyJWT(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: "Missing token" });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it("should return 401 when query token does not match admin token", () => {
+      // Arrange
+      mockReq.query.token = "wrong-token";
+
+      // Act
+      verifyJWT(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: "Missing token" });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("valid token scenarios", () => {
+    it("should call next() with valid admin token from Authorization header", () => {
+      // Arrange
+      mockReq.headers.authorization = `Bearer test-admin-token`;
+
+      // Act
+      verifyJWT(mockReq, mockRes, mockNext);
+
+      // Assert
       expect(mockNext).toHaveBeenCalled();
       expect(mockRes.status).not.toHaveBeenCalled();
       expect(mockRes.json).not.toHaveBeenCalled();
     });
 
-    it("should handle complex decoded token payload", () => {
+    it("should call next() with valid admin token from query parameter", () => {
       // Arrange
-      const token = "valid-jwt-token";
-      const decodedToken = {
-        userId: "123",
-        name: "test-user",
-        email: "test@example.com",
-        roles: ["admin", "user"],
-        permissions: ["read", "write"],
-        exp: 1234567890,
-        iat: 1234567890,
-      };
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockReturnValue(decodedToken as any);
+      mockReq.query.token = "test-admin-token";
 
       // Act
       verifyJWT(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockReq.user).toEqual(decodedToken);
       expect(mockNext).toHaveBeenCalled();
-    });
-
-    it("should handle empty decoded token payload", () => {
-      // Arrange
-      const token = "valid-jwt-token";
-      const decodedToken = {};
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockReturnValue(decodedToken as any);
-
-      // Act
-      verifyJWT(mockReq, mockRes, mockNext);
-
-      // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockReq.user).toEqual(decodedToken);
-      expect(mockNext).toHaveBeenCalled();
-    });
-  });
-
-  describe("invalid token scenarios", () => {
-    it("should return 403 when JWT verification fails", () => {
-      // Arrange
-      const token = "invalid-jwt-token";
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockImplementation(() => {
-        throw new Error("Invalid token");
-      });
-
-      // Act
-      verifyJWT(mockReq, mockRes, mockNext);
-
-      // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: "Invalid token" });
-      expect(mockNext).not.toHaveBeenCalled();
-      expect(mockReq.user).toBeUndefined();
-    });
-
-    it("should return 403 when token is expired", () => {
-      // Arrange
-      const token = "expired-jwt-token";
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockImplementation(() => {
-        throw new Error("jwt expired");
-      });
-
-      // Act
-      verifyJWT(mockReq, mockRes, mockNext);
-
-      // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: "Invalid token" });
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it("should return 403 when token has invalid signature", () => {
-      // Arrange
-      const token = "invalid-signature-token";
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockImplementation(() => {
-        throw new Error("invalid signature");
-      });
-
-      // Act
-      verifyJWT(mockReq, mockRes, mockNext);
-
-      // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: "Invalid token" });
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it("should return 403 when token is malformed", () => {
-      // Arrange
-      const token = "malformed-token";
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockImplementation(() => {
-        throw new Error("jwt malformed");
-      });
-
-      // Act
-      verifyJWT(mockReq, mockRes, mockNext);
-
-      // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: "Invalid token" });
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it("should return 403 when token is not yet valid", () => {
-      // Arrange
-      const token = "not-yet-valid-token";
-      mockReq.headers.authorization = `Bearer ${token}`;
-      mockJwt.verify.mockImplementation(() => {
-        throw new Error("jwt not active");
-      });
-
-      // Act
-      verifyJWT(mockReq, mockRes, mockNext);
-
-      // Assert
-      expect(mockJwt.verify).toHaveBeenCalledWith(token, "test-secret-key");
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: "Invalid token" });
-      expect(mockNext).not.toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
+      expect(mockRes.json).not.toHaveBeenCalled();
     });
   });
 });

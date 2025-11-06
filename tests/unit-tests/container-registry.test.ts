@@ -3,8 +3,6 @@ import { ContainerRegistry } from "../../src/container-registry";
 import { AppContainer } from "../../src/types";
 import { AwilixContainer } from "awilix";
 import { EventStreamService } from "../../src/services/event-stream-service";
-import { AuthenticateService } from "../../src/services/authenticate-service";
-import { AuthController } from "../../src/controllers/auth-controller";
 import { EventStreamController } from "../../src/controllers/event-stream-controller";
 import { HealthController } from "../../src/controllers/health-controller";
 import { logger } from "sc-common";
@@ -70,33 +68,21 @@ describe("ContainerRegistry", () => {
       container = containerRegistry.register();
     });
 
-
     it("should register all services as singletons", () => {
       // Assert
       expect(container.hasRegistration("eventStreamService")).toBe(true);
-      expect(container.hasRegistration("authenticateService")).toBe(true);
       expect(container.hasRegistration("logService")).toBe(true);
 
       // Verify they are singletons
       const eventStreamService1 = container.resolve("eventStreamService");
       const eventStreamService2 = container.resolve("eventStreamService");
       expect(eventStreamService1).toBe(eventStreamService2);
-
-      const authenticateService1 = container.resolve("authenticateService");
-      const authenticateService2 = container.resolve("authenticateService");
-      expect(authenticateService1).toBe(authenticateService2);
     });
 
     it("should register all controllers as singletons", () => {
       // Assert
-      expect(container.hasRegistration("authController")).toBe(true);
       expect(container.hasRegistration("eventStreamController")).toBe(true);
       expect(container.hasRegistration("healthController")).toBe(true);
-
-      // Verify they are singletons
-      const authController1 = container.resolve("authController");
-      const authController2 = container.resolve("authController");
-      expect(authController1).toBe(authController2);
 
       const eventStreamController1 = container.resolve("eventStreamController");
       const eventStreamController2 = container.resolve("eventStreamController");
@@ -120,9 +106,7 @@ describe("ContainerRegistry", () => {
       expect(() => {
         container.resolve("clientManager");
         container.resolve("eventStreamService");
-        container.resolve("authenticateService");
         container.resolve("logService");
-        container.resolve("authController");
         container.resolve("eventStreamController");
         container.resolve("healthController");
       }).not.toThrow();
@@ -137,16 +121,12 @@ describe("ContainerRegistry", () => {
       // Act
       const clientManager = container.resolve("clientManager");
       const eventStreamService = container.resolve("eventStreamService");
-      const authenticateService = container.resolve("authenticateService");
-      const authController = container.resolve("authController");
       const eventStreamController = container.resolve("eventStreamController");
       const healthController = container.resolve("healthController");
 
       // Assert
       expect(clientManager).toBeInstanceOf(ClientManager);
       expect(eventStreamService).toBeInstanceOf(EventStreamService);
-      expect(authenticateService).toBeInstanceOf(AuthenticateService);
-      expect(authController).toBeInstanceOf(AuthController);
       expect(eventStreamController).toBeInstanceOf(EventStreamController);
       expect(healthController).toBeInstanceOf(HealthController);
     });
@@ -167,12 +147,10 @@ describe("ContainerRegistry", () => {
 
     it("should inject dependencies into controllers correctly", () => {
       // Act
-      const authController = container.resolve("authController");
       const eventStreamController = container.resolve("eventStreamController");
       const healthController = container.resolve("healthController");
 
       // Assert - These controllers should have their dependencies injected
-      expect(authController).toBeDefined();
       expect(eventStreamController).toBeDefined();
       expect(healthController).toBeDefined();
     });

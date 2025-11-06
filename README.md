@@ -547,12 +547,12 @@ container.register({
 
 **File**: `src/routes/index.ts`
 
-| Method | Path                    | Auth | Controller            | Purpose                           |
-| ------ | ----------------------- | ---- | --------------------- | --------------------------------- |
-| GET    | `/`                     | No   | HealthController      | Health check with connection info |
-| POST   | `/api/token`            | No   | AuthController        | JWT token generation              |
-| GET    | `/live/:gameId`         | No\* | EventStreamController | SSE event stream connection       |
-| GET    | `/debug-stream/:gameId` | No\* | DebugController       | Debug logging SSE stream          |
+| Method | Path                    | Auth  | Controller            | Purpose                           |
+| ------ | ----------------------- | ----- | --------------------- | --------------------------------- |
+| GET    | `/`                     | No    | HealthController      | Health check with connection info |
+| POST   | `/api/token`            | No    | AuthController        | JWT token generation              |
+| GET    | `/live/:gameId`         | No\*  | EventStreamController | SSE event stream connection       |
+| GET    | `/debug-stream/:gameId` | Yes\* | DebugController       | Debug logging SSE stream          |
 
 \*Note: JWT middleware (`verifyJWT`) is **not currently applied** to these routes. This is a potential security issue.
 
@@ -1258,7 +1258,7 @@ For support and questions:
 
 - Create an issue in the repository
 - Contact the development team
-- Check the debug stream for real-time service status: `/debug/?game=${gameId}`
+- Check the debug stream for real-time service status: `/debug/?game=${gameId}&token=${adminToken}`
 - Review logs for debugging information
 
 ---
