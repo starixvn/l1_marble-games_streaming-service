@@ -195,7 +195,7 @@
       }
     }
 
-    function connect(gameId) {
+    function connect(gameId, token) {
       if (eventSource) {
         eventSource.close();
         eventSource = null;
@@ -204,7 +204,7 @@
       allLogs = [];
       clearRows();
 
-      const url = `/debug-stream/${encodeURIComponent(gameId)}`;
+      const url = `/debug-stream/${encodeURIComponent(gameId)}?token=${token}`;
       eventSource = new EventSource(url);
       eventSource.onmessage = (event) => {
         try {
@@ -248,12 +248,18 @@
       }
     }
 
+    function getToken() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('token');
+    }
+
     (function init() {
       var reloadBtn = document.getElementById('reloadBtn');
       if (reloadBtn) reloadBtn.onclick = function() { location.reload(); };
       const preset = getPresetGameId();
+      const token = getToken();
       if (preset) {
-        connect(preset);
+        connect(preset, token);
       } else {
         showEmpty('<game id is required>');
       }

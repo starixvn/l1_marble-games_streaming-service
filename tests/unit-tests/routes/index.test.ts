@@ -23,10 +23,6 @@ const mockHealthController = {
   healthCheck: jest.fn(),
 };
 
-const mockAuthController = {
-  login: jest.fn(),
-};
-
 const mockDebugController = {
   handle: jest.fn(),
 };
@@ -89,8 +85,6 @@ describe("setupRoutes", () => {
           return mockEventStreamController;
         case "healthController":
           return mockHealthController;
-        case "authController":
-          return mockAuthController;
         case "monitorController":
           return mockMonitorController;
         case "debugController":
@@ -111,10 +105,9 @@ describe("setupRoutes", () => {
       // Assert
       expect(mockContainer.resolve).toHaveBeenCalledWith("eventStreamController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("healthController");
-      expect(mockContainer.resolve).toHaveBeenCalledWith("authController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("debugController");
       expect(mockContainer.resolve).toHaveBeenCalledWith("replayController");
-      expect(mockContainer.resolve).toHaveBeenCalledTimes(5);
+      expect(mockContainer.resolve).toHaveBeenCalledTimes(4);
     });
 
     it("should throw error when container fails to resolve controllers", () => {
@@ -128,25 +121,6 @@ describe("setupRoutes", () => {
       // Act & Assert
       expect(() => setupRoutes(failingContainer)).toThrow("Container resolution failed");
     });
-
-    it("should handle missing controller in container", () => {
-      // Arrange
-      const incompleteContainer = {
-        resolve: jest.fn().mockImplementation((key: string) => {
-          if (key === "eventStreamController") {
-            return mockEventStreamController;
-          }
-          if (key === "healthController") {
-            return mockHealthController;
-          }
-          // Missing authController
-          throw new Error(`Unknown key: ${key}`);
-        }),
-      } as unknown as AwilixContainer<AppContainer>;
-
-      // Act & Assert
-      expect(() => setupRoutes(incompleteContainer)).toThrow("Unknown key: authController");
-    });
   });
 
   describe("route registration", () => {
@@ -155,18 +129,13 @@ describe("setupRoutes", () => {
       expect(mockRouter.get).toHaveBeenCalledWith("/", expect.any(Function));
     });
 
-    it("should register authentication route at /api/token", () => {
-      // Assert
-      expect(mockRouter.post).toHaveBeenCalledWith("/api/token", expect.any(Function));
-    });
-
     it("should register event stream route at /live/:gameId", () => {
       // Assert
       expect(mockRouter.get).toHaveBeenCalledWith("/live/:gameId", expect.any(Function));
     });
 
-    it("should register debug routes at /debug-stream/:gameId", () => {
-      expect(mockRouter.get).toHaveBeenCalledWith("/debug-stream/:gameId", expect.any(Function));
+    it("should register debug routes at /debug-stream/:gameId with verifyJWT middleware", () => {
+      expect(mockRouter.get).toHaveBeenCalledWith("/debug-stream/:gameId", expect.any(Function), expect.any(Function));
     });
 
     it("should register replay route at /replay/:eventID", () => {
@@ -177,7 +146,7 @@ describe("setupRoutes", () => {
     it("should register expected number of routes", () => {
       // Assert
       expect(mockRouter.get).toHaveBeenCalledTimes(4); // health, live, debug-stream, replay
-      expect(mockRouter.post).toHaveBeenCalledTimes(1); // auth
+      expect(mockRouter.post).not.toHaveBeenCalled();
       expect(mockRouter.put).not.toHaveBeenCalled();
       expect(mockRouter.delete).not.toHaveBeenCalled();
     });
@@ -222,58 +191,6 @@ describe("setupRoutes", () => {
       expect(mockHealthController.healthCheck).toHaveBeenCalledWith(mockReq1, mockRes);
       expect(mockHealthController.healthCheck).toHaveBeenCalledWith(mockReq2, mockRes);
       expect(mockHealthController.healthCheck).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("authentication route handler", () => {
-    it("should call authController.login when /api/token route is accessed", () => {
-      // Arrange
-      const mockReq = createMockRequest({}, {}, { operatorId: "test", password: "password" });
-      const mockRes = createMockResponse();
-      const routeHandler = mockRouter.post.mock.calls.find((call: any) => call[0] === "/api/token")?.[1];
-
-      // Act
-      if (routeHandler) {
-        routeHandler(mockReq, mockRes);
-      }
-
-      // Assert
-      expect(mockAuthController.login).toHaveBeenCalledWith(mockReq, mockRes);
-      expect(mockAuthController.login).toHaveBeenCalledTimes(1);
-    });
-
-    it("should handle authentication route with different request bodies", () => {
-      // Arrange
-      const mockReq1 = createMockRequest({}, {}, { operatorId: "user1", password: "pass1" });
-      const mockReq2 = createMockRequest({}, {}, { operatorId: "user2", password: "pass2" });
-      const mockRes = createMockResponse();
-      const routeHandler = mockRouter.post.mock.calls.find((call: any) => call[0] === "/api/token")?.[1];
-
-      // Act
-      if (routeHandler) {
-        routeHandler(mockReq1, mockRes);
-        routeHandler(mockReq2, mockRes);
-      }
-
-      // Assert
-      expect(mockAuthController.login).toHaveBeenCalledWith(mockReq1, mockRes);
-      expect(mockAuthController.login).toHaveBeenCalledWith(mockReq2, mockRes);
-      expect(mockAuthController.login).toHaveBeenCalledTimes(2);
-    });
-
-    it("should handle authentication route with empty request body", () => {
-      // Arrange
-      const mockReq = createMockRequest({}, {}, {});
-      const mockRes = createMockResponse();
-      const routeHandler = mockRouter.post.mock.calls.find((call: any) => call[0] === "/api/token")?.[1];
-
-      // Act
-      if (routeHandler) {
-        routeHandler(mockReq, mockRes);
-      }
-
-      // Assert
-      expect(mockAuthController.login).toHaveBeenCalledWith(mockReq, mockRes);
     });
   });
 
@@ -348,10 +265,24 @@ describe("setupRoutes", () => {
   });
 
   describe("debug routes handlers", () => {
-    it("should call debugController.handle when /debug-stream/:gameId is accessed", () => {
+    it("should register verifyJWT middleware for /debug-stream/:gameId route", () => {
+      const debugRoute = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug-stream/:gameId");
+
+      // The route should have 3 arguments: path, middleware (verifyJWT), handler
+      expect(debugRoute).toBeDefined();
+      expect(debugRoute?.length).toBe(3);
+      expect(typeof debugRoute?.[1]).toBe("function"); // middleware
+      expect(typeof debugRoute?.[2]).toBe("function"); // handler
+    });
+
+    it("should call debugController.handle when /debug-stream/:gameId is accessed (after middleware)", () => {
       const mockReq = createMockRequest({ gameId: "2001" });
       const mockRes = createMockResponse();
-      const routeHandler = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug-stream/:gameId")?.[1];
+      const debugRoute = mockRouter.get.mock.calls.find((call: any) => call[0] === "/debug-stream/:gameId");
+
+      // The route has 3 arguments: path, middleware (verifyJWT), handler
+      // We want the handler at index [2]
+      const routeHandler = debugRoute?.[2];
 
       if (routeHandler) {
         routeHandler(mockReq, mockRes);
@@ -484,7 +415,6 @@ describe("setupRoutes", () => {
       expect(getCalls.some((call: any) => call[0] === "/live/:gameId")).toBe(true);
       expect(getCalls.some((call: any) => call[0] === "/debug-stream/:gameId")).toBe(true);
       expect(getCalls.some((call: any) => call[0] === "/replay/:eventID")).toBe(true);
-      expect(postCalls.some((call: any) => call[0] === "/api/token")).toBe(true);
     });
 
     it("should not register any middleware", () => {

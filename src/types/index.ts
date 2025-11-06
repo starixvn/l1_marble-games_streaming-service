@@ -1,7 +1,5 @@
-import { AuthController } from "../controllers/auth-controller";
 import { HealthController } from "../controllers/health-controller";
 import { EventStreamController } from "../controllers/event-stream-controller";
-import { AuthenticateService } from "../services/authenticate-service";
 import { OddsFeedService } from "odds-feed-client";
 import { EventStreamService } from "../services/event-stream-service";
 import { logger } from "sc-common";
@@ -12,10 +10,8 @@ import { ReplayController } from "../controllers/replay-controller";
 
 export interface AppContainer {
   eventStreamService: EventStreamService;
-  authenticateService: AuthenticateService;
   oddsFeedService: OddsFeedService;
   logService: typeof logger;
-  authController: AuthController;
   eventStreamController: EventStreamController;
   healthController: HealthController;
   clientManager: ClientManager;

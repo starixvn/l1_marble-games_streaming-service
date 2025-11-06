@@ -1,8 +1,6 @@
 import { asClass, asValue, AwilixContainer, createContainer, InjectionMode } from "awilix";
 import { EventStreamService } from "./services/event-stream-service";
 import { AppContainer } from "./types";
-import { AuthenticateService } from "./services/authenticate-service";
-import { AuthController } from "./controllers/auth-controller";
 import { EventStreamController } from "./controllers/event-stream-controller";
 import { HealthController } from "./controllers/health-controller";
 import { logger } from "sc-common";
@@ -41,12 +39,10 @@ export class ContainerRegistry {
 
     this.container.register({
       eventStreamService: asClass(EventStreamService).singleton(),
-      authenticateService: asClass(AuthenticateService).singleton(),
       logService: asValue(logger),
     });
 
     this.container.register({
-      authController: asClass(AuthController).singleton(),
       eventStreamController: asClass(EventStreamController).singleton(),
       healthController: asClass(HealthController).singleton(),
       debugController: asClass(DebugController)
