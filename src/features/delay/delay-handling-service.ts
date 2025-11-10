@@ -28,14 +28,8 @@ export class DelayHandlingService {
     if (!config) {
       return time;
     }
-    return this.getDelayedTimeWithVideoDelayByConfig({ config, time }, { oddsFeedEventType });
-  }
 
-  private getDelayedTimeWithVideoDelayByConfig(
-    { config, time }: { config: DelayConfig; time: Date },
-    { oddsFeedEventType }: DelayOptions = {}
-  ): Date {
-    const videoDelayInMillisecond = config.videoDelayInMillisecond ?? 0;
+    const videoDelayInMillisecond = event.eventConfig?.preloadDurationMs ?? 0;
     return new Date(
       this.getDelayedTimeByConfig({ config, time }, { oddsFeedEventType }).getTime() + videoDelayInMillisecond
     );

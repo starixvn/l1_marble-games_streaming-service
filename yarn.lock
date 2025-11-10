@@ -5272,24 +5272,10 @@ object-inspect@^1.13.3:
   resolved "http://npm.lumigame.com/object-inspect/-/object-inspect-1.13.4.tgz#8375265e21bc20d0fa582c22e1b13485d6e00213"
   integrity sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==
 
-object-visit@^1.0.0:
-  version "1.0.1"
-  resolved "http://npm.lumigame.com/object-visit/-/object-visit-1.0.1.tgz#f79c4493af0c5377b59fe39d395e41042dd045bb"
-  integrity sha1-95xEk68MU3e1n+OdOV5BBC3QRbs=
-  dependencies:
-    isobject "^3.0.0"
-
-object.pick@^1.3.0:
-  version "1.3.0"
-  resolved "http://npm.lumigame.com/object.pick/-/object.pick-1.3.0.tgz#87a10ac4c1694bd2e1cbf53591a66141fb5dd747"
-  integrity sha1-h6EKxMFpS9Lhy/U1kaZhQftd10c=
-  dependencies:
-    isobject "^3.0.1"
-
-odd-feed-client@^1.1.0:
-  version "1.1.0"
-  resolved "http://npm.lumigame.com/odd-feed-client/-/odd-feed-client-1.1.0.tgz#67da3396aaf4d1887b279740db0459f653875f64"
-  integrity sha512-J5w9NlzFdF/Gid14TD2LZLZny8ZsmPNcRldSuTgglvdKw23Iei5KN1aSpGc7CZGVgP3oaH7ozIimw85ss5B9hg==
+odds-feed-client@3.3.0:
+  version "3.3.0"
+  resolved "http://npm.lumigame.com/odds-feed-client/-/odds-feed-client-3.3.0.tgz#a5ee5711e187ce7a24f20bf1064dd7033d6181fb"
+  integrity sha512-3ays0w9Et40zCUk72dl1gFvAJTc00WpkppTjtTun9nDkTFY/f1y60A4Zj+sQPVORV/vYGnuxGadBHHwZKK0DNQ==
   dependencies:
     awilix "^12.0.5"
     cron "^4.3.3"
