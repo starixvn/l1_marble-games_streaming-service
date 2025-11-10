@@ -1,17 +1,20 @@
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
-import { Event } from "odds-feed-client";
+import { Event, OddsFeedEventName } from "odds-feed-client";
 
 const TEST_GLOBAL_DELAY = 5000;
-const TEST_VIDEO_DELAY = 2000;
+const TEST_PRELOAD_DURATION_MS = 2000;
 const TEST_BASE_TIME = "2023-01-01T10:00:00Z";
 const TEST_EVENT_DETAIL_TIME = "2023-01-01T10:10:00Z";
 
 const mockDelayConfig = {
   globalDelayInMillisecond: TEST_GLOBAL_DELAY,
-  videoDelayInMillisecond: TEST_VIDEO_DELAY,
+  videoDelayInMillisecond: TEST_PRELOAD_DURATION_MS, // Kept for backward compatibility in tests
 };
 
-const mockEventWithDelay: Event & { config: { delay: typeof mockDelayConfig } } = {
+const mockEventWithDelay: Event & {
+  config: { delay: typeof mockDelayConfig };
+  eventConfig?: { preloadDurationMs?: number };
+} = {
   eventID: 4294967298,
   eventNameAKey: "Team A",
   eventNameBKey: "Team B",
@@ -32,6 +35,9 @@ const mockEventWithDelay: Event & { config: { delay: typeof mockDelayConfig } } 
   ],
   config: {
     delay: mockDelayConfig,
+  },
+  eventConfig: {
+    preloadDurationMs: TEST_PRELOAD_DURATION_MS,
   },
 } as any;
 
@@ -103,7 +109,7 @@ describe("DelayHandlingService", () => {
       // Arrange
       const zeroGlobalDelayConfig = {
         globalDelayInMillisecond: 0,
-        videoDelayInMillisecond: TEST_VIDEO_DELAY,
+        videoDelayInMillisecond: TEST_PRELOAD_DURATION_MS,
       };
       const baseTime = new Date(TEST_BASE_TIME);
       const eventWithConfig: any = {
@@ -145,10 +151,10 @@ describe("DelayHandlingService", () => {
   });
 
   describe("getDelayedTimeWithVideoDelay", () => {
-    it("should return time with both global and video delay when config exists", () => {
+    it("should return time with both global delay and preload duration when config exists", () => {
       // Arrange
       const baseTime = new Date(TEST_BASE_TIME);
-      const expectedTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
+      const expectedTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + TEST_PRELOAD_DURATION_MS);
 
       // Act
       const result = delayHandlingService.getDelayedTimeWithVideoDelay({
@@ -191,7 +197,7 @@ describe("DelayHandlingService", () => {
       expect(baseTime.getTime()).toBe(originalTime);
     });
 
-    it("should apply delays in correct order (global first, then video)", () => {
+    it("should apply delays in correct order (global first, then preload duration)", () => {
       // Arrange
       const baseTime = new Date(TEST_BASE_TIME);
 
@@ -207,22 +213,36 @@ describe("DelayHandlingService", () => {
 
       // Assert
       const expectedIntermediateTime = new Date(baseTime.getTime() + TEST_GLOBAL_DELAY);
-      const expectedFinalTime = new Date(expectedIntermediateTime.getTime() + TEST_VIDEO_DELAY);
+      const expectedFinalTime = new Date(expectedIntermediateTime.getTime() + TEST_PRELOAD_DURATION_MS);
 
       expect(globalDelayedTime).toEqual(expectedIntermediateTime);
       expect(fullDelayedTime).toEqual(expectedFinalTime);
     });
 
-    it("should handle zero video delay correctly", () => {
+    it("should handle zero preload duration correctly", () => {
       // Arrange
-      const zeroVideoDelayConfig = {
-        globalDelayInMillisecond: TEST_GLOBAL_DELAY,
-        videoDelayInMillisecond: 0,
-      };
       const baseTime = new Date(TEST_BASE_TIME);
       const eventWithConfig: any = {
         ...mockEventWithDelay,
-        config: { delay: zeroVideoDelayConfig },
+        eventConfig: { preloadDurationMs: 0 },
+      };
+
+      // Act
+      const result = delayHandlingService.getDelayedTimeWithVideoDelay({
+        event: eventWithConfig,
+        time: baseTime,
+      });
+
+      // Assert
+      expect(result).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY));
+    });
+
+    it("should handle missing eventConfig correctly", () => {
+      // Arrange
+      const baseTime = new Date(TEST_BASE_TIME);
+      const eventWithConfig: any = {
+        ...mockEventWithDelay,
+        eventConfig: undefined,
       };
 
       // Act
@@ -245,6 +265,7 @@ describe("DelayHandlingService", () => {
       const eventWithConfig: any = {
         ...mockEventWithDelay,
         config: { delay: negativeDelayConfig },
+        eventConfig: { preloadDurationMs: -500 },
       };
 
       // Act
@@ -294,6 +315,49 @@ describe("DelayHandlingService", () => {
       expect(result1).toEqual(new Date(baseTime.getTime() + 1000));
       expect(result2).toEqual(new Date(baseTime.getTime() + 2000));
     });
+
+    it("should apply event-type-specific delay when oddsFeedEventType is provided", () => {
+      // Arrange
+      const eventStartDelay = 3000;
+      const config = {
+        globalDelayInMillisecond: TEST_GLOBAL_DELAY,
+        eventScheduleStartDelayInMillisecond: eventStartDelay,
+      };
+      const baseTime = new Date(TEST_BASE_TIME);
+      const eventWithConfig: any = {
+        ...mockEventWithDelay,
+        config: { delay: config },
+      };
+
+      // Act
+      const result = delayHandlingService.getDelayedTime(
+        { event: eventWithConfig, time: baseTime },
+        { oddsFeedEventType: OddsFeedEventName.EventStart }
+      );
+
+      // Assert
+      expect(result).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + eventStartDelay));
+    });
+
+    it("should not apply event-type-specific delay when oddsFeedEventType is not provided", () => {
+      // Arrange
+      const eventStartDelay = 3000;
+      const config = {
+        globalDelayInMillisecond: TEST_GLOBAL_DELAY,
+        eventScheduleStartDelayInMillisecond: eventStartDelay,
+      };
+      const baseTime = new Date(TEST_BASE_TIME);
+      const eventWithConfig: any = {
+        ...mockEventWithDelay,
+        config: { delay: config },
+      };
+
+      // Act
+      const result = delayHandlingService.getDelayedTime({ event: eventWithConfig, time: baseTime });
+
+      // Assert
+      expect(result).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY));
+    });
   });
 
   describe("getTimeToStartEvent", () => {
@@ -341,7 +405,7 @@ describe("DelayHandlingService", () => {
       const eventStartSpecificDelay = 3000;
       const customConfig = {
         globalDelayInMillisecond: TEST_GLOBAL_DELAY,
-        videoDelayInMillisecond: TEST_VIDEO_DELAY,
+        videoDelayInMillisecond: TEST_PRELOAD_DURATION_MS,
         eventScheduleStartDelayInMillisecond: eventStartSpecificDelay,
       };
       const customEvent: any = {
@@ -359,11 +423,11 @@ describe("DelayHandlingService", () => {
   });
 
   describe("getTimeToStream", () => {
-    it("should return delayed time with video delay for event detail start", () => {
+    it("should return delayed time with preload duration for event detail start", () => {
       // Arrange
       const index = 0;
       const eventDetailTime = new Date(TEST_EVENT_DETAIL_TIME);
-      const expectedTime = new Date(eventDetailTime.getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
+      const expectedTime = new Date(eventDetailTime.getTime() + TEST_GLOBAL_DELAY + TEST_PRELOAD_DURATION_MS);
 
       // Act
       const result = delayHandlingService.getTimeToStream(mockEventWithDelay, index);
@@ -376,7 +440,7 @@ describe("DelayHandlingService", () => {
       // Arrange
       const index = 1;
       const eventDetailTime = new Date(TEST_EVENT_DETAIL_TIME);
-      const expectedTime = new Date(eventDetailTime.getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
+      const expectedTime = new Date(eventDetailTime.getTime() + TEST_GLOBAL_DELAY + TEST_PRELOAD_DURATION_MS);
 
       // Act
       const result = delayHandlingService.getTimeToStream(mockEventWithDelay, index);
@@ -407,7 +471,7 @@ describe("DelayHandlingService", () => {
       expect(result).toEqual(eventDetailTime);
     });
 
-    it("should apply both global and video delays", () => {
+    it("should apply both global delay and preload duration", () => {
       // Arrange
       const index = 0;
       const eventDetailTime = new Date(TEST_EVENT_DETAIL_TIME);
@@ -416,7 +480,7 @@ describe("DelayHandlingService", () => {
       const result = delayHandlingService.getTimeToStream(mockEventWithDelay, index);
 
       // Assert - should include both delays
-      const expectedTime = new Date(eventDetailTime.getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
+      const expectedTime = new Date(eventDetailTime.getTime() + TEST_GLOBAL_DELAY + TEST_PRELOAD_DURATION_MS);
       expect(result).toEqual(expectedTime);
     });
 
@@ -426,17 +490,18 @@ describe("DelayHandlingService", () => {
       const eventDetailStartSpecificDelay = 1500;
       const customConfig = {
         globalDelayInMillisecond: TEST_GLOBAL_DELAY,
-        videoDelayInMillisecond: TEST_VIDEO_DELAY,
+        videoDelayInMillisecond: TEST_PRELOAD_DURATION_MS,
         eventDetailScheduleStartDelayInMillisecond: eventDetailStartSpecificDelay,
       };
       const customEvent: any = {
         ...mockEventWithDelay,
         config: { delay: customConfig },
+        eventConfig: { preloadDurationMs: TEST_PRELOAD_DURATION_MS },
       };
       const expectedTime = new Date(
         new Date(TEST_EVENT_DETAIL_TIME).getTime() +
           TEST_GLOBAL_DELAY +
-          TEST_VIDEO_DELAY +
+          TEST_PRELOAD_DURATION_MS +
           eventDetailStartSpecificDelay
       );
 
@@ -472,10 +537,63 @@ describe("DelayHandlingService", () => {
       const result2 = delayHandlingService.getTimeToStream(customEvent, 1);
 
       // Assert
-      const expectedTime1 = new Date(new Date(customEventDetailTime1).getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
-      const expectedTime2 = new Date(new Date(customEventDetailTime2).getTime() + TEST_GLOBAL_DELAY + TEST_VIDEO_DELAY);
+      const expectedTime1 = new Date(
+        new Date(customEventDetailTime1).getTime() + TEST_GLOBAL_DELAY + TEST_PRELOAD_DURATION_MS
+      );
+      const expectedTime2 = new Date(
+        new Date(customEventDetailTime2).getTime() + TEST_GLOBAL_DELAY + TEST_PRELOAD_DURATION_MS
+      );
       expect(result1).toEqual(expectedTime1);
       expect(result2).toEqual(expectedTime2);
+    });
+
+    it("should apply EventDetailResultsAvailable delay when oddsFeedEventType is EventDetailResultsAvailable", () => {
+      // Arrange
+      const eventDetailResultAvailableDelay = 2500;
+      const config = {
+        globalDelayInMillisecond: TEST_GLOBAL_DELAY,
+        eventDetailResultAvailableDelayInMillisecond: eventDetailResultAvailableDelay,
+      };
+      const baseTime = new Date(TEST_BASE_TIME);
+      const eventWithConfig: any = {
+        ...mockEventWithDelay,
+        config: { delay: config },
+      };
+
+      // Act
+      const result = delayHandlingService.getDelayedTime(
+        { event: eventWithConfig, time: baseTime },
+        { oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable }
+      );
+
+      // Assert
+      expect(result).toEqual(new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + eventDetailResultAvailableDelay));
+    });
+
+    it("should apply EventDetailStart delay with preload duration when using getDelayedTimeWithVideoDelay", () => {
+      // Arrange
+      const eventDetailStartDelay = 1500;
+      const config = {
+        globalDelayInMillisecond: TEST_GLOBAL_DELAY,
+        eventDetailScheduleStartDelayInMillisecond: eventDetailStartDelay,
+      };
+      const baseTime = new Date(TEST_BASE_TIME);
+      const eventWithConfig: any = {
+        ...mockEventWithDelay,
+        config: { delay: config },
+        eventConfig: { preloadDurationMs: TEST_PRELOAD_DURATION_MS },
+      };
+
+      // Act
+      const result = delayHandlingService.getDelayedTimeWithVideoDelay(
+        { event: eventWithConfig, time: baseTime },
+        { oddsFeedEventType: OddsFeedEventName.EventDetailStart }
+      );
+
+      // Assert
+      expect(result).toEqual(
+        new Date(baseTime.getTime() + TEST_GLOBAL_DELAY + eventDetailStartDelay + TEST_PRELOAD_DURATION_MS)
+      );
     });
   });
 });

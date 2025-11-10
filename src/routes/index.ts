@@ -23,7 +23,9 @@ export function setupRoutes(container: AwilixContainer<RouteContainer>): Router 
   router.get("/", (req, res) => healthController.healthCheck(req, res));
   router.get("/live/:gameId", (req, res) => eventStreamController.handleEventStreamConnection(req, res));
   router.get("/debug-stream/:gameId", verifyJWT, (req, res) => debugController.handle(req, res));
-  router.get("/replay/:eventID", (req, res) => replayController.handle(req, res));
+  router.get("/replay/:eventID", async (req, res) => {
+    await replayController.handle(req, res);
+  });
 
   return router;
 }
