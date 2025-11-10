@@ -20,7 +20,9 @@
     "test-coverage": "jest --collect-coverage --testPathPatterns=tests/unit-tests/",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
-    "lint": "npm run format:check"
+    "lint": "npm run format:check",
+    "check:deps": "npm-check-updates",
+    "update:deps": "npm-check-updates -u"
   },
   "jestSonar": {
     "reportPath": "reports",
@@ -31,18 +33,18 @@
     "awilix": "12.0.5",
     "chance": "1.1.13",
     "cors": "2.8.5",
-    "cron": "4.3.1",
-    "cross-env": "10.0.0",
-    "dayjs": "1.11.13",
-    "dotenv": "17.0.1",
+    "cron": "4.3.4",
+    "cross-env": "10.1.0",
+    "dayjs": "1.11.19",
+    "dotenv": "17.2.3",
     "express": "5.1.0",
-    "extensionless": "1.9.9",
+    "extensionless": "2.0.2",
     "jest-mock-extended": "4.0.0",
     "jsonwebtoken": "9.0.2",
     "odds-feed-client": "3.3.0",
     "sc-common": "3.0.0",
     "sc-core-rng": "1.1.0",
-    "tldts": "7.0.11"
+    "tldts": "7.0.17"
   },
   "devDependencies": {
     "@types/chance": "1.1.7",
@@ -61,6 +63,7 @@
     "ts-jest": "29.4.5",
     "ts-node": "10.9.2",
     "tsx": "4.20.6",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "npm-check-updates": "19.1.2"
   }
 }
