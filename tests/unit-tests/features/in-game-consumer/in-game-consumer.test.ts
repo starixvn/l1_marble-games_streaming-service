@@ -68,7 +68,8 @@ const mockVideoStreamingData = {
   phaseIndex: 1,
   timeFromPhaseStart: 1640995200000,
   timeFromPhaseEnd: 1640995200000,
-  durationInSeconds: 30,
+  videoLengthMs: 30000,
+  preloadDurationMs: 0,
 };
 
 const mockPreloadVideoData = {
@@ -225,7 +226,8 @@ describe("InGameConsumer", () => {
         phaseIndex: 0,
         timeFromPhaseStart: 0,
         timeFromPhaseEnd: 0,
-        durationInSeconds: 30,
+        videoLengthMs: 30000,
+        preloadDurationMs: 0,
       };
       const customPreloadData = { videoLink: "custom-preload.m3u8" };
       const customResultData = { result: { 1: { homeScore: 0, awayScore: 0 } } };
