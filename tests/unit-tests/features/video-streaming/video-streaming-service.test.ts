@@ -7,8 +7,10 @@ import {
   OddsFeedEventSource,
   OddsFeedEventName,
   EventDetailNotification,
+  EventNotification,
   Scheduler,
   OddsFeedService,
+  Event,
 } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
@@ -63,37 +65,50 @@ const TEST_TIME_TO_STREAM = 1640995200000;
 const TEST_CURRENT_TIME = 1640995260000; // 1 minute after stream start
 
 // Test data using shared mock utils
-const mockEvent1 = createMockEvent({
-  eventID: TEST_EVENT_ID_1,
-  scheduleStartTs: TEST_SCHEDULE_START_TS,
-  eventDetails: [
-    createMockEventDetail({
-      eventID: TEST_EVENT_ID_1,
-      playlist: TEST_PLAYLIST_URL_1,
-      scheduleStartTs: TEST_SCHEDULE_START_TS,
-      phase: 1,
-    }),
-    createMockEventDetail({
-      eventID: TEST_EVENT_ID_1,
-      playlist: TEST_PLAYLIST_URL_2,
-      scheduleStartTs: TEST_SCHEDULE_START_TS,
-      phase: 2,
-    }),
-  ],
-});
+const mockEvent1 = {
+  ...createMockEvent({
+    eventID: TEST_EVENT_ID_1,
+    scheduleStartTs: TEST_SCHEDULE_START_TS,
+    eventDetails: [
+      createMockEventDetail({
+        eventID: TEST_EVENT_ID_1,
+        playlist: TEST_PLAYLIST_URL_1,
+        scheduleStartTs: TEST_SCHEDULE_START_TS,
+        resultsAvailableTs: "2024-01-01T10:01:00Z",
+        phase: 1,
+      }),
+      createMockEventDetail({
+        eventID: TEST_EVENT_ID_1,
+        playlist: TEST_PLAYLIST_URL_2,
+        scheduleStartTs: TEST_SCHEDULE_START_TS,
+        resultsAvailableTs: "2024-01-01T10:02:00Z",
+        phase: 2,
+      }),
+    ],
+  }),
+  eventConfig: {
+    preloadDurationMs: 0,
+  },
+} as Event & { eventConfig?: { preloadDurationMs?: number } };
 
-const mockEvent2 = createMockEvent({
-  eventID: TEST_EVENT_ID_2,
-  scheduleStartTs: "2024-01-01T11:00:00Z",
-  eventDetails: [
-    createMockEventDetail({
-      eventID: TEST_EVENT_ID_2,
-      playlist: "https://example.com/game2_playlist.m3u8",
-      scheduleStartTs: "2024-01-01T11:00:00Z",
-      phase: 1,
-    }),
-  ],
-});
+const mockEvent2 = {
+  ...createMockEvent({
+    eventID: TEST_EVENT_ID_2,
+    scheduleStartTs: "2024-01-01T11:00:00Z",
+    eventDetails: [
+      createMockEventDetail({
+        eventID: TEST_EVENT_ID_2,
+        playlist: "https://example.com/game2_playlist.m3u8",
+        scheduleStartTs: "2024-01-01T11:00:00Z",
+        resultsAvailableTs: "2024-01-01T11:01:00Z",
+        phase: 1,
+      }),
+    ],
+  }),
+  eventConfig: {
+    preloadDurationMs: 0,
+  },
+} as Event & { eventConfig?: { preloadDurationMs?: number } };
 
 const mockEventDetailNotification1: EventDetailNotification = {
   event: mockEvent1,
@@ -103,6 +118,14 @@ const mockEventDetailNotification1: EventDetailNotification = {
 const mockEventDetailNotification2: EventDetailNotification = {
   event: mockEvent2,
   index: 0,
+};
+
+const mockEventNotification1: EventNotification = {
+  event: mockEvent1,
+};
+
+const mockEventNotification2: EventNotification = {
+  event: mockEvent2,
 };
 
 // Helper functions for test setup
@@ -164,6 +187,7 @@ describe("VideoStreamingService", () => {
       expect(service["featureDebugService"]).toBe(mockFeatureDebugService);
       expect(service["oddsFeedService"]).toBe(mockOddsFeedService);
       expect(service["boundHandleEventDetailScheduleStart"]).toBeInstanceOf(Function);
+      expect(service["boundHandleEventStart"]).toBeInstanceOf(Function);
     });
 
     it("should initialize empty state storage", () => {
@@ -197,11 +221,15 @@ describe("VideoStreamingService", () => {
   });
 
   describe("initEvent", () => {
-    it("should register event detail listener for EventDetailStart", () => {
+    it("should register event and event detail listeners", () => {
       // Arrange & Act
       videoStreamingService.initEvent();
 
       // Assert
+      expect(mockOddsFeedEventSource.eventOn).toHaveBeenCalledWith(
+        OddsFeedEventName.EventStart,
+        videoStreamingService["boundHandleEventStart"]
+      );
       expect(mockOddsFeedEventSource.eventDetailOn).toHaveBeenCalledWith(
         OddsFeedEventName.EventDetailStart,
         videoStreamingService["boundHandleEventDetailScheduleStart"]
@@ -210,11 +238,15 @@ describe("VideoStreamingService", () => {
   });
 
   describe("dispose", () => {
-    it("should unregister event detail listener for EventDetailStart", () => {
+    it("should unregister event and event detail listeners", () => {
       // Arrange & Act
       videoStreamingService.dispose();
 
       // Assert
+      expect(mockOddsFeedEventSource.eventOff).toHaveBeenCalledWith(
+        OddsFeedEventName.EventStart,
+        videoStreamingService["boundHandleEventStart"]
+      );
       expect(mockOddsFeedEventSource.eventDetailOff).toHaveBeenCalledWith(
         OddsFeedEventName.EventDetailStart,
         videoStreamingService["boundHandleEventDetailScheduleStart"]
@@ -275,10 +307,11 @@ describe("VideoStreamingService", () => {
     it("should update video state and broadcast to clients", async () => {
       // Arrange
       mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(new Date(TEST_TIME_TO_STREAM));
-      const durationInSeconds = 60;
+      const videoLengthMs = 60000; // 60 seconds
+      const preloadDurationMs = 0;
 
       // Act
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification1, durationInSeconds });
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
 
       // Assert
       expect(videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1]).toEqual({
@@ -289,7 +322,8 @@ describe("VideoStreamingService", () => {
         phaseIndex: mockEvent1.eventDetails[TEST_INDEX].phase,
         timeFromPhaseStart: TEST_TIME_TO_STREAM,
         timeFromPhaseEnd: TEST_TIME_TO_STREAM,
-        durationInSeconds,
+        videoLengthMs: expect.any(Number),
+        preloadDurationMs,
       });
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
         TEST_GAME_ID_1,
@@ -302,11 +336,8 @@ describe("VideoStreamingService", () => {
     });
 
     it("should call debug log when streaming starts", async () => {
-      // Arrange
-      const durationInSeconds = 60;
-
       // Act
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification1, durationInSeconds });
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
 
       // Assert
       expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
@@ -317,17 +348,14 @@ describe("VideoStreamingService", () => {
     });
 
     it("should call delay handling service with video delay indirectly", async () => {
-      // Arrange
-      const durationInSeconds = 60;
-
       // Act
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification1, durationInSeconds });
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
 
       // Assert
       expect(mockDelayHandlingService.getDelayedTimeWithVideoDelay).toHaveBeenCalledWith(
         {
           event: mockEvent1,
-          time: new Date(mockEvent1.eventDetails[TEST_INDEX].scheduleStartTs),
+          time: expect.any(Date),
         },
         {
           oddsFeedEventType: OddsFeedEventName.EventDetailStart,
@@ -336,11 +364,8 @@ describe("VideoStreamingService", () => {
     });
 
     it("should call all private delay calculation methods indirectly", async () => {
-      // Arrange
-      const durationInSeconds = 60;
-
       // Act
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification1, durationInSeconds });
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
 
       // Assert - Verify all private delay methods are called through onLiveStreamStart
       expect(mockDelayHandlingService.getTimeToStream).toHaveBeenCalledTimes(3); // getTimeToStream in onLiveStreamStart + calculateCurrentStreamingPhaseTime + getCurrentVideoStateByGameId
@@ -350,10 +375,9 @@ describe("VideoStreamingService", () => {
     it("should extract correct game ID using idHelper", async () => {
       // Arrange
       const extractGameIdSpy = jest.spyOn(idHelper, "extractGameId").mockReturnValue(TEST_GAME_ID_1);
-      const durationInSeconds = 60;
 
       // Act
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification1, durationInSeconds });
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
 
       // Assert
       expect(extractGameIdSpy).toHaveBeenCalledWith(TEST_EVENT_ID_1);
@@ -366,7 +390,6 @@ describe("VideoStreamingService", () => {
       const notification = {
         event: mockEvent1,
         index: 0,
-        durationInSeconds: 60,
       };
 
       // Act
@@ -391,7 +414,6 @@ describe("VideoStreamingService", () => {
       const notification = {
         event: mockEvent1,
         index: 0,
-        durationInSeconds: 60,
       };
 
       // Act
@@ -407,6 +429,87 @@ describe("VideoStreamingService", () => {
 
       extractGameIdSpy.mockRestore();
       getCurrentVideoStateSpy.mockRestore();
+    });
+  });
+
+  describe("handleEventStart", () => {
+    it("should schedule onEventStart task", () => {
+      // Act
+      videoStreamingService.handleEventStart(mockEventNotification1);
+
+      // Assert
+      expect(mockDelayHandlingService.getTimeToStartEvent).toHaveBeenCalledWith(mockEvent1);
+      expect(mockScheduler.schedule).toHaveBeenCalledWith(TEST_DELAYED_TIME_PRELOAD, expect.any(Function));
+    });
+
+    it("should call onEventStart when scheduled", () => {
+      // Arrange
+      videoStreamingService.handleEventStart(mockEventNotification1);
+
+      // Get the scheduled callback
+      const scheduleCalls = mockScheduler.schedule.mock.calls;
+      const onEventStartFunction = scheduleCalls[0][1];
+
+      // Act
+      onEventStartFunction();
+
+      // Assert
+      expect(videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1]).toBeDefined();
+      expect(videoStreamingService["_preloadVideoStateByGameId"][TEST_GAME_ID_1]).toBeDefined();
+    });
+  });
+
+  describe("onEventStart", () => {
+    it("should initialize video state and preload state for event start", () => {
+      // Act
+      videoStreamingService.onEventStart(mockEventNotification1);
+
+      // Assert
+      expect(videoStreamingService["_preloadVideoStateByGameId"][TEST_GAME_ID_1]).toEqual({
+        videoLink: "",
+      });
+      expect(videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1]).toEqual({
+        videoLink: "",
+        timeToStream: TEST_TIME_TO_STREAM,
+        currentTime: 0,
+        streamingPhaseTime: 0,
+        phaseIndex: 0,
+        timeFromPhaseStart: 0,
+        timeFromPhaseEnd: 0,
+        videoLengthMs: expect.any(Number),
+        preloadDurationMs: 0,
+      });
+      expect(videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1]).toBe(mockEvent1);
+    });
+
+    it("should extract correct game ID using idHelper", () => {
+      // Arrange
+      const extractGameIdSpy = jest.spyOn(idHelper, "extractGameId").mockReturnValue(TEST_GAME_ID_1);
+
+      // Act
+      videoStreamingService.onEventStart(mockEventNotification1);
+
+      // Assert
+      expect(extractGameIdSpy).toHaveBeenCalledWith(TEST_EVENT_ID_1);
+
+      extractGameIdSpy.mockRestore();
+    });
+
+    it("should use eventConfig.preloadDurationMs when available", () => {
+      // Arrange
+      const eventWithPreload = {
+        ...mockEvent1,
+        eventConfig: {
+          preloadDurationMs: 5000,
+        },
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
+      const notification = { event: eventWithPreload };
+
+      // Act
+      videoStreamingService.onEventStart(notification);
+
+      // Assert
+      expect(videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1].preloadDurationMs).toBe(5000);
     });
   });
 
@@ -462,7 +565,8 @@ describe("VideoStreamingService", () => {
         phaseIndex: TEST_INDEX,
         timeFromPhaseStart: TEST_TIME_TO_STREAM,
         timeFromPhaseEnd: TEST_TIME_TO_STREAM,
-        durationInSeconds: 60,
+        videoLengthMs: 60000,
+        preloadDurationMs: 0,
       };
       videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1] = testVideoState;
       // Set up current event for calculateCurrentStreamingPhaseTime
@@ -483,7 +587,8 @@ describe("VideoStreamingService", () => {
         phaseIndex: TEST_INDEX,
         timeFromPhaseStart: TEST_TIME_TO_STREAM,
         timeFromPhaseEnd: TEST_TIME_TO_STREAM,
-        durationInSeconds: 60,
+        videoLengthMs: 60000,
+        preloadDurationMs: 0,
       });
     });
 
@@ -575,34 +680,33 @@ describe("VideoStreamingService", () => {
 
     it("should accumulate time from previous event details in the same phase", () => {
       // Arrange
-      const videoDelay = 2000; // 2 seconds
-      const eventWithDelay: any = createMockEvent({
-        eventID: TEST_EVENT_ID_1,
-        eventDetails: [
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: PHASE_1_START, // 10:00:00
-            resultsAvailableTs: PHASE_1_RESULT_1, // 10:02:00 (2 minutes = 120,000ms)
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: PHASE_1_START_2, // 10:02:30
-            resultsAvailableTs: PHASE_1_RESULT_2, // 10:05:00 (2.5 minutes = 150,000ms)
-          }),
-        ],
-      });
-
-      // Manually add config to ensure it's properly set
-      eventWithDelay.config = {
-        delay: {
-          videoDelayInMillisecond: videoDelay,
+      const preloadDuration = 2000; // 2 seconds
+      const eventWithPreload = {
+        ...createMockEvent({
+          eventID: TEST_EVENT_ID_1,
+          eventDetails: [
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: PHASE_1_START, // 10:00:00
+              resultsAvailableTs: PHASE_1_RESULT_1, // 10:02:00 (2 minutes = 120,000ms)
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: PHASE_1_START_2, // 10:02:30
+              resultsAvailableTs: PHASE_1_RESULT_2, // 10:05:00 (2.5 minutes = 150,000ms)
+            }),
+          ],
+        }),
+        eventConfig: {
+          preloadDurationMs: preloadDuration,
         },
-      };
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
 
-      videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = eventWithDelay;
+      videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = eventWithPreload;
 
-      // First event detail time: 120,000ms - 2,000ms (video delay) = 118,000ms
-      const firstDetailTime = new Date(PHASE_1_RESULT_1).getTime() - new Date(PHASE_1_START).getTime() - videoDelay;
+      // First event detail time: 120,000ms - 2,000ms (preload duration) = 118,000ms
+      const firstDetailTime =
+        new Date(PHASE_1_RESULT_1).getTime() - new Date(PHASE_1_START).getTime() - preloadDuration;
       const currentStreamingTime = TEST_CURRENT_TIME - TEST_TIME_TO_STREAM;
 
       // Act
@@ -610,7 +714,7 @@ describe("VideoStreamingService", () => {
 
       // Assert
       expect(result).toBe(firstDetailTime + currentStreamingTime);
-      expect(mockDelayHandlingService.getTimeToStream).toHaveBeenCalledWith(eventWithDelay, 1);
+      expect(mockDelayHandlingService.getTimeToStream).toHaveBeenCalledWith(eventWithPreload, 1);
     });
 
     it("should not include event details from different phases", () => {
@@ -643,39 +747,37 @@ describe("VideoStreamingService", () => {
 
     it("should handle multiple event details in the same phase correctly", () => {
       // Arrange
-      const videoDelay = 1000;
-      const eventWithDelay: any = createMockEvent({
-        eventID: TEST_EVENT_ID_1,
-        eventDetails: [
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:00:00Z",
-            resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:01:30Z",
-            resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:03:00Z",
-            resultsAvailableTs: "2024-01-01T10:04:00Z", // 60,000ms
-          }),
-        ],
-      });
-
-      // Manually add config to ensure it's properly set
-      eventWithDelay.config = {
-        delay: {
-          videoDelayInMillisecond: videoDelay,
+      const preloadDuration = 1000;
+      const eventWithPreload = {
+        ...createMockEvent({
+          eventID: TEST_EVENT_ID_1,
+          eventDetails: [
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:00:00Z",
+              resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:01:30Z",
+              resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:03:00Z",
+              resultsAvailableTs: "2024-01-01T10:04:00Z", // 60,000ms
+            }),
+          ],
+        }),
+        eventConfig: {
+          preloadDurationMs: preloadDuration,
         },
-      };
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
 
-      videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = eventWithDelay;
+      videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = eventWithPreload;
 
       // Time for first two details: (60,000 - 1,000) * 2 = 118,000ms
-      const previousDetailsTime = (60000 - videoDelay) * 2;
+      const previousDetailsTime = (60000 - preloadDuration) * 2;
       const currentStreamingTime = TEST_CURRENT_TIME - TEST_TIME_TO_STREAM;
 
       // Act - Calculate for index 2 (third detail)
@@ -687,44 +789,42 @@ describe("VideoStreamingService", () => {
 
     it("should handle mixed phases and only count matching phase", () => {
       // Arrange
-      const videoDelay = 500;
-      const eventWithDelay: any = createMockEvent({
-        eventID: TEST_EVENT_ID_1,
-        eventDetails: [
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:00:00Z",
-            resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 2,
-            scheduleStartTs: "2024-01-01T10:01:30Z",
-            resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:03:00Z",
-            resultsAvailableTs: "2024-01-01T10:04:00Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:04:30Z",
-            resultsAvailableTs: "2024-01-01T10:05:30Z", // 60,000ms
-          }),
-        ],
-      });
-
-      // Manually add config to ensure it's properly set
-      eventWithDelay.config = {
-        delay: {
-          videoDelayInMillisecond: videoDelay,
+      const preloadDuration = 500;
+      const eventWithPreload = {
+        ...createMockEvent({
+          eventID: TEST_EVENT_ID_1,
+          eventDetails: [
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:00:00Z",
+              resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 2,
+              scheduleStartTs: "2024-01-01T10:01:30Z",
+              resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:03:00Z",
+              resultsAvailableTs: "2024-01-01T10:04:00Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:04:30Z",
+              resultsAvailableTs: "2024-01-01T10:05:30Z", // 60,000ms
+            }),
+          ],
+        }),
+        eventConfig: {
+          preloadDurationMs: preloadDuration,
         },
-      };
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
 
-      videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = eventWithDelay;
+      videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = eventWithPreload;
 
       // For index 3 (phase 1), should include index 0 and 2 (both phase 1), but not index 1 (phase 2)
-      const previousPhase1Time = (60000 - videoDelay) * 2; // Two previous phase 1 events
+      const previousPhase1Time = (60000 - preloadDuration) * 2; // Two previous phase 1 events
       const currentStreamingTime = TEST_CURRENT_TIME - TEST_TIME_TO_STREAM;
 
       // Act
@@ -759,27 +859,30 @@ describe("VideoStreamingService", () => {
       expect(result).toBe(0);
     });
 
-    it("should handle event with no video delay configuration", () => {
+    it("should handle event with no preload duration configuration", () => {
       // Arrange
-      const event = createMockEvent({
-        eventID: TEST_EVENT_ID_1,
-        eventDetails: [
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:00:00Z",
-            resultsAvailableTs: "2024-01-01T10:02:00Z", // 120,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:02:30Z",
-            resultsAvailableTs: "2024-01-01T10:04:30Z", // 120,000ms
-          }),
-        ],
-      });
+      const event = {
+        ...createMockEvent({
+          eventID: TEST_EVENT_ID_1,
+          eventDetails: [
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:00:00Z",
+              resultsAvailableTs: "2024-01-01T10:02:00Z", // 120,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:02:30Z",
+              resultsAvailableTs: "2024-01-01T10:04:30Z", // 120,000ms
+            }),
+          ],
+        }),
+        eventConfig: undefined,
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
 
       videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = event;
 
-      // No video delay, so previous time is the full duration
+      // No preload duration, so previous time is the full duration
       const previousTime = 120000;
       const currentStreamingTime = TEST_CURRENT_TIME - TEST_TIME_TO_STREAM;
 
@@ -790,28 +893,28 @@ describe("VideoStreamingService", () => {
       expect(result).toBe(previousTime + currentStreamingTime);
     });
 
-    it("should handle zero video delay", () => {
+    it("should handle zero preload duration", () => {
       // Arrange
-      const event = createMockEvent({
-        eventID: TEST_EVENT_ID_1,
-        eventDetails: [
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:00:00Z",
-            resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:01:30Z",
-            resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
-          }),
-        ],
-        config: {
-          delay: {
-            videoDelayInMillisecond: 0,
-          },
+      const event = {
+        ...createMockEvent({
+          eventID: TEST_EVENT_ID_1,
+          eventDetails: [
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:00:00Z",
+              resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:01:30Z",
+              resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
+            }),
+          ],
+        }),
+        eventConfig: {
+          preloadDurationMs: 0,
         },
-      } as any);
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
 
       videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = event;
 
@@ -850,27 +953,27 @@ describe("VideoStreamingService", () => {
 
     it("should integrate correctly with getCurrentVideoStateByGameId", () => {
       // Arrange
-      const videoDelay = 1000;
-      const event = createMockEvent({
-        eventID: TEST_EVENT_ID_1,
-        eventDetails: [
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:00:00Z",
-            resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
-          }),
-          createMockEventDetail({
-            phase: 1,
-            scheduleStartTs: "2024-01-01T10:01:30Z",
-            resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
-          }),
-        ],
-        config: {
-          delay: {
-            videoDelayInMillisecond: videoDelay,
-          },
+      const preloadDuration = 1000;
+      const event = {
+        ...createMockEvent({
+          eventID: TEST_EVENT_ID_1,
+          eventDetails: [
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:00:00Z",
+              resultsAvailableTs: "2024-01-01T10:01:00Z", // 60,000ms
+            }),
+            createMockEventDetail({
+              phase: 1,
+              scheduleStartTs: "2024-01-01T10:01:30Z",
+              resultsAvailableTs: "2024-01-01T10:02:30Z", // 60,000ms
+            }),
+          ],
+        }),
+        eventConfig: {
+          preloadDurationMs: preloadDuration,
         },
-      } as any);
+      } as Event & { eventConfig?: { preloadDurationMs?: number } };
 
       const testVideoState: VideoState = {
         videoLink: TEST_PLAYLIST_URL_1,
@@ -880,7 +983,8 @@ describe("VideoStreamingService", () => {
         phaseIndex: 1,
         timeFromPhaseStart: TEST_TIME_TO_STREAM,
         timeFromPhaseEnd: TEST_TIME_TO_STREAM,
-        durationInSeconds: 60,
+        videoLengthMs: 60000,
+        preloadDurationMs: preloadDuration,
       };
 
       videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1] = testVideoState;
@@ -1032,7 +1136,7 @@ describe("VideoStreamingService", () => {
         expect(payload).toHaveProperty("phaseIndex");
         expect(payload).toHaveProperty("timeFromPhaseStart");
         expect(payload).toHaveProperty("timeFromPhaseEnd");
-        expect(payload).toHaveProperty("durationInSeconds");
+        expect(payload).toHaveProperty("videoLengthMs");
         // Note: streamingPhaseTime is not included in replay payload
       });
     });
@@ -1133,8 +1237,8 @@ describe("VideoStreamingService", () => {
 
     it("should handle multiple events for the same game", async () => {
       // Arrange
-      const notification1 = { event: mockEvent1, index: 0, durationInSeconds: 60 };
-      const notification2 = { event: mockEvent1, index: 1, durationInSeconds: 60 };
+      const notification1 = { event: mockEvent1, index: 0 };
+      const notification2 = { event: mockEvent1, index: 1 };
 
       // Act
       await videoStreamingService.onLiveStreamStart(notification1);
@@ -1150,12 +1254,9 @@ describe("VideoStreamingService", () => {
     });
 
     it("should handle multiple games independently", async () => {
-      // Arrange
-      const durationInSeconds = 60;
-
       // Act
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification1, durationInSeconds });
-      await videoStreamingService.onLiveStreamStart({ ...mockEventDetailNotification2, durationInSeconds });
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification1);
+      await videoStreamingService.onLiveStreamStart(mockEventDetailNotification2);
 
       // Assert
       expect(videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1]).toBeDefined();
@@ -1172,7 +1273,6 @@ describe("VideoStreamingService", () => {
       const notification = {
         event: eventWithNoDetails,
         index: 0,
-        durationInSeconds: 60,
       };
 
       // Act & Assert - should not throw but will likely cause runtime error
@@ -1192,7 +1292,8 @@ describe("VideoStreamingService", () => {
         phaseIndex: TEST_INDEX,
         timeFromPhaseStart: TEST_TIME_TO_STREAM,
         timeFromPhaseEnd: TEST_TIME_TO_STREAM,
-        durationInSeconds: 60,
+        videoLengthMs: 60000,
+        preloadDurationMs: 0,
       };
       videoStreamingService["_currentVideoStateByGameId"][TEST_GAME_ID_1] = testVideoState;
       videoStreamingService["_currentEventByGameId"][TEST_GAME_ID_1] = mockEvent1;
