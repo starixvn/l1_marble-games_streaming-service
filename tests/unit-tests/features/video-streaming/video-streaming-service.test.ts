@@ -9,7 +9,6 @@ import {
   EventDetailNotification,
   EventNotification,
   Scheduler,
-  OddsFeedService,
   Event,
 } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
@@ -17,7 +16,6 @@ import { GameBroadcastService } from "../../../../src/services/game-broadcast.se
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
 import { idHelper } from "../../../../src/helpers";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
-import { GoalInfoData } from "../../../../src/types";
 
 // Mock dependencies
 const mockOddsFeedEventSource = {
@@ -46,10 +44,6 @@ const mockFeatureDebugService = {
   log: jest.fn(),
 } as unknown as jest.Mocked<FeatureDebugService>;
 
-const mockOddsFeedService = {
-  getRemoteJson: jest.fn(),
-} as unknown as jest.Mocked<OddsFeedService>;
-
 // Test constants
 const TEST_GAME_ID_1 = "1";
 const TEST_GAME_ID_2 = "2";
@@ -59,7 +53,6 @@ const TEST_INDEX = 1;
 const TEST_PLAYLIST_URL_1 = "https://example.com/playlist1.m3u8";
 const TEST_PLAYLIST_URL_2 = "https://example.com/playlist2.m3u8";
 const TEST_SCHEDULE_START_TS = "2024-01-01T10:00:00Z";
-const TEST_DELAYED_TIME_VIDEO = new Date("2024-01-01T10:00:00Z");
 const TEST_DELAYED_TIME_PRELOAD = new Date("2024-01-01T09:59:30Z");
 const TEST_TIME_TO_STREAM = 1640995200000;
 const TEST_CURRENT_TIME = 1640995260000; // 1 minute after stream start
@@ -135,7 +128,6 @@ const createContainer = () => ({
   scheduler: mockScheduler,
   gameBroadcastService: mockGameBroadcastService,
   featureDebugService: mockFeatureDebugService,
-  oddsFeedService: mockOddsFeedService,
 });
 
 const setupMocks = () => {
@@ -146,15 +138,6 @@ const setupMocks = () => {
   mockDelayHandlingService.getDelayedTime.mockReturnValue(TEST_DELAYED_TIME_PRELOAD);
   mockDelayHandlingService.getTimeToStream.mockReturnValue(new Date(TEST_TIME_TO_STREAM));
   mockDelayHandlingService.getTimeToStartEvent.mockReturnValue(TEST_DELAYED_TIME_PRELOAD);
-
-  // Mock oddsFeedService.getRemoteJson to return goal info with default length
-  const defaultGoalInfo: GoalInfoData = {
-    frame: [100, 200],
-    timeLine: [10, 20],
-    result: ["H", "A"],
-    length: 60,
-  };
-  mockOddsFeedService.getRemoteJson.mockResolvedValue(defaultGoalInfo);
 
   // Mock Date.now for consistent testing
   jest.spyOn(Date, "now").mockReturnValue(TEST_CURRENT_TIME);
@@ -185,7 +168,6 @@ describe("VideoStreamingService", () => {
       expect(service["scheduler"]).toBe(mockScheduler);
       expect(service["gameBroadcastService"]).toBe(mockGameBroadcastService);
       expect(service["featureDebugService"]).toBe(mockFeatureDebugService);
-      expect(service["oddsFeedService"]).toBe(mockOddsFeedService);
       expect(service["boundHandleEventDetailScheduleStart"]).toBeInstanceOf(Function);
       expect(service["boundHandleEventStart"]).toBeInstanceOf(Function);
     });
