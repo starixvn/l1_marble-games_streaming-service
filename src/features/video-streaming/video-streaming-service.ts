@@ -1,5 +1,5 @@
 import { idHelper } from "../../helpers";
-import { DelayConfig, DelayHandlingService } from "../delay/delay-handling-service";
+import { DelayHandlingService } from "../delay/delay-handling-service";
 import {
   Event,
   EventDetailNotification,
@@ -12,8 +12,6 @@ import {
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { Replay, ReplayService } from "../event-replay/event-replay-service";
-import { GoalInfoData } from "../../types";
-import { GLOBAL_DEFAULT_VIDEO_LENGTH } from "../../misc/constants";
 
 interface VideoStreamingServiceContainer {
   oddsFeedEventSource: OddsFeedEventSource;
@@ -31,7 +29,8 @@ export interface VideoState {
   phaseIndex: number;
   timeFromPhaseStart: number;
   timeFromPhaseEnd: number;
-  durationInSeconds: number;
+  videoLengthMs: number;
+  preloadDurationMs: number;
   streamingPhaseTime: number;
 }
 
@@ -74,7 +73,7 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
       const timeToStream = this.delayHandlingService.getTimeToStream(event, index);
       const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
       const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
-      const durationInSeconds = await this.getVideoLength({ event, index });
+      const videoLengthMs = this.getVideoLength({ event, index });
 
       replays.push(
         {
@@ -93,7 +92,7 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
             phaseIndex: event.eventDetails[index].phase,
             timeFromPhaseStart: timeFromPhaseStart.getTime(),
             timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
-            durationInSeconds,
+            videoLengthMs,
           },
           eventName: this.streamingEventName,
         }
@@ -132,24 +131,16 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
   public async handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
     const timeToStream = this.delayHandlingService.getTimeToStream(event, index);
     const timeToPreload = this.getTimeToPreload(event, index);
-    const durationInSeconds = await this.getVideoLength({ event, index });
-    this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index, durationInSeconds }));
+    this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }));
     this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }));
   }
 
-  async onLiveStreamStart({
-    event,
-    index,
-    durationInSeconds,
-  }: {
-    event: Event;
-    index: number;
-    durationInSeconds: number;
-  }) {
+  async onLiveStreamStart({ event, index }: { event: Event; index: number }) {
     const gameId = idHelper.extractGameId(event.eventID);
     const timeToStream = this.delayHandlingService.getTimeToStream(event, index);
     const timeFromPhaseStart = this.getTimeFromPhaseStart(event, index);
     const timeFromPhaseEnd = this.getTimeFromPhaseEnd(event, index);
+    const videoLengthMs = this.getVideoLength({ event, index });
     this._currentEventByGameId[gameId] = event;
     this._currentVideoStateByGameId[gameId] = {
       videoLink: event.eventDetails[index].playlist,
@@ -159,7 +150,8 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
       phaseIndex: event.eventDetails[index].phase,
       timeFromPhaseStart: timeFromPhaseStart.getTime(),
       timeFromPhaseEnd: timeFromPhaseEnd.getTime(),
-      durationInSeconds,
+      videoLengthMs,
+      preloadDurationMs: event.eventConfig?.preloadDurationMs ?? 0,
     };
     const currentVideoState = this.getCurrentVideoStateByGameId(gameId, index);
     this.log(
@@ -188,7 +180,8 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
       phaseIndex: 0,
       timeFromPhaseStart: 0,
       timeFromPhaseEnd: 0,
-      durationInSeconds: 0,
+      videoLengthMs: this.getVideoLength({ event, index: 0 }),
+      preloadDurationMs: event.eventConfig?.preloadDurationMs ?? 0,
     };
 
     this._currentEventByGameId[gameId] = event;
@@ -227,12 +220,13 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
     this.featureDebugService.log(this, message, gameId);
   }
 
-  private async getVideoLength({ event, index }: EventDetailNotification) {
-    const configVideoLength = (event as any).config?.video?.defaultLength ?? GLOBAL_DEFAULT_VIDEO_LENGTH;
-    const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(event.eventDetails[index].goalInfo, {
-      eventId: event.eventID,
-    });
-    return goalInfo?.length ?? configVideoLength;
+  private getVideoLength({ event, index }: EventDetailNotification) {
+    const preloadDuration = event.eventConfig?.preloadDurationMs ?? 0;
+    const detail = event.eventDetails[index];
+    const videoLengthMs =
+      new Date(detail.resultsAvailableTs).getTime() - new Date(detail.scheduleStartTs).getTime() - preloadDuration;
+
+    return videoLengthMs;
   }
 
   private getTimeToPreload(event: Event, index: number) {
@@ -247,8 +241,7 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
   private calculateCurrentStreamingPhaseTime(gameId: string, index: number) {
     const event = this._currentEventByGameId[gameId];
 
-    const config = (event as any).config?.delay as DelayConfig;
-    const videoDelayDuration = config?.videoDelayInMillisecond ?? 0;
+    const preloadDuration = event.eventConfig?.preloadDurationMs ?? 0;
 
     const currentPhase = event.eventDetails[index].phase;
 
@@ -259,9 +252,7 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
     const totalTimeOfPreEventDetailsOfPhase = preEventDetailsOfPhase.reduce((acc, detail) => {
       return (
         acc +
-        (new Date(detail.resultsAvailableTs).getTime() -
-          new Date(detail.scheduleStartTs).getTime() -
-          videoDelayDuration)
+        (new Date(detail.resultsAvailableTs).getTime() - new Date(detail.scheduleStartTs).getTime() - preloadDuration)
       );
     }, 0);
 
