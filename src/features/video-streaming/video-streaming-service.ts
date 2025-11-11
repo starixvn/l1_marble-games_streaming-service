@@ -44,7 +44,6 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
   private readonly scheduler: Scheduler;
   private readonly gameBroadcastService: GameBroadcastService;
   private readonly featureDebugService: FeatureDebugService;
-  private readonly oddsFeedService: OddsFeedService;
 
   private readonly _currentVideoStateByGameId: Record<string, VideoState> = {};
   private readonly _preloadVideoStateByGameId: Record<string, PreloadVideoState> = {};
@@ -59,7 +58,6 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
     this.scheduler = container.scheduler;
     this.gameBroadcastService = container.gameBroadcastService;
     this.featureDebugService = container.featureDebugService;
-    this.oddsFeedService = container.oddsFeedService;
 
     this.boundHandleEventDetailScheduleStart = this.handleEventDetailScheduleStart.bind(this);
     this.boundHandleEventStart = this.handleEventStart.bind(this);
@@ -223,10 +221,7 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
   private getVideoLength({ event, index }: EventDetailNotification) {
     const preloadDuration = event.eventConfig?.preloadDurationMs ?? 0;
     const detail = event.eventDetails[index];
-    const videoLengthMs =
-      new Date(detail.resultsAvailableTs).getTime() - new Date(detail.scheduleStartTs).getTime() - preloadDuration;
-
-    return videoLengthMs;
+    return new Date(detail.resultsAvailableTs).getTime() - new Date(detail.scheduleStartTs).getTime() - preloadDuration;
   }
 
   private getTimeToPreload(event: Event, index: number) {
