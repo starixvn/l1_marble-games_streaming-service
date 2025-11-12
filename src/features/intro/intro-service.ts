@@ -168,20 +168,32 @@ export class IntroService implements ReplayService<IntroState> {
 
     this.scheduler.schedule(
       timeToPlayPrebetIntro,
-      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() })
+      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() }),
+      {
+        overrideNow: event.now
+      }
     );
     this.scheduler.schedule(
       timeToPlayHalfTimeIntro,
-      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() })
+      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() }),
+      {
+        overrideNow: event.now
+      }
     );
 
     this.scheduler.schedule(
       timeToStopPrebetIntro,
-      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() })
+      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() }),
+      {
+        overrideNow: event.now
+      }
     );
     this.scheduler.schedule(
       timeToStopHalfTimeIntro,
-      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() })
+      this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() }),
+      {
+        overrideNow: event.now
+      }
     );
   }
 

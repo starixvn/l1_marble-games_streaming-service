@@ -222,7 +222,10 @@ export class CommentatorVoiceService {
           previousVoiceTimelines,
         },
         config.configVoice
-      )
+      ),
+      {
+        overrideNow: event.now
+      }
     );
 
     // absolute timeline is counted from the start time of the first event detail of the phase
@@ -262,7 +265,10 @@ export class CommentatorVoiceService {
         scheduledVoiceTime,
         this.playVoice.bind(this, gameId, {
           fileName: voices.voice[voiceIndex],
-        })
+        }),
+        {
+          overrideNow: event.now
+        }
       );
     });
   }

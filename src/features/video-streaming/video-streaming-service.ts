@@ -123,14 +123,20 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
 
   public handleEventStart({ event }: EventNotification) {
     const whenToSwitchToPrebet = this.delayHandlingService.getTimeToStartEvent(event);
-    this.scheduler.schedule(whenToSwitchToPrebet, this.onEventStart.bind(this, { event }));
+    this.scheduler.schedule(whenToSwitchToPrebet, this.onEventStart.bind(this, { event }), {
+      overrideNow: event.now
+    });
   }
 
   public async handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
     const timeToStream = this.delayHandlingService.getTimeToStream(event, index);
     const timeToPreload = this.getTimeToPreload(event, index);
-    this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }));
-    this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }));
+    this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }), {
+      overrideNow: event.now
+    });
+    this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }), {
+      overrideNow: event.now
+    });
   }
 
   async onLiveStreamStart({ event, index }: { event: Event; index: number }) {

@@ -80,7 +80,9 @@ export class ResultService implements ReplayService<ResultState> {
         oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
       }
     );
-    this.scheduler.schedule(timeToUpdate, this.handleResultUpdate.bind(this, { event, index }));
+    this.scheduler.schedule(timeToUpdate, this.handleResultUpdate.bind(this, { event, index }), {
+      overrideNow: event.now
+    });
   }
 
   public handleEventStart({ event }: EventNotification) {
@@ -90,7 +92,9 @@ export class ResultService implements ReplayService<ResultState> {
         oddsFeedEventType: OddsFeedEventName.EventStart,
       }
     );
-    this.scheduler.schedule(timeToReset, this.handleResetEvent.bind(this, { event }));
+    this.scheduler.schedule(timeToReset, this.handleResetEvent.bind(this, { event }), {
+      overrideNow: event.now
+    });
   }
 
   public handleResultUpdate({ event, index }: EventDetailNotification) {

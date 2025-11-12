@@ -152,7 +152,9 @@ export class CurrentEventService implements ReplayService<CurrentEventPayload> {
         oddsFeedEventType: OddsFeedEventName.EventStart,
       }
     );
-    this.scheduler.schedule(whenToSetCurrentEvent, this.handleEventIndexReset.bind(this, { event }));
+    this.scheduler.schedule(whenToSetCurrentEvent, this.handleEventIndexReset.bind(this, { event }), {
+      overrideNow: event.now
+    });
   }
 
   public handleEventDetailResultAvailable({ event, index }: EventDetailNotification) {
@@ -162,7 +164,9 @@ export class CurrentEventService implements ReplayService<CurrentEventPayload> {
         oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
       }
     );
-    this.scheduler.schedule(delayedTime, this.handleEventDetailIndexIncrement.bind(this, { event, index }));
+    this.scheduler.schedule(delayedTime, this.handleEventDetailIndexIncrement.bind(this, { event, index }), {
+      overrideNow: event.now
+    });
   }
 
   public handleEventDetailIndexIncrement({ event, index }: EventDetailNotification) {

@@ -79,7 +79,9 @@ export class TeamNameService implements ReplayService<TeamNameState> {
         oddsFeedEventType: OddsFeedEventName.EventStart,
       }
     );
-    this.scheduler.schedule(timeToUpdate, this.handleTeamNameUpdate.bind(this, { event }));
+    this.scheduler.schedule(timeToUpdate, this.handleTeamNameUpdate.bind(this, { event }), {
+      overrideNow: event.now
+    } );
   }
 
   public handleTeamNameUpdate({ event }: EventNotification) {

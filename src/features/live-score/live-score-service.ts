@@ -144,7 +144,10 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
       );
       this.scheduler.schedule(
         timeToReset,
-        this.resetLiveScore.bind(this, { gameId: idHelper.extractGameId(event.eventID) })
+        this.resetLiveScore.bind(this, { gameId: idHelper.extractGameId(event.eventID) }),
+        {
+          overrideNow: event.now
+        }
       );
     }
 
@@ -158,7 +161,10 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
       );
       this.scheduler.schedule(
         timeToUpdate,
-        this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] })
+        this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] }),
+        {
+          overrideNow: event.now
+        }
       );
     });
   }
