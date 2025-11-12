@@ -29,6 +29,7 @@ export type Event = {
   productTypeKey: string;
   eventDetails: EventDetail[];
   voiceConfig?: string;
+  now?: string;
 };
 
 export type EventDetail = {

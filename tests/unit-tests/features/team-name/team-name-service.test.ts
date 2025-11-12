@@ -234,7 +234,10 @@ describe('TeamNameService', () => {
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
-                expect.any(Function)
+            expect.any(Function),
+            expect.objectContaining({
+                overrideNow: mockEvent.now,
+            })
             );
         });
 

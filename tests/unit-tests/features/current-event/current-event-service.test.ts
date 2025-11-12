@@ -380,7 +380,10 @@ describe('CurrentEventService', () => {
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 delayedTime,
-                expect.any(Function)
+            expect.any(Function),
+            expect.objectContaining({
+                overrideNow: mockEvent.now,
+            })
             );
         });
 
@@ -422,7 +425,10 @@ describe('CurrentEventService', () => {
             });
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 delayedTime,
-                expect.any(Function)
+            expect.any(Function),
+            expect.objectContaining({
+                overrideNow: mockEvent.now,
+            })
             );
         });
 

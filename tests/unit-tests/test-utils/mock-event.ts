@@ -10,6 +10,7 @@ export interface MockEventOptions {
     productTypeKey?: string;
     voiceConfig?: string;
     eventDetails?: EventDetail[];
+    now?: string;
 }
 
 export interface MockEventDetailOptions {
@@ -46,7 +47,7 @@ export const createMockEventDetail = (options: MockEventDetailOptions = {}): Eve
 /**
  * Creates a mock Event for testing purposes
  */
-export const createMockEvent = (options: MockEventOptions = {}): Event => {
+export const createMockEvent = (options: MockEventOptions = {}): Event & { now?: string } => {
     const eventID = options.eventID ?? 1;
     const scheduleStartTs = options.scheduleStartTs ?? "2024-01-01T10:00:00Z";
     
@@ -76,6 +77,7 @@ export const createMockEvent = (options: MockEventOptions = {}): Event => {
         productTypeKey: options.productTypeKey ?? "MARBLE",
         eventDetails: options.eventDetails ?? defaultEventDetails,
         voiceConfig: options.voiceConfig,
+        now: options.now ?? new Date(scheduleStartTs).toISOString(),
     };
 };
 

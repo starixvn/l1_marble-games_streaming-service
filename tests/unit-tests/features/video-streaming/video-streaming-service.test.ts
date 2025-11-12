@@ -253,8 +253,18 @@ describe("VideoStreamingService", () => {
         }
       );
       expect(mockScheduler.schedule).toHaveBeenCalledTimes(2);
-      expect(mockScheduler.schedule).toHaveBeenNthCalledWith(1, new Date(TEST_TIME_TO_STREAM), expect.any(Function));
-      expect(mockScheduler.schedule).toHaveBeenNthCalledWith(2, TEST_DELAYED_TIME_PRELOAD, expect.any(Function));
+      expect(mockScheduler.schedule).toHaveBeenNthCalledWith(
+        1,
+        new Date(TEST_TIME_TO_STREAM),
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEvent1.now })
+      );
+      expect(mockScheduler.schedule).toHaveBeenNthCalledWith(
+        2,
+        TEST_DELAYED_TIME_PRELOAD,
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEvent1.now })
+      );
     });
 
     it("should call delay calculation methods correctly", async () => {
@@ -421,7 +431,11 @@ describe("VideoStreamingService", () => {
 
       // Assert
       expect(mockDelayHandlingService.getTimeToStartEvent).toHaveBeenCalledWith(mockEvent1);
-      expect(mockScheduler.schedule).toHaveBeenCalledWith(TEST_DELAYED_TIME_PRELOAD, expect.any(Function));
+      expect(mockScheduler.schedule).toHaveBeenCalledWith(
+        TEST_DELAYED_TIME_PRELOAD,
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEvent1.now })
+      );
     });
 
     it("should call onEventStart when scheduled", () => {

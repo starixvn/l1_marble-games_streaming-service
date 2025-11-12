@@ -282,7 +282,11 @@ describe("GameFlowService", () => {
 
       // Assert
       expect(mockDelayHandlingService.getTimeToStartEvent).toHaveBeenCalledWith(mockEventWithDetails);
-      expect(mockScheduler.schedule).toHaveBeenCalledWith(TEST_DELAYED_TIME, expect.any(Function));
+      expect(mockScheduler.schedule).toHaveBeenCalledWith(
+        TEST_DELAYED_TIME,
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEventWithDetails.now })
+      );
     });
 
     it("should schedule the correct bound method for switch to prebet", () => {
@@ -337,7 +341,11 @@ describe("GameFlowService", () => {
           oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         }
       );
-      expect(mockScheduler.schedule).toHaveBeenCalledWith(TEST_DELAYED_TIME, expect.any(Function));
+      expect(mockScheduler.schedule).toHaveBeenCalledWith(
+        TEST_DELAYED_TIME,
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEventWithDetails.now })
+      );
     });
 
     it("should schedule switch to phase change when is phase switching", () => {
@@ -359,7 +367,11 @@ describe("GameFlowService", () => {
           oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
         }
       );
-      expect(mockScheduler.schedule).toHaveBeenCalledWith(TEST_DELAYED_TIME, expect.any(Function));
+      expect(mockScheduler.schedule).toHaveBeenCalledWith(
+        TEST_DELAYED_TIME,
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEventWithDetails.now })
+      );
     });
 
     it("should prioritize result when both conditions are true", () => {
@@ -462,7 +474,11 @@ describe("GameFlowService", () => {
 
       // Assert
       expect(mockDelayHandlingService.getTimeToStream).toHaveBeenCalledWith(mockEventWithDetails, 0);
-      expect(mockScheduler.schedule).toHaveBeenCalledWith(TEST_DELAYED_TIME, expect.any(Function));
+      expect(mockScheduler.schedule).toHaveBeenCalledWith(
+        TEST_DELAYED_TIME,
+        expect.any(Function),
+        expect.objectContaining({ overrideNow: mockEventWithDetails.now })
+      );
     });
 
     it("should execute scheduled switch to streaming correctly", () => {

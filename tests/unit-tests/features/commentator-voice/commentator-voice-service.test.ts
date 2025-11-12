@@ -28,8 +28,9 @@ import { DelayHandlingService } from "../../../../src/features/delay/delay-handl
 import { Scheduler } from "odds-feed-client";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
-import { generateVoiceWithEventTimeline } from "../../../../src/helpers/voices";
+import { generateVoiceWithEventTimeline, VoiceDurationConfig } from "../../../../src/helpers/voices";
 import { createMockEvent, createMockEventDetail } from "../../test-utils/mock-event";
+import { GoalInfoData, InGameEvent } from "../../../../src/types";
 
 // Mock complex helpers
 jest.mock("../../../../src/helpers/voices", () => ({
@@ -37,6 +38,19 @@ jest.mock("../../../../src/helpers/voices", () => ({
 }));
 
 const mockGenerateVoiceWithEventTimeline = generateVoiceWithEventTimeline as jest.MockedFunction<typeof generateVoiceWithEventTimeline>;
+
+type BaseMockEvent = ReturnType<typeof createMockEvent>;
+type CommentatorVoiceEvent = BaseMockEvent & {
+    config?: {
+        video?: { videoLength?: number };
+        voice?: {
+            configJson: string;
+            configVoice?: VoiceDurationConfig;
+        };
+    };
+};
+type CommentatorVoiceEventNotification = EventNotification<CommentatorVoiceEvent>;
+type CommentatorVoiceDetailNotification = EventDetailNotification<CommentatorVoiceEvent>;
 
 // Mock dependencies
 const mockOddsFeedEventSource = {
@@ -68,8 +82,6 @@ const mockOddsFeedService = {
     getRemoteJson: jest.fn(),
 } as unknown as jest.Mocked<OddsFeedService>;
 
-type GoalInfo = import("../../../../src/types").GoalInfoData;
-
 // Test constants
 const TEST_GAME_ID = '1';
 const TEST_EVENT_ID = 4294967298;
@@ -90,7 +102,7 @@ const MOCK_VOICE_STATE_DATA = {
 };
 
 // Test data
-const mockVoiceConfig = {
+const mockVoiceConfig: VoiceDurationConfig = {
     "goal": {
         1: 5,
         2: 3
@@ -101,20 +113,20 @@ const mockVoiceConfig = {
     }
 };
 
-const mockInGameEvent = {
+const mockInGameEvent: InGameEvent = {
     eventName: ["Goal", "Card"],
     timeLine: [10, 20],
     frame: [100, 200]
 };
 
-const mockGoalInfo: GoalInfo = {
+const mockGoalInfo: GoalInfoData = {
     result: ["1", "0"],
     length: 25,
     frame: [100, 200],
     timeLine: [50, 60] // This timeline is NOT used for voice generation
 };
 
-const mockEventWithVoiceConfig = {
+const mockEventWithVoiceConfig: CommentatorVoiceEvent = {
     ...createMockEvent({
         eventID: TEST_EVENT_ID,
         scheduleStartTs: TEST_SCHEDULE_START_TS,
@@ -136,23 +148,30 @@ const mockEventWithVoiceConfig = {
     }
 };
 
-const mockEventWithoutVoiceConfig = createMockEvent({
+const mockEventWithoutVoiceConfig: CommentatorVoiceEvent = createMockEvent({
     eventID: TEST_EVENT_ID,
     scheduleStartTs: TEST_SCHEDULE_START_TS,
 });
 
-const mockEventNotificationWithConfig: EventNotification = {
-    event: mockEventWithVoiceConfig as any
+const mockEventNotificationWithConfig: CommentatorVoiceEventNotification = {
+    event: mockEventWithVoiceConfig
 };
 
 
-const mockEventDetailNotification: EventDetailNotification = {
-    event: mockEventWithVoiceConfig as any,
+const mockEventDetailNotification: CommentatorVoiceDetailNotification = {
+    event: mockEventWithVoiceConfig,
     index: 0
 };
 
 const mockSystemNotification: SystemNotification = {
     eventID: TEST_EVENT_ID
+};
+
+const setRemoteJsonResponses = (responses: Partial<Record<string, unknown>>) => {
+    mockOddsFeedService.getRemoteJson.mockImplementation(async <T>(url: string) => {
+        const result = responses[url];
+        return (result ?? null) as T | null;
+    });
 };
 
 const createContainer = (): CommentatorVoiceServiceContainer => ({
@@ -168,11 +187,10 @@ const setupMocks = () => {
     jest.clearAllMocks();
     mockDelayHandlingService.getDelayedTimeWithVideoDelay.mockReturnValue(TEST_DELAYED_TIME);
     // default: first call for upcoming voice config, then later calls for inGame and goalInfo
-    mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
-        if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
-        if (url === "test-in-game-event") return mockInGameEvent as any;
-        if (url === "test-goal-info") return mockGoalInfo as any;
-        return null as any;
+    setRemoteJsonResponses({
+        [TEST_CONFIG_JSON]: mockVoiceConfig,
+        "test-in-game-event": mockInGameEvent,
+        "test-goal-info": mockGoalInfo,
     });
     mockGenerateVoiceWithEventTimeline.mockReturnValue({
         voice: ["generated-voice1.mp3", "generated-voice2.mp3"],
@@ -297,7 +315,7 @@ describe('CommentatorVoiceService', () => {
 
         it('should use global default video length when no config or app settings', async () => {
             // Arrange
-            const eventWithoutVideoLength = {
+            const eventWithoutVideoLength: CommentatorVoiceEventNotification = {
                 event: {
                     ...mockEventWithVoiceConfig,
                     config: {
@@ -310,7 +328,7 @@ describe('CommentatorVoiceService', () => {
             };
 
             // Act
-            await commentatorVoiceService.handleEventUpcoming(eventWithoutVideoLength as any);
+            await commentatorVoiceService.handleEventUpcoming(eventWithoutVideoLength);
 
             // Assert
             expect(commentatorVoiceService['_videoLengthByEventId'][TEST_EVENT_ID]).toBe(30);
@@ -318,7 +336,7 @@ describe('CommentatorVoiceService', () => {
 
         it('should return early when voice config is not present', async () => {
             // Arrange
-            const eventWithoutVoiceConfig = {
+            const eventWithoutVoiceConfig: CommentatorVoiceEventNotification = {
                 event: {
                     ...mockEventWithoutVoiceConfig,
                     config: { video: { videoLength: TEST_VIDEO_LENGTH } }
@@ -326,7 +344,7 @@ describe('CommentatorVoiceService', () => {
             };
 
             // Act
-            await commentatorVoiceService.handleEventUpcoming(eventWithoutVoiceConfig as any);
+            await commentatorVoiceService.handleEventUpcoming(eventWithoutVoiceConfig);
 
             // Assert
             expect(mockOddsFeedService.getRemoteJson).not.toHaveBeenCalledWith(TEST_CONFIG_JSON);
@@ -335,9 +353,8 @@ describe('CommentatorVoiceService', () => {
 
         it('should return early when voice config from service is null', async () => {
             // Arrange
-            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
-                if (url === TEST_CONFIG_JSON) return null as any;
-                return mockVoiceConfig as any;
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: null,
             });
 
             // Act
@@ -505,11 +522,12 @@ describe('CommentatorVoiceService', () => {
 
         it('should use goal info length when available', async () => {
             // Arrange
-            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
-                if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
-                if (url === "test-in-game-event") return mockInGameEvent as any;
-                if (url === "test-goal-info") return { result: ["1", "0"], length: 35, frame: [100, 200], timeLine: [50, 60] } as any;
-                return null as any;
+            const goalInfoWithLength: GoalInfoData = { result: ["1", "0"], length: 35, frame: [100, 200], timeLine: [50, 60] };
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: mockVoiceConfig,
+                "test-in-game-event": mockInGameEvent,
+                "test-goal-info": goalInfoWithLength,
+                "{}": goalInfoWithLength,
             });
 
             // Act
@@ -522,11 +540,11 @@ describe('CommentatorVoiceService', () => {
 
         it('should use default video length when goal info length is not available', async () => {
             // Arrange
-            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
-                if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
-                if (url === "test-in-game-event") return mockInGameEvent as any;
-                if (url === "test-goal-info") return { result: ["1", "0"], frame: [100, 200], timeLine: [50, 60] } as any;
-                return null as any;
+            const goalInfoWithoutLength: GoalInfoData = { result: ["1", "0"], frame: [100, 200], timeLine: [50, 60] };
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: mockVoiceConfig,
+                "test-in-game-event": mockInGameEvent,
+                "test-goal-info": goalInfoWithoutLength,
             });
 
             // Act
@@ -544,7 +562,10 @@ describe('CommentatorVoiceService', () => {
             // Assert
             expect(mockScheduler.schedule).toHaveBeenCalledWith(
                 TEST_DELAYED_TIME,
-                expect.any(Function)
+            expect.any(Function),
+            expect.objectContaining({
+                overrideNow: mockEventDetailNotification.event.now,
+            })
             );
         });
 
@@ -558,20 +579,20 @@ describe('CommentatorVoiceService', () => {
 
         it('should use InGameEvent timeline for voice generation, not GoalInfo timeline', async () => {
             // Arrange
-            const customInGameEvent = {
+            const customInGameEvent: InGameEvent = {
                 eventName: ["Goal", "Celebration"],
                 timeLine: [15, 25], // This timeline should be used
                 frame: [150, 250]
             };
-            const customGoalInfo: GoalInfo = {
+            const customGoalInfo: GoalInfoData = {
                 result: ["2", "1"],
                 length: 40,
                 frame: [300, 400],
                 timeLine: [99, 100] // This timeline should NOT be used
             };
-            const seq = [customInGameEvent as any, customGoalInfo as any];
+            const seq: Array<InGameEvent | GoalInfoData> = [customInGameEvent, customGoalInfo];
             let i = 0;
-            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => seq[i++]);
+            mockOddsFeedService.getRemoteJson.mockImplementation(async <T>() => seq[i++] as T);
 
             // Act
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
@@ -591,14 +612,15 @@ describe('CommentatorVoiceService', () => {
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
             
             // Set up second event detail in the same phase with different goal info
-            mockOddsFeedService.getRemoteJson.mockResolvedValueOnce({ 
+            const secondGoalInfo: GoalInfoData = {
                 result: ["2", "1"],
                 length: 30, // Different length for second event detail
                 frame: [200, 300],
                 timeLine: [70, 80]
-            } as any);
+            };
+            mockOddsFeedService.getRemoteJson.mockResolvedValueOnce(secondGoalInfo);
             
-            const secondEventDetailNotification = {
+            const secondEventDetailNotification: CommentatorVoiceDetailNotification = {
                 ...mockEventDetailNotification,
                 event: {
                     ...mockEventDetailNotification.event,
@@ -616,7 +638,7 @@ describe('CommentatorVoiceService', () => {
             };
 
             // Act - Second event detail in same phase
-            await commentatorVoiceService.handleEventDetailScheduleStart(secondEventDetailNotification as any);
+            await commentatorVoiceService.handleEventDetailScheduleStart(secondEventDetailNotification);
 
             // Assert - Video length should accumulate within the phase
             const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
@@ -878,29 +900,30 @@ describe('CommentatorVoiceService', () => {
                 configJson: TEST_CONFIG_JSON,
                 configVoice: mockVoiceConfig
             };
-            const phase1Notification = { ...mockEventDetailNotification };
-            const phase2Notification = {
+            const phase1Notification: CommentatorVoiceDetailNotification = { ...mockEventDetailNotification };
+            const phase2Notification: CommentatorVoiceDetailNotification = {
                 ...mockEventDetailNotification,
                 event: {
                     ...mockEventDetailNotification.event,
                     eventDetails: [
                         ...mockEventDetailNotification.event.eventDetails,
-                        createMockEventDetail({ phase: 2 })
+                        createMockEventDetail({ phase: 2, inGameEventInfo: "test-in-game-event", goalInfo: "test-goal-info" })
                     ]
                 },
                 index: 1
             };
 
             // Ensure goal info returns length for both phases
-            mockOddsFeedService.getRemoteJson.mockImplementation(async (url: string) => {
-                if (url === TEST_CONFIG_JSON) return mockVoiceConfig as any;
-                if (url === "test-in-game-event") return mockInGameEvent as any;
-                return { result: ["1", "0"], length: 25, frame: [100,200], timeLine: [1,2] } as any;
+            const goalInfoWithLength: GoalInfoData = { result: ["1", "0"], length: 25, frame: [100,200], timeLine: [1,2] };
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: mockVoiceConfig,
+                "test-in-game-event": mockInGameEvent,
+                "test-goal-info": goalInfoWithLength,
             });
 
             // Act
             await commentatorVoiceService.handleEventDetailScheduleStart(phase1Notification);
-            await commentatorVoiceService.handleEventDetailScheduleStart(phase2Notification as any);
+            await commentatorVoiceService.handleEventDetailScheduleStart(phase2Notification);
 
             // Assert - Each phase should have its own state, video length starts from 0 for each phase
             const voiceState = commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID];
