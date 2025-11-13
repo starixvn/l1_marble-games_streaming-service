@@ -5665,10 +5665,10 @@ object.pick@^1.3.0:
   dependencies:
     isobject "^3.0.1"
 
-odds-feed-client@3.4.2:
-  version "3.4.2"
-  resolved "http://npm.lumigame.com/odds-feed-client/-/odds-feed-client-3.4.2.tgz#3ec0257864b90edab885f17566fbcc0e74d6072c"
-  integrity sha512-4v+m7hJARZMCq4Ug0Fp0SZ22mMAu4QlOgtHYE9t9hR+Zx1W4X6dYJl9TgYgzHgzPrR+xl91F95bvZXxAONkUVA==
+odds-feed-client@3.4.3:
+  version "3.4.3"
+  resolved "http://npm.lumigame.com/odds-feed-client/-/odds-feed-client-3.4.3.tgz#fba1be1da0549f08eeaef13dea793433b0671527"
+  integrity sha512-UcGrkJviihaifgyejBSyBprWsYS+H3+vAQJo8Kg0bBUVl7A9AYhpUUrwpehG8PHgp9Kt00b8bT/X/QedadsSEA==
   dependencies:
     "@sentry/node" "^10.20.0"
     awilix "^12.0.5"
