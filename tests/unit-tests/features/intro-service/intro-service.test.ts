@@ -271,13 +271,12 @@ describe('IntroService', () => {
             expect(mockScheduler.schedule).toHaveBeenCalledTimes(4); // 2 start times + 2 stop times
         });
 
-        it('should schedule intros with default duration when config is not available', () => {
+        it('should NOT schedule intros with default duration when config is not available', () => {
             // Act
             introService.handleEventStart(mockEventNotificationWithoutConfig);
 
             // Assert
-            // Should still schedule but with duration = 0, so timing will be different
-            expect(mockScheduler.schedule).toHaveBeenCalled();
+            expect(mockScheduler.schedule).not.toHaveBeenCalled();
         });
 
         it('should calculate correct delay times', () => {

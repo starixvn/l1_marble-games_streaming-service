@@ -140,6 +140,11 @@ export class IntroService implements ReplayService<IntroState> {
   }
 
   handleEventStart({ event }: EventNotification) {
+
+    if (!(event as any).config?.intro) {
+      return;
+    }
+    
     const duration = (event as any).config?.intro?.duration ?? 0;
 
     const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
