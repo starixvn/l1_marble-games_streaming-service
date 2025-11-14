@@ -669,6 +669,7 @@ describe("LiveScoreService", () => {
       expect(liveScoreService["_liveScoreByGameId"][TEST_GAME_ID]).toEqual({
         homeScore: 1, // First goal is "H"
         awayScore: 0,
+        final: true,
       });
     });
 

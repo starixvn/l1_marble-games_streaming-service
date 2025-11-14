@@ -13,10 +13,12 @@ import { Event, GoalInfoData } from "../../types";
 import { GameBroadcastService } from "../../services/game-broadcast.service";
 import { FeatureDebugService } from "../feature-debug/feature-debug-service";
 import { Replay, ReplayService } from "../event-replay/event-replay-service";
+import { isLastEventDetailOfPhase } from "../../helpers/phase-helper";
 
 export interface LiveScoreState {
   homeScore: number;
   awayScore: number;
+  final?: boolean;
 }
 
 export interface LiveScoreStateByPhase {
@@ -147,6 +149,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
   }
 
   public async handleEventDetailStart({ event, index }: EventDetailNotification) {
+    const final = isLastEventDetailOfPhase({ event, index });
     const goalInfoUrl = event.eventDetails[index].goalInfo;
     const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl, {
       eventId: event.eventID,
@@ -164,9 +167,10 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
           oddsFeedEventType: OddsFeedEventName.EventDetailStart,
         }
       );
+
       this.scheduler.schedule(
         timeToUpdate,
-        this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] }),
+        this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex], final }),
         {
           overrideNow: event.now,
         }
@@ -174,7 +178,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     });
   }
 
-  public handleLiveScoreUpdate({ event, result }: { event: Event; result: string }) {
+  public handleLiveScoreUpdate({ event, result, final }: { event: Event; result: string; final?: boolean }) {
     const gameId = idHelper.extractGameId(event.eventID);
     if (!this._liveScoreByGameId[gameId]) {
       this._liveScoreByGameId[gameId] = { homeScore: 0, awayScore: 0 };
@@ -190,6 +194,11 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     const awayScore = currentAwayScore + plusAwayScore;
 
     this._liveScoreByGameId[gameId] = { homeScore, awayScore };
+
+    if (final) {
+      this._liveScoreByGameId[gameId].final = true;
+    }
+
     this.broadcastLiveScore({ gameId });
   }
 
