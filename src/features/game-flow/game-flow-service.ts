@@ -164,10 +164,16 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
       return;
     }
 
-    this.scheduler.schedule(whenToSwitch, this.switchToEventDetailChange.bind(this, { eventId: event.eventID }), {
-      overrideNow: event.now,
-      keyOverride: `switchToEventDetailChange-${event.eventID}-${index}`,
-    });
+    const eventDetailChangeDelay = (event as any).config?.delay?.eventDetailChangeMs ?? 0;
+
+    this.scheduler.schedule(
+      new Date(whenToSwitch.getTime() + eventDetailChangeDelay),
+      this.switchToEventDetailChange.bind(this, { eventId: event.eventID }),
+      {
+        overrideNow: event.now,
+        keyOverride: `switchToEventDetailChange-${event.eventID}-${index}`,
+      }
+    );
   }
 
   public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
