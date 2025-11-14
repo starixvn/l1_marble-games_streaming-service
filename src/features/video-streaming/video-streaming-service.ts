@@ -124,7 +124,8 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
   public handleEventStart({ event }: EventNotification) {
     const whenToSwitchToPrebet = this.delayHandlingService.getTimeToStartEvent(event);
     this.scheduler.schedule(whenToSwitchToPrebet, this.onEventStart.bind(this, { event }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `startLiveStream-${event.eventID}`,
     });
   }
 
@@ -132,10 +133,12 @@ export class VideoStreamingService implements ReplayService<VideoState | Preload
     const timeToStream = this.delayHandlingService.getTimeToStream(event, index);
     const timeToPreload = this.getTimeToPreload(event, index);
     this.scheduler.schedule(timeToStream, this.onLiveStreamStart.bind(this, { event, index }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `startLiveStream-${event.eventID}-${index}`,
     });
     this.scheduler.schedule(timeToPreload, this.onLiveStreamPreload.bind(this, { event, index }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `preloadLiveStream-${event.eventID}-${index}`,
     });
   }
 

@@ -142,7 +142,8 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   public handleEventStart({ event }: EventNotification) {
     const whenToSwitchToPrebet = this.delayHandlingService.getTimeToStartEvent(event);
     this.scheduler.schedule(whenToSwitchToPrebet, this.switchToPrebet.bind(this, { eventId: event.eventID }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `switchToPrebet-${event.eventID}`,
     });
   }
 
@@ -150,26 +151,30 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
     if (isLastEventDetail({ event, index })) {
       this.scheduler.schedule(whenToSwitch, this.switchToResult.bind(this, { eventId: event.eventID }), {
-        overrideNow: event.now
-      });
-      return;
-    } 
-    if (isPhaseSwitching({ event, index })) {
-      this.scheduler.schedule(whenToSwitch, this.switchToPhaseChange.bind(this, { eventId: event.eventID }), {
-        overrideNow: event.now
+        overrideNow: event.now,
+        keyOverride: `switchToResult-${event.eventID}`,
       });
       return;
     }
-    
+    if (isPhaseSwitching({ event, index })) {
+      this.scheduler.schedule(whenToSwitch, this.switchToPhaseChange.bind(this, { eventId: event.eventID }), {
+        overrideNow: event.now,
+        keyOverride: `switchToPhaseChange-${event.eventID}-${event.eventDetails[index].phase}`,
+      });
+      return;
+    }
+
     this.scheduler.schedule(whenToSwitch, this.switchToEventDetailChange.bind(this, { eventId: event.eventID }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `switchToEventDetailChange-${event.eventID}-${index}`,
     });
   }
 
   public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
     const whenToSwitchToStreaming = this.delayHandlingService.getTimeToStream(event, index);
     this.scheduler.schedule(whenToSwitchToStreaming, this.switchToStreaming.bind(this, { eventId: event.eventID }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `switchToStreaming-${event.eventID}-${index}`,
     });
   }
 

@@ -81,7 +81,8 @@ export class ResultService implements ReplayService<ResultState> {
       }
     );
     this.scheduler.schedule(timeToUpdate, this.handleResultUpdate.bind(this, { event, index }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `updateResult-${event.eventID}-${index}`,
     });
   }
 
@@ -93,7 +94,8 @@ export class ResultService implements ReplayService<ResultState> {
       }
     );
     this.scheduler.schedule(timeToReset, this.handleResetEvent.bind(this, { event }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `resetResult-${event.eventID}`,
     });
   }
 

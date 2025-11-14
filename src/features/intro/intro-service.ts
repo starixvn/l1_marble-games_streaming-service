@@ -140,11 +140,10 @@ export class IntroService implements ReplayService<IntroState> {
   }
 
   handleEventStart({ event }: EventNotification) {
-
     if (!(event as any).config?.intro) {
       return;
     }
-    
+
     const duration = (event as any).config?.intro?.duration ?? 0;
 
     const secondHalfIndex = this.getFirst2ndHalfEventDetailIndex(event);
@@ -175,14 +174,16 @@ export class IntroService implements ReplayService<IntroState> {
       timeToPlayPrebetIntro,
       this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() }),
       {
-        overrideNow: event.now
+        overrideNow: event.now,
+        keyOverride: `updateIntroStatusPrebet-${event.eventID}`,
       }
     );
     this.scheduler.schedule(
       timeToPlayHalfTimeIntro,
       this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() }),
       {
-        overrideNow: event.now
+        overrideNow: event.now,
+        keyOverride: `updateIntroStatusHalfTime-${event.eventID}`,
       }
     );
 
@@ -190,14 +191,16 @@ export class IntroService implements ReplayService<IntroState> {
       timeToStopPrebetIntro,
       this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayPrebetIntro.getTime() }),
       {
-        overrideNow: event.now
+        overrideNow: event.now,
+        keyOverride: `updateIntroStatusStopPrebet-${event.eventID}`,
       }
     );
     this.scheduler.schedule(
       timeToStopHalfTimeIntro,
       this.updateIntroStatus.bind(this, { event, timeToPlay: timeToPlayHalfTimeIntro.getTime() }),
       {
-        overrideNow: event.now
+        overrideNow: event.now,
+        keyOverride: `updateIntroStatusStopHalfTime-${event.eventID}`,
       }
     );
   }

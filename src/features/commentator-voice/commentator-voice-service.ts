@@ -252,7 +252,7 @@ export class CommentatorVoiceService {
         config.configVoice
       ),
       {
-        overrideNow: event.now
+        overrideNow: event.now,
       }
     );
 
@@ -293,7 +293,8 @@ export class CommentatorVoiceService {
           fileName: voices.voice[voiceIndex],
         }),
         {
-          overrideNow: event.now
+          overrideNow: event.now,
+          keyOverride: `playVoice-${event.eventID}-${index}-${voiceIndex}`,
         }
       );
     });

@@ -146,14 +146,10 @@ export class CurrentEventService implements ReplayService<CurrentEventPayload> {
   }
 
   public handleEventStart({ event }: EventNotification) {
-    const whenToSetCurrentEvent = this.delayHandlingService.getDelayedTime(
-      { event, time: new Date(event.scheduleStartTs) },
-      {
-        oddsFeedEventType: OddsFeedEventName.EventStart,
-      }
-    );
+    const whenToSetCurrentEvent = this.delayHandlingService.getTimeToStartEvent(event);
     this.scheduler.schedule(whenToSetCurrentEvent, this.handleEventIndexReset.bind(this, { event }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `resetEventIndex-${event.eventID}`,
     });
   }
 
@@ -165,7 +161,8 @@ export class CurrentEventService implements ReplayService<CurrentEventPayload> {
       }
     );
     this.scheduler.schedule(delayedTime, this.handleEventDetailIndexIncrement.bind(this, { event, index }), {
-      overrideNow: event.now
+      overrideNow: event.now,
+      keyOverride: `incrementEventDetailIndex-${event.eventID}-${index}`,
     });
   }
 

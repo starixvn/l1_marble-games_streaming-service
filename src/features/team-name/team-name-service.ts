@@ -80,8 +80,9 @@ export class TeamNameService implements ReplayService<TeamNameState> {
       }
     );
     this.scheduler.schedule(timeToUpdate, this.handleTeamNameUpdate.bind(this, { event }), {
-      overrideNow: event.now
-    } );
+      overrideNow: event.now,
+      keyOverride: `updateTeamName-${event.eventID}`,
+    });
   }
 
   public handleTeamNameUpdate({ event }: EventNotification) {

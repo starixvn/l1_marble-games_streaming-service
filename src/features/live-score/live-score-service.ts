@@ -5,6 +5,7 @@ import {
   OddsFeedService,
   Scheduler,
   Event as OddsEvent,
+  EventNotification,
 } from "odds-feed-client";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { idHelper } from "../../helpers";
@@ -41,6 +42,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
   private readonly _liveScoreByGameId: Record<string, LiveScoreState> = {};
 
   private readonly boundHandleEventDetailStart: (notification: EventDetailNotification) => void;
+  private readonly boundHandleEventStart: (notification: EventNotification) => void;
 
   constructor(container: LiveScoreServiceContainer) {
     this.oddsFeedEventSource = container.oddsFeedEventSource;
@@ -51,6 +53,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     this.featureDebugService = container.featureDebugService;
 
     this.boundHandleEventDetailStart = this.handleEventDetailStart.bind(this);
+    this.boundHandleEventStart = this.handleEventStart.bind(this);
   }
 
   public readonly eventName = "liveScore";
@@ -60,10 +63,14 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
   }
 
   public initEvent() {
+    this.oddsFeedEventSource.eventOn(OddsFeedEventName.EventStart, this.boundHandleEventStart);
+
     this.oddsFeedEventSource.eventDetailOn(OddsFeedEventName.EventDetailStart, this.boundHandleEventDetailStart);
   }
 
   public dispose() {
+    this.oddsFeedEventSource.eventOff(OddsFeedEventName.EventStart, this.boundHandleEventStart);
+
     this.oddsFeedEventSource.eventDetailOff(OddsFeedEventName.EventDetailStart, this.boundHandleEventDetailStart);
   }
 
@@ -125,6 +132,20 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     return replays;
   }
 
+  public handleEventStart({ event }: EventNotification) {
+    const eventStartTime = this.delayHandlingService.getTimeToStartEvent(event);
+    this.scheduler.schedule(eventStartTime, this.onEventStart.bind(this, { event }), {
+      overrideNow: event.now,
+      keyOverride: `resetLiveScore-${event.eventID}`,
+    });
+  }
+
+  onEventStart({ event }: EventNotification) {
+    const gameId = idHelper.extractGameId(event.eventID);
+
+    this.resetLiveScore({ gameId });
+  }
+
   public async handleEventDetailStart({ event, index }: EventDetailNotification) {
     const goalInfoUrl = event.eventDetails[index].goalInfo;
     const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(goalInfoUrl, {
@@ -133,22 +154,6 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
 
     if (!goalInfo) {
       return;
-    }
-
-    if (index === 0) {
-      const timeToReset = this.delayHandlingService.getDelayedTime(
-        { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
-        {
-          oddsFeedEventType: OddsFeedEventName.EventDetailStart,
-        }
-      );
-      this.scheduler.schedule(
-        timeToReset,
-        this.resetLiveScore.bind(this, { gameId: idHelper.extractGameId(event.eventID) }),
-        {
-          overrideNow: event.now
-        }
-      );
     }
 
     goalInfo?.timeLine?.forEach((time, goalIndex) => {
@@ -163,7 +168,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
         timeToUpdate,
         this.handleLiveScoreUpdate.bind(this, { event, result: goalInfo.result[goalIndex] }),
         {
-          overrideNow: event.now
+          overrideNow: event.now,
         }
       );
     });
