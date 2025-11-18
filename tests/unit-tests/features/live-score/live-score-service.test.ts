@@ -473,50 +473,6 @@ describe("LiveScoreService", () => {
       });
     });
 
-    it("should broadcast hideTimer when final is not set", () => {
-      // Arrange
-      const updateData = { event: mockEvent, result: "H" };
-
-      // Act
-      liveScoreService.handleLiveScoreUpdate(updateData);
-
-      // Assert
-      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
-        TEST_GAME_ID,
-        { hideTimer: true },
-        "hideTimer"
-      );
-    });
-
-    it("should broadcast hideTimer when final is false", () => {
-      // Arrange
-      const updateData = { event: mockEvent, result: "H", final: false };
-
-      // Act
-      liveScoreService.handleLiveScoreUpdate(updateData);
-
-      // Assert
-      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
-        TEST_GAME_ID,
-        { hideTimer: true },
-        "hideTimer"
-      );
-    });
-
-    it("should NOT broadcast hideTimer when final is true", () => {
-      // Arrange
-      const updateData = { event: mockEvent, result: "H", final: true };
-
-      // Act
-      liveScoreService.handleLiveScoreUpdate(updateData);
-
-      // Assert
-      const hideTimerCalls = mockGameBroadcastService.broadcastToAllClientByGameId.mock.calls.filter(
-        (call) => call[2] === "hideTimer"
-      );
-      expect(hideTimerCalls).toHaveLength(0);
-    });
-
     it("should set final flag in live score state when final is true", () => {
       // Arrange
       liveScoreService["_liveScoreByGameId"][TEST_GAME_ID] = { homeScore: 1, awayScore: 1 };
@@ -572,7 +528,7 @@ describe("LiveScoreService", () => {
       );
     });
 
-    it("should only broadcast liveScore when final is true", () => {
+    it("should broadcast liveScore and hideTimer when final is true", () => {
       // Arrange
       const updateData = { event: mockEvent, result: "H", final: true };
 
@@ -580,8 +536,15 @@ describe("LiveScoreService", () => {
       liveScoreService.handleLiveScoreUpdate(updateData);
 
       // Assert
-      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(1);
-      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
+        1,
+        TEST_GAME_ID,
+        { hideTimer: true },
+        "hideTimer"
+      );
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
+        2,
         TEST_GAME_ID,
         { homeScore: 1, awayScore: 0, final: true },
         "liveScore"

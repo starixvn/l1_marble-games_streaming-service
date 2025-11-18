@@ -198,10 +198,9 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
 
     if (final) {
       this._liveScoreByGameId[gameId].final = true;
-    } else {
-      this.broadcastHideTimer({ gameId });
     }
 
+    this.broadcastHideTimer({ gameId });
     this.broadcastLiveScore({ gameId });
   }
 
