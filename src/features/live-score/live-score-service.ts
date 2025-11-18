@@ -59,8 +59,9 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
   }
 
   public readonly eventName = "liveScore";
+  private readonly hideTimerEvent = "hideTimer";
 
-  public getCurrentByGameId(gameId: string) {
+  public getCurrentByGameId(gameId: string): LiveScoreState {
     return this._liveScoreByGameId[gameId];
   }
 
@@ -197,6 +198,8 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
 
     if (final) {
       this._liveScoreByGameId[gameId].final = true;
+    } else {
+      this.broadcastHideTimer({ gameId });
     }
 
     this.broadcastLiveScore({ gameId });
@@ -212,6 +215,10 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     this.log(`broadcast live score ${JSON.stringify(currentLiveScore)}`, gameId);
 
     this.gameBroadcastService.broadcastToAllClientByGameId(gameId, this.getCurrentByGameId(gameId), this.eventName);
+  }
+
+  private broadcastHideTimer({ gameId }: { gameId: string }) {
+    this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { hideTimer: true }, this.hideTimerEvent);
   }
 
   private log(message: string, gameId: string) {
