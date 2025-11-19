@@ -501,8 +501,9 @@ describe("LiveScoreService", () => {
       expect(liveScoreService["_liveScoreByGameId"][TEST_GAME_ID]).toEqual({
         homeScore: 2,
         awayScore: 1,
+        final: false,
       });
-      expect(liveScoreService["_liveScoreByGameId"][TEST_GAME_ID].final).toBeUndefined();
+      expect(liveScoreService["_liveScoreByGameId"][TEST_GAME_ID].final).toBe(false);
     });
 
     it("should broadcast both stopTimer and liveScore when not final", () => {

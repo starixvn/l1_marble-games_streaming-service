@@ -11,7 +11,7 @@ export function isLastEventDetail({ event, index }: EventDetailNotification) {
 }
 
 export function isLastEventDetailOfPhase({ event, index }: EventDetailNotification) {
-  const phase = event.eventDetails[index].phase;
-  const eventDetailsOfPhase = event.eventDetails.filter((detail) => detail.phase === phase);
-  return index === eventDetailsOfPhase.length - 1;
+  return (
+    index === event.eventDetails.length - 1 || event.eventDetails[index].phase !== event.eventDetails[index + 1].phase
+  );
 }

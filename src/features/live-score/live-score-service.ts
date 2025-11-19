@@ -194,13 +194,9 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     const homeScore = currentHomeScore + plusHomeScore;
     const awayScore = currentAwayScore + plusAwayScore;
 
-    this._liveScoreByGameId[gameId] = { homeScore, awayScore };
+    this._liveScoreByGameId[gameId] = { homeScore, awayScore, final };
 
     this.broadcastStopTimer({ gameId });
-
-    if (final) {
-      this._liveScoreByGameId[gameId].final = true;
-    }
 
     this.broadcastLiveScore({ gameId });
   }
