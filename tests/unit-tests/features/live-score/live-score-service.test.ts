@@ -505,7 +505,7 @@ describe("LiveScoreService", () => {
       expect(liveScoreService["_liveScoreByGameId"][TEST_GAME_ID].final).toBeUndefined();
     });
 
-    it("should broadcast both hideTimer and liveScore when not final", () => {
+    it("should broadcast both stopTimer and liveScore when not final", () => {
       // Arrange
       const updateData = { event: mockEvent, result: "H" };
 
@@ -517,8 +517,8 @@ describe("LiveScoreService", () => {
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
         1,
         TEST_GAME_ID,
-        { hideTimer: true },
-        "hideTimer"
+        { stopTimer: true },
+        "stopTimer"
       );
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
         2,
@@ -528,7 +528,7 @@ describe("LiveScoreService", () => {
       );
     });
 
-    it("should broadcast liveScore and hideTimer when final is true", () => {
+    it("should broadcast liveScore and stopTimer when final is true", () => {
       // Arrange
       const updateData = { event: mockEvent, result: "H", final: true };
 
@@ -540,8 +540,8 @@ describe("LiveScoreService", () => {
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
         1,
         TEST_GAME_ID,
-        { hideTimer: true },
-        "hideTimer"
+        { stopTimer: true },
+        "stopTimer"
       );
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
         2,
@@ -684,18 +684,18 @@ describe("LiveScoreService", () => {
     });
   });
 
-  describe("broadcastHideTimer", () => {
-    it("should broadcast hideTimer message to clients", () => {
+  describe("broadcastStopTimer", () => {
+    it("should broadcast stopTimer message to clients", () => {
       // Arrange
 
       // Act
-      liveScoreService["broadcastHideTimer"]({ gameId: TEST_GAME_ID });
+      liveScoreService["broadcastStopTimer"]({ gameId: TEST_GAME_ID });
 
       // Assert
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
         TEST_GAME_ID,
-        { hideTimer: true },
-        "hideTimer"
+        { stopTimer: true },
+        "stopTimer"
       );
     });
 
@@ -703,22 +703,22 @@ describe("LiveScoreService", () => {
       // Arrange
 
       // Act
-      liveScoreService["broadcastHideTimer"]({ gameId: TEST_GAME_ID });
-      liveScoreService["broadcastHideTimer"]({ gameId: TEST_GAME_ID_2 });
+      liveScoreService["broadcastStopTimer"]({ gameId: TEST_GAME_ID });
+      liveScoreService["broadcastStopTimer"]({ gameId: TEST_GAME_ID_2 });
 
       // Assert
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledTimes(2);
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
         1,
         TEST_GAME_ID,
-        { hideTimer: true },
-        "hideTimer"
+        { stopTimer: true },
+        "stopTimer"
       );
       expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenNthCalledWith(
         2,
         TEST_GAME_ID_2,
-        { hideTimer: true },
-        "hideTimer"
+        { stopTimer: true },
+        "stopTimer"
       );
     });
   });

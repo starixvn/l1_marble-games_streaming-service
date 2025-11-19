@@ -59,7 +59,7 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
   }
 
   public readonly eventName = "liveScore";
-  private readonly hideTimerEvent = "hideTimer";
+  private readonly stopTimerEvent = "stopTimer";
 
   public getCurrentByGameId(gameId: string): LiveScoreState {
     return this._liveScoreByGameId[gameId];
@@ -196,11 +196,18 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
 
     this._liveScoreByGameId[gameId] = { homeScore, awayScore };
 
+    this.broadcastStopTimer({ gameId });
+
     if (final) {
       this._liveScoreByGameId[gameId].final = true;
+      setTimeout(
+        () => {
+          this.broadcastPlayTimer({ gameId });
+        },
+        (event as any).config?.delay?.eventDetailChangeMs ?? 0
+      );
     }
 
-    this.broadcastHideTimer({ gameId });
     this.broadcastLiveScore({ gameId });
   }
 
@@ -216,8 +223,12 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
     this.gameBroadcastService.broadcastToAllClientByGameId(gameId, this.getCurrentByGameId(gameId), this.eventName);
   }
 
-  private broadcastHideTimer({ gameId }: { gameId: string }) {
-    this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { hideTimer: true }, this.hideTimerEvent);
+  private broadcastStopTimer({ gameId }: { gameId: string }) {
+    this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { stopTimer: true }, this.stopTimerEvent);
+  }
+
+  private broadcastPlayTimer({ gameId }: { gameId: string }) {
+    this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { stopTimer: false }, this.stopTimerEvent);
   }
 
   private log(message: string, gameId: string) {
