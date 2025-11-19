@@ -65,6 +65,7 @@ const TEST_DELAYED_TIME = new Date("2023-01-01T10:05:00Z");
 const mockEventWithDetails = createMockEvent({
   eventID: TEST_EVENT_ID,
   scheduleStartTs: TEST_BASE_TIME,
+  scheduleEndTs: "2023-01-01T10:10:00Z", // 10 minutes after start for result duration
   eventDetails: [
     createMockEventDetail({ phase: 1, scheduleStartTs: TEST_BASE_TIME, resultsAvailableTs: TEST_BASE_TIME }),
     createMockEventDetail({ phase: 2, scheduleStartTs: TEST_BASE_TIME, resultsAvailableTs: TEST_BASE_TIME }),
@@ -313,8 +314,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      const lastLogCall =
-        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      const lastLogCall = mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
       expect(lastLogCall?.[0]).toBe(gameFlowService);
       expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
       expect(lastLogCall?.[1]).toContain(GameFlow.Prebet);
@@ -412,6 +412,26 @@ describe("GameFlowService", () => {
       expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.Result);
     });
 
+    it("should broadcast result with durationMs", () => {
+      // Arrange
+      mockIsLastEventDetail.mockReturnValue(true);
+      const expectedDurationMs = new Date("2023-01-01T10:10:00Z").getTime() - new Date(TEST_BASE_TIME).getTime();
+
+      // Act
+      gameFlowService.handleResultAvailable(mockLastEventDetailNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+        TEST_GAME_ID,
+        {
+          state: GameFlow.Result,
+          durationMs: expectedDurationMs,
+        },
+        "gameFlow"
+      );
+    });
+
     it("should execute scheduled switch to phase change correctly", () => {
       // Arrange
       mockIsPhaseSwitching.mockReturnValue(true);
@@ -432,8 +452,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      const lastLogCall =
-        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      const lastLogCall = mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
       expect(lastLogCall?.[0]).toBe(gameFlowService);
       expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
       expect(lastLogCall?.[1]).toContain(GameFlow.PhaseChange);
@@ -460,8 +479,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      const lastLogCall =
-        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      const lastLogCall = mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
       expect(lastLogCall?.[0]).toBe(gameFlowService);
       expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
       expect(lastLogCall?.[1]).toContain(GameFlow.Result);
@@ -499,8 +517,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      const lastLogCall =
-        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      const lastLogCall = mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
       expect(lastLogCall?.[0]).toBe(gameFlowService);
       expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
       expect(lastLogCall?.[1]).toContain(GameFlow.Streaming);
@@ -567,6 +584,43 @@ describe("GameFlowService", () => {
       // Assert
       const resultReplays = replays.filter((r) => r.payload.state === GameFlow.Result);
       expect(resultReplays.length).toBeGreaterThan(0);
+    });
+
+    it("should include durationMs in result replay", () => {
+      // Arrange
+      mockIsLastEventDetail.mockReturnValue(true);
+      mockIsPhaseSwitching.mockReturnValue(false);
+      const expectedDurationMs = new Date("2023-01-01T10:10:00Z").getTime() - new Date(TEST_BASE_TIME).getTime();
+
+      // Act
+      const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
+
+      // Assert
+      const resultReplay = replays.find((r) => r.payload.state === GameFlow.Result);
+      expect(resultReplay).toBeDefined();
+      expect(resultReplay?.payload.state).toBe(GameFlow.Result);
+      expect(resultReplay?.payload.durationMs).toBe(expectedDurationMs);
+    });
+
+    it("should use resultsAvailableTs as fallback when scheduleEndTs is not provided", () => {
+      // Arrange
+      const eventWithoutEndTs = createMockEvent({
+        eventID: TEST_EVENT_ID,
+        scheduleStartTs: TEST_BASE_TIME,
+        eventDetails: [
+          createMockEventDetail({ phase: 1, scheduleStartTs: TEST_BASE_TIME, resultsAvailableTs: TEST_BASE_TIME }),
+        ],
+      });
+      mockIsLastEventDetail.mockReturnValue(true);
+      mockIsPhaseSwitching.mockReturnValue(false);
+
+      // Act
+      const replays = gameFlowService.getReplayByEvent(eventWithoutEndTs);
+
+      // Assert
+      const resultReplay = replays.find((r) => r.payload.state === GameFlow.Result);
+      expect(resultReplay).toBeDefined();
+      expect(resultReplay?.payload.durationMs).toBe(0); // Same time results in 0 duration
     });
 
     it("should include phase change replay when is phase switching", () => {

@@ -33,6 +33,7 @@ interface GameFlowServiceContainer {
 
 type GameFlowPayload = {
   state: GameFlow;
+  durationMs?: number;
 };
 
 export class GameFlowService implements ReplayService<GameFlowPayload> {
@@ -82,10 +83,15 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     const eventDetailResultAvailableReplay = event.eventDetails.map((_, index) => {
       const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
       if (isLastEventDetail({ event, index })) {
+        const resultAvailableTs = event.eventDetails[index].resultsAvailableTs;
+        const resultDurationMs =
+          new Date((event as any)?.scheduleEndTs ?? resultAvailableTs).getTime() -
+          new Date(resultAvailableTs).getTime();
         return {
           time: whenToSwitch,
           payload: {
             state: GameFlow.Result,
+            durationMs: resultDurationMs,
           },
           eventName: this.eventName,
         };
@@ -149,11 +155,20 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
 
   public handleResultAvailable({ event, index }: EventDetailNotification) {
     const whenToSwitch = this.delayedEventDetailResultAvailable({ event, index });
+
     if (isLastEventDetail({ event, index })) {
-      this.scheduler.schedule(whenToSwitch, this.switchToResult.bind(this, { eventId: event.eventID }), {
-        overrideNow: event.now,
-        keyOverride: `switchToResult-${event.eventID}`,
-      });
+      const resultAvailableTs = event.eventDetails[index].resultsAvailableTs;
+      const resultDurationMs =
+        new Date((event as any)?.scheduleEndTs ?? resultAvailableTs).getTime() - new Date(resultAvailableTs).getTime();
+
+      this.scheduler.schedule(
+        whenToSwitch,
+        this.switchToResult.bind(this, { eventId: event.eventID, durationMs: resultDurationMs }),
+        {
+          overrideNow: event.now,
+          keyOverride: `switchToResult-${event.eventID}`,
+        }
+      );
       return;
     }
     if (isPhaseSwitching({ event, index })) {
@@ -207,11 +222,19 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     this.switchGameFlow({ eventId, gameFlow: GameFlow.PhaseChange });
   }
 
-  private switchToResult({ eventId }: { eventId: number }) {
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.Result });
+  private switchToResult({ eventId, durationMs }: { eventId: number; durationMs?: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.Result, durationMs });
   }
 
-  private switchGameFlow({ eventId, gameFlow }: { eventId: number; gameFlow: GameFlow }) {
+  private switchGameFlow({
+    eventId,
+    gameFlow,
+    durationMs,
+  }: {
+    eventId: number;
+    gameFlow: GameFlow;
+    durationMs?: number;
+  }) {
     const gameId = idHelper.extractGameId(eventId);
 
     this.log(`event id ${eventId} switch to \x1b[32m${gameFlow}\x1b[37m`, gameId);
@@ -221,6 +244,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
       gameId,
       {
         state: gameFlow,
+        durationMs,
       },
       this.eventName
     );
