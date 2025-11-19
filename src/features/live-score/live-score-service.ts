@@ -200,12 +200,6 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
 
     if (final) {
       this._liveScoreByGameId[gameId].final = true;
-      setTimeout(
-        () => {
-          this.broadcastPlayTimer({ gameId });
-        },
-        (event as any).config?.delay?.eventDetailChangeMs ?? 0
-      );
     }
 
     this.broadcastLiveScore({ gameId });
@@ -225,10 +219,6 @@ export class LiveScoreService implements ReplayService<LiveScoreState> {
 
   private broadcastStopTimer({ gameId }: { gameId: string }) {
     this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { stopTimer: true }, this.stopTimerEvent);
-  }
-
-  private broadcastPlayTimer({ gameId }: { gameId: string }) {
-    this.gameBroadcastService.broadcastToAllClientByGameId(gameId, { stopTimer: false }, this.stopTimerEvent);
   }
 
   private log(message: string, gameId: string) {
