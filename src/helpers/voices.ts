@@ -31,6 +31,7 @@ type TrackingStas = {
   };
   isFirstHalf: boolean;
   totalGoalCurrentHalf: number;
+  isLastTimeline?: boolean;
 };
 
 export type VoiceGenerationArgs = {
@@ -48,6 +49,7 @@ export type EventTimelineArgs = {
   previousTimelines?: number[];
   previousVoices?: string[];
   previousVoiceTimelines?: number[];
+  isLastTimeline?: boolean;
 };
 
 export type VoiceGenerationResult = {
@@ -190,6 +192,7 @@ export function generateVoiceWithEventTimeline(
       tracker = trackGoal(tracker, {
         eventTime,
         eventName,
+        isLastTimeline: args.isLastTimeline,
       });
     }
 
@@ -248,7 +251,7 @@ function initTracker({
     totalGoalCurrentHalf: 0,
   };
 
-  firstHalfScoreSequence.split("").forEach((score, index, scores) => {
+  firstHalfScoreSequence.replaceAll(/[^HA]/g, "").split("").forEach((score, index, scores) => {
     tracker.totalGoal++;
     tracker.homeScore += score === "H" ? 1 : 0;
     tracker.awayScore += score === "A" ? 1 : 0;
@@ -309,10 +312,12 @@ function trackGoal(
   {
     eventTime,
     eventName,
+    isLastTimeline = false,
   }: {
     eventTime: number;
     eventName: string;
     previousVoices?: string;
+    isLastTimeline?: boolean;
   }
 ) {
   const newTracker = { ...tracker };
@@ -330,6 +335,8 @@ function trackGoal(
   newTracker.awayScore += isAwayGoal(eventName) ? 1 : 0;
   newTracker.homeScore += isHomeGoal(eventName) ? 1 : 0;
   newTracker.totalGoalCurrentHalf++;
+
+  newTracker.isLastTimeline = isLastTimeline && !tracker.nextEvent;
 
   return newTracker;
 }
@@ -399,6 +406,7 @@ const voiceConditionMap: Record<string, (tracker: TrackingStas) => boolean> = {
   noGoal: () => false,
   goal: isGoal,
   save: isSave,
+  lastGoal: isLastGoal,
 };
 
 function isGoal(tracker: TrackingStas) {
@@ -476,7 +484,7 @@ function isLastGoal(tracker: TrackingStas) {
     return false;
   }
   return Boolean(
-    !tracker.isFirstHalf && tracker.currentGoal?.time && tracker.currentGoal?.time > TIME_TO_BE_CONSIDERED_AS_LAST_GOAL
+    tracker.isLastTimeline
   );
 }
 

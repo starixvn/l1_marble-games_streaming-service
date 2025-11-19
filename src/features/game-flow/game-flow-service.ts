@@ -203,7 +203,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   private switchGameFlow({ eventId, gameFlow }: { eventId: number; gameFlow: GameFlow }) {
     const gameId = idHelper.extractGameId(eventId);
 
-    this.log(`switch to \x1b[32m${gameFlow}\x1b[37m`, gameId);
+    this.log(`event id ${eventId} switch to \x1b[32m${gameFlow}\x1b[37m`, gameId);
 
     this._gameFlowByGameId[gameId] = gameFlow;
     this.gameBroadcastService.broadcastToAllClientByGameId(

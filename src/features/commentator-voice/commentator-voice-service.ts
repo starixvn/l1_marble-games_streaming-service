@@ -155,10 +155,36 @@ export class CommentatorVoiceService {
         eventId: event.eventID,
       }
     );
+
+    if (!inGameEvent) {
+      this.scheduler.schedule(
+        this.delayHandlingService.getDelayedTimeWithVideoDelay(
+          { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
+          {
+            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+          }
+        ),
+        this.debugErrorGettingRemoteJson.bind(this, gameId, event.eventDetails[index].inGameEventInfo),
+      );
+      return;
+    }
     // get goal info for video length
     const goalInfo = await this.oddsFeedService.getRemoteJson<GoalInfoData>(event.eventDetails[index].goalInfo, {
       eventId: event.eventID,
     });
+
+    if (!goalInfo) {
+      this.scheduler.schedule(
+        this.delayHandlingService.getDelayedTimeWithVideoDelay(
+          { event, time: new Date(event.eventDetails[index].scheduleStartTs) },
+          {
+            oddsFeedEventType: OddsFeedEventName.EventDetailStart,
+          }
+        ),
+        this.debugErrorGettingRemoteJson.bind(this, gameId, event.eventDetails[index].goalInfo),
+      );
+      return;
+    }
     const videoLength = goalInfo?.length ?? this._videoLengthByEventId[event.eventID];
 
     // get previous state
@@ -179,6 +205,7 @@ export class CommentatorVoiceService {
     const previousEvents = currentState.eventName;
     const previousVoiceTimelines = currentState.voiceTimelines;
     const previousScoreSequence = currentState.scoreSequence;
+    const isLastTimeline = index === event.eventDetails.length - 1;
 
     const thisTimeline = this.getAbsoluteTimeline(this.getOrDefault(inGameEvent?.timeLine, []), previousVideoLength);
     const thisInGameEvent = this.getOrDefault(inGameEvent?.eventName, []);
@@ -194,6 +221,7 @@ export class CommentatorVoiceService {
         previousVoiceTimelines: previousVoiceTimelines,
         firstHalfScore: firstHalfScoreSequence,
         firstHalfVoices: firstHalfVoices,
+        isLastTimeline: isLastTimeline,
       },
       config.configVoice
     );
@@ -231,10 +259,8 @@ export class CommentatorVoiceService {
     // absolute timeline is counted from the start time of the first event detail of the phase
     const updatedVideoLength = previousVideoLength + videoLength;
     const updatedScoreSequence = previousScoreSequence.concat(thisScoreSequence);
-    const updatedVoiceTimelines = previousVoiceTimelines.concat(
-      this.getAbsoluteTimeline(voices.timeline, updatedVideoLength)
-    );
-    const updatedEventTimelines = previousTimelines.concat(this.getAbsoluteTimeline(thisTimeline, updatedVideoLength));
+    const updatedVoiceTimelines = previousVoiceTimelines.concat(voices.timeline);
+    const updatedEventTimelines = previousTimelines.concat(thisTimeline);
     const updatedEventNames = previousEvents.concat(thisInGameEvent);
     const updatedVoices = previousVoices.concat(voices.voice);
 
@@ -296,6 +322,13 @@ export class CommentatorVoiceService {
 
   private log(message: string, gameId: string) {
     this.featureDebugService.log(this, message, gameId);
+  }
+
+  private debugErrorGettingRemoteJson(gameId: string, url: string) {
+    this.log(
+      `Error getting remote json: ${url}`,
+      gameId
+    );
   }
 
   private debugVoice(

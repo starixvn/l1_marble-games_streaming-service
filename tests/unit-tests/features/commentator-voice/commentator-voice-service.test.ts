@@ -509,6 +509,66 @@ describe('CommentatorVoiceService', () => {
             expect(mockOddsFeedService.getRemoteJson).not.toHaveBeenCalledWith("test-in-game-event");
         });
 
+        it('should schedule debug error when in-game event json is missing', async () => {
+            // Arrange
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: mockVoiceConfig,
+                "test-in-game-event": null,
+                "test-goal-info": mockGoalInfo,
+            });
+
+            // Act
+            await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
+
+            // Assert
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-in-game-event", { eventId: TEST_EVENT_ID });
+            expect(mockGenerateVoiceWithEventTimeline).not.toHaveBeenCalled();
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(1);
+
+            const [, scheduledCallback] = mockScheduler.schedule.mock.calls[0];
+            expect(scheduledCallback).toEqual(expect.any(Function));
+
+            mockFeatureDebugService.log.mockClear();
+            scheduledCallback();
+
+            expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
+                commentatorVoiceService,
+                "Error getting remote json: test-in-game-event",
+                TEST_GAME_ID
+            );
+            expect(commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID]).toBeUndefined();
+        });
+
+        it('should schedule debug error when goal info json is missing', async () => {
+            // Arrange
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: mockVoiceConfig,
+                "test-in-game-event": mockInGameEvent,
+                "test-goal-info": null,
+            });
+
+            // Act
+            await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
+
+            // Assert
+            expect(mockOddsFeedService.getRemoteJson).toHaveBeenCalledWith("test-goal-info", { eventId: TEST_EVENT_ID });
+            expect(mockGenerateVoiceWithEventTimeline).not.toHaveBeenCalled();
+            expect(mockScheduler.schedule).toHaveBeenCalledTimes(1);
+
+            const [, scheduledCallback] = mockScheduler.schedule.mock.calls[0];
+            expect(scheduledCallback).toEqual(expect.any(Function));
+
+            mockFeatureDebugService.log.mockClear();
+            scheduledCallback();
+
+            expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
+                commentatorVoiceService,
+                "Error getting remote json: test-goal-info",
+                TEST_GAME_ID
+            );
+            expect(commentatorVoiceService['_voiceStateByGameId'][TEST_GAME_ID]).toBeUndefined();
+        });
+
         it('should process voice generation with all data sources', async () => {
             // Arrange & Act
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
@@ -611,14 +671,25 @@ describe('CommentatorVoiceService', () => {
             // Arrange - First event detail in phase 1 (uses mockGoalInfo.length = 25)
             await commentatorVoiceService.handleEventDetailScheduleStart(mockEventDetailNotification);
             
-            // Set up second event detail in the same phase with different goal info
+            // Set up second event detail in the same phase with different data
+            const secondInGameEvent: InGameEvent = {
+                eventName: ["Goal Celebration"],
+                timeLine: [12],
+                frame: [210, 310]
+            };
             const secondGoalInfo: GoalInfoData = {
                 result: ["2", "1"],
                 length: 30, // Different length for second event detail
                 frame: [200, 300],
                 timeLine: [70, 80]
             };
-            mockOddsFeedService.getRemoteJson.mockResolvedValueOnce(secondGoalInfo);
+            setRemoteJsonResponses({
+                [TEST_CONFIG_JSON]: mockVoiceConfig,
+                "test-in-game-event": mockInGameEvent,
+                "test-goal-info": mockGoalInfo,
+                "test-in-game-event-2": secondInGameEvent,
+                "test-goal-info-2": secondGoalInfo,
+            });
             
             const secondEventDetailNotification: CommentatorVoiceDetailNotification = {
                 ...mockEventDetailNotification,

@@ -313,11 +313,12 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
-        gameFlowService,
-        "switch to \x1b[32mPrebet\x1b[37m",
-        TEST_GAME_ID
-      );
+      const lastLogCall =
+        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      expect(lastLogCall?.[0]).toBe(gameFlowService);
+      expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
+      expect(lastLogCall?.[1]).toContain(GameFlow.Prebet);
+      expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
     });
   });
 
@@ -431,11 +432,12 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
-        gameFlowService,
-        "switch to \x1b[32mPhaseChange\x1b[37m",
-        TEST_GAME_ID
-      );
+      const lastLogCall =
+        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      expect(lastLogCall?.[0]).toBe(gameFlowService);
+      expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
+      expect(lastLogCall?.[1]).toContain(GameFlow.PhaseChange);
+      expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
     });
 
     it("should execute scheduled switch to result correctly", () => {
@@ -458,11 +460,12 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
-        gameFlowService,
-        "switch to \x1b[32mResult\x1b[37m",
-        TEST_GAME_ID
-      );
+      const lastLogCall =
+        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      expect(lastLogCall?.[0]).toBe(gameFlowService);
+      expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
+      expect(lastLogCall?.[1]).toContain(GameFlow.Result);
+      expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
     });
   });
 
@@ -496,11 +499,12 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(mockFeatureDebugService.log).toHaveBeenCalledWith(
-        gameFlowService,
-        "switch to \x1b[32mStreaming\x1b[37m",
-        TEST_GAME_ID
-      );
+      const lastLogCall =
+        mockFeatureDebugService.log.mock.calls[mockFeatureDebugService.log.mock.calls.length - 1];
+      expect(lastLogCall?.[0]).toBe(gameFlowService);
+      expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
+      expect(lastLogCall?.[1]).toContain(GameFlow.Streaming);
+      expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
     });
   });
 

@@ -5,10 +5,12 @@ export const appConfigs = {
     logIdentifier: "Streaming-Service",
     env: "LOCAL",
   },
+  adminToken: "SjyuCSZhyYeu2rwrrZadr6j5YAlTT0HjoryW0opIhweX2aKJwdKUPAjMbTZa99H0",
   jwt: {
     username: "marble-tv",
     password: "marble-tv-123",
     secret: "stream-service-secret",
+     adminToken: "SjyuCSZhyYeu2rwrrZadr6j5YAlTT0HjoryW0opIhweX2aKJwdKUPAjMbTZa99H0",
   },
   oddsFeedAPI: {
     url: "https://mg-odds-feed-local.lumigame.com",
