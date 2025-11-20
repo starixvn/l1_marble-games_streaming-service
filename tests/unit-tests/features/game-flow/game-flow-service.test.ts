@@ -204,7 +204,12 @@ describe("GameFlowService", () => {
       const result = gameFlowService.getCurrentGameFlow(gameId);
 
       // Assert
-      expect(result).toBe(GameFlow.Streaming);
+      expect(result).toEqual({
+        state: GameFlow.Streaming,
+        durationMs: undefined,
+        timeToStartTs: 1000000,
+        currentStateTimeMs: 0,
+      });
     });
 
     it("should return undefined when no current event exists", () => {
@@ -238,8 +243,8 @@ describe("GameFlowService", () => {
       const result2 = gameFlowService.getCurrentGameFlow(gameId2);
 
       // Assert
-      expect(result1).toBe(GameFlow.Prebet);
-      expect(result2).toBe(GameFlow.Result);
+      expect(result1?.state).toBe(GameFlow.Prebet);
+      expect(result2?.state).toBe(GameFlow.Result);
     });
   });
 
@@ -256,10 +261,12 @@ describe("GameFlowService", () => {
       // Assert
       expect(result).toEqual({
         state: GameFlow.Streaming,
+        durationMs: undefined,
+        currentStateTimeMs: 0,
       });
     });
 
-    it("should return undefined state for non-existing game", () => {
+    it("should return undefined for non-existing game", () => {
       // Arrange
       const gameId = "non-existent";
 
@@ -267,9 +274,7 @@ describe("GameFlowService", () => {
       const result = gameFlowService.getCurrentByGameId(gameId);
 
       // Assert
-      expect(result).toEqual({
-        state: undefined,
-      });
+      expect(result).toBeUndefined();
     });
   });
 
@@ -296,7 +301,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.Prebet);
+      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)?.state).toBe(GameFlow.Prebet);
     });
 
     it("should set track point when switching to prebet", () => {
@@ -409,7 +414,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.Result);
+      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)?.state).toBe(GameFlow.Result);
     });
 
     it("should broadcast result with durationMs", () => {
@@ -427,6 +432,7 @@ describe("GameFlowService", () => {
         {
           state: GameFlow.Result,
           durationMs: expectedDurationMs,
+          currentStateTimeMs: 0,
         },
         "gameFlow"
       );
@@ -441,7 +447,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.PhaseChange);
+      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)?.state).toBe(GameFlow.PhaseChange);
     });
 
     it("should log when switching to phase change", () => {
@@ -468,7 +474,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.Result);
+      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)?.state).toBe(GameFlow.Result);
     });
 
     it("should log when switching to result", () => {
@@ -508,7 +514,7 @@ describe("GameFlowService", () => {
       runLastScheduledCallback(mockScheduler);
 
       // Assert
-      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)).toBe(GameFlow.Streaming);
+      expect(gameFlowService.getCurrentGameFlow(TEST_GAME_ID)?.state).toBe(GameFlow.Streaming);
     });
 
     it("should log when switching to streaming", () => {

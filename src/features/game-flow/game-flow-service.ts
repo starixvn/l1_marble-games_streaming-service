@@ -33,7 +33,9 @@ interface GameFlowServiceContainer {
 
 type GameFlowPayload = {
   state: GameFlow;
+  timeToStartTs?: number;
   durationMs?: number;
+  currentStateTimeMs?: number;
 };
 
 export class GameFlowService implements ReplayService<GameFlowPayload> {
@@ -44,7 +46,7 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   private readonly featureDebugService: FeatureDebugService;
   private readonly gameFlowTimeTrackingService: GameFlowTimeTrackingService;
 
-  private _gameFlowByGameId: Record<string, GameFlow> = {};
+  private _gameFlowByGameId: Record<string, GameFlowPayload> = {};
 
   private readonly boundHandleEventStart: (notification: EventNotification) => void;
   private readonly boundHandleResultAvailable: (notification: EventDetailNotification) => void;
@@ -200,8 +202,16 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   }
 
   public getCurrentByGameId(gameId: string) {
+    const gameFlow = this.getCurrentGameFlow(gameId);
+
+    if (!gameFlow) {
+      return undefined;
+    }
+
     return {
-      state: this.getCurrentGameFlow(gameId),
+      state: gameFlow.state,
+      durationMs: gameFlow.durationMs,
+      currentStateTimeMs: gameFlow.timeToStartTs ? Date.now() - new Date(gameFlow.timeToStartTs).getTime() : undefined,
     };
   }
 
@@ -239,12 +249,19 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
 
     this.log(`event id ${eventId} switch to \x1b[32m${gameFlow}\x1b[37m`, gameId);
 
-    this._gameFlowByGameId[gameId] = gameFlow;
+    this._gameFlowByGameId[gameId] = {
+      state: gameFlow,
+      durationMs,
+      timeToStartTs: Date.now(),
+      currentStateTimeMs: 0,
+    };
+
     this.gameBroadcastService.broadcastToAllClientByGameId(
       gameId,
       {
         state: gameFlow,
         durationMs,
+        currentStateTimeMs: 0,
       },
       this.eventName
     );

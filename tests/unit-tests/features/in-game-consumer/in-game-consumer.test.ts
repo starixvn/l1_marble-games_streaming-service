@@ -52,6 +52,8 @@ const TEST_EVENT_ID = 4294967298;
 // Test data
 const mockGameFlowData = {
   state: GameFlow.Streaming,
+  durationMs: undefined,
+  currentStateTimeMs: 0,
 };
 
 const mockCurrentEventData = {
@@ -94,11 +96,8 @@ const mockTeamNameData = {
 };
 
 const mockIntroData = {
-  resourceServer: "https://example.com",
-  introTime: 1640995200000,
-  timeToPlay: 1640995205000,
-  isPlaying: false,
-  duration: 5000,
+  prebet: "https://example.com/prebet.mp4",
+  halftime: "https://example.com/halftime.mp4",
 };
 
 // Helper functions for test setup
@@ -216,7 +215,11 @@ describe("InGameConsumer", () => {
 
     it("should handle different mock data correctly", () => {
       // Arrange
-      const customGameFlowData = { state: GameFlow.Prebet };
+      const customGameFlowData = { 
+        state: GameFlow.Prebet,
+        durationMs: undefined,
+        currentStateTimeMs: 0,
+      };
       const customCurrentEventData = { event: 999, eventDetailIndex: 0, phase: 0 };
       const customVideoData = {
         videoLink: "custom.m3u8",
@@ -234,11 +237,8 @@ describe("InGameConsumer", () => {
       const customLiveScoreData = { homeScore: 0, awayScore: 0 };
       const customTeamNameData = { homeTeamName: "Custom Home", awayTeamName: "Custom Away" };
       const customIntroData = {
-        resourceServer: "https://custom.com",
-        introTime: 0,
-        timeToPlay: 3000,
-        isPlaying: true,
-        duration: 3000,
+        prebet: "https://custom.com/prebet.mp4",
+        halftime: "https://custom.com/halftime.mp4",
       };
 
       mockGameFlowService.getCurrentByGameId.mockReturnValue(customGameFlowData);

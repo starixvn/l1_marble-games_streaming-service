@@ -4,7 +4,6 @@ import { idHelper } from "../../helpers";
 import { DelayHandlingService } from "../delay/delay-handling-service";
 import { CurrentEventService } from "../current-event/current-event-service";
 import { VideoStreamingService } from "../video-streaming/video-streaming-service";
-import { IntroService } from "../intro/intro-service";
 import { LiveScoreService } from "../live-score/live-score-service";
 import { ResultService } from "../result/result-service";
 import { TeamNameService } from "../team-name/team-name-service";
@@ -47,7 +46,6 @@ interface EventReplayServiceContainer {
   delayHandlingService: DelayHandlingService;
   currentEventService: CurrentEventService;
   videoStreamingService: VideoStreamingService;
-  introService: IntroService;
   liveScoreService: LiveScoreService;
   resultService: ResultService;
   teamNameService: TeamNameService;
@@ -73,7 +71,6 @@ export class EventReplayService {
       container.gameFlowService,
       container.currentEventService,
       container.videoStreamingService,
-      container.introService,
       container.liveScoreService,
       container.resultService,
       container.teamNameService,
