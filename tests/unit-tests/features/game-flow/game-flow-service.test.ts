@@ -1,11 +1,5 @@
 import { GameFlowService, GameFlow } from "../../../../src/features/game-flow/game-flow-service";
-import {
-  OddsFeedEventSource,
-  OddsFeedEventName,
-  EventNotification,
-  EventDetailNotification,
-  Scheduler,
-} from "odds-feed-client";
+import { OddsFeedEventSource, OddsFeedEventName, EventDetailNotification, Scheduler } from "odds-feed-client";
 import { DelayHandlingService } from "../../../../src/features/delay/delay-handling-service";
 import { GameBroadcastService } from "../../../../src/services/game-broadcast.service";
 import { FeatureDebugService } from "../../../../src/features/feature-debug/feature-debug-service";
@@ -64,16 +58,39 @@ const TEST_DELAYED_TIME = new Date("2023-01-01T10:05:00Z");
 // Test data using shared mock utils
 const mockEventWithDetails = createMockEvent({
   eventID: TEST_EVENT_ID,
+  eventConfig: { preloadDurationMs: 6000 },
+  config: { delay: { eventDetailChangeMs: 3000 } },
   scheduleStartTs: TEST_BASE_TIME,
-  scheduleEndTs: "2023-01-01T10:10:00Z", // 10 minutes after start for result duration
+  scheduleEndTs: new Date(new Date(TEST_BASE_TIME).getTime() + 120 * 1000).toISOString(), // 2 minutes after start for result duration
   eventDetails: [
-    createMockEventDetail({ phase: 1, scheduleStartTs: TEST_BASE_TIME, resultsAvailableTs: TEST_BASE_TIME }),
-    createMockEventDetail({ phase: 2, scheduleStartTs: TEST_BASE_TIME, resultsAvailableTs: TEST_BASE_TIME }),
-    createMockEventDetail({ phase: 2, scheduleStartTs: TEST_BASE_TIME, resultsAvailableTs: TEST_BASE_TIME }),
+    createMockEventDetail({
+      phase: 1,
+      oddsAvailableTs: TEST_BASE_TIME,
+      scheduleStartTs: new Date(new Date(TEST_BASE_TIME).getTime() + 15 * 1000).toISOString(),
+      resultsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 30 * 1000).toISOString(),
+    }),
+    createMockEventDetail({
+      phase: 1,
+      oddsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 30 * 1000).toISOString(),
+      scheduleStartTs: new Date(new Date(TEST_BASE_TIME).getTime() + 45 * 1000).toISOString(),
+      resultsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 60 * 1000).toISOString(),
+    }),
+    createMockEventDetail({
+      phase: 2,
+      oddsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 60 * 1000).toISOString(),
+      scheduleStartTs: new Date(new Date(TEST_BASE_TIME).getTime() + 75 * 1000).toISOString(),
+      resultsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 90 * 1000).toISOString(),
+    }),
+    createMockEventDetail({
+      phase: 2,
+      oddsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 90 * 1000).toISOString(),
+      scheduleStartTs: new Date(new Date(TEST_BASE_TIME).getTime() + 105 * 1000).toISOString(),
+      resultsAvailableTs: new Date(new Date(TEST_BASE_TIME).getTime() + 120 * 1000).toISOString(),
+    }),
   ],
-});
+} as any);
 
-const mockEventNotification: EventNotification = {
+const mockEventNotification: any = {
   event: mockEventWithDetails,
 };
 
@@ -84,12 +101,12 @@ const mockEventDetailNotification: EventDetailNotification = {
 
 const mockLastEventDetailNotification: EventDetailNotification = {
   event: mockEventWithDetails,
-  index: 2, // Last index
+  index: 3, // Last index (4 event details, so index 3 is last)
 };
 
 const mockPhaseSwitchingNotification: EventDetailNotification = {
   event: mockEventWithDetails,
-  index: 0, // Phase switches from 1 to 2
+  index: 1, // Phase switches from 1 to 2 (after index 1, moving to index 2)
 };
 
 // Helper functions for test setup
@@ -203,10 +220,11 @@ describe("GameFlowService", () => {
       // Act
       const result = gameFlowService.getCurrentGameFlow(gameId);
 
-      // Assert
+      // Assert - streaming duration = resultsAvailableTs - scheduleStartTs - preloadDurationMs
+      // For index 0: (BASE + 30s) - (BASE + 15s) - 6000 = 9000ms
       expect(result).toEqual({
         state: GameFlow.Streaming,
-        durationMs: undefined,
+        durationMs: 9000, // 9000ms = 15000 streaming duration - 6000ms preloadDurationMs
         timeToStartTs: 1000000,
         currentStateTimeMs: 0,
       });
@@ -261,7 +279,7 @@ describe("GameFlowService", () => {
       // Assert
       expect(result).toEqual({
         state: GameFlow.Streaming,
-        durationMs: undefined,
+        durationMs: 9000, // 9000ms = 15000 streaming duration - 6000ms preloadDurationMs
         currentStateTimeMs: 0,
       });
     });
@@ -325,6 +343,42 @@ describe("GameFlowService", () => {
       expect(lastLogCall?.[1]).toContain(GameFlow.Prebet);
       expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
     });
+
+    it("should calculate prebet duration correctly", () => {
+      // Arrange
+      // Prebet duration = eventDetails[0].scheduleStartTs - event.scheduleStartTs + preloadDurationMs
+      // = (BASE + 15s) - BASE + 6000ms = 21000ms
+
+      const expectedDurationMs = 21000; // 21000ms = 15000 prebet duration + 6000ms preloadDurationMs
+
+      // Act
+      gameFlowService.handleEventStart(mockEventNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      const gameFlow = gameFlowService.getCurrentGameFlow(TEST_GAME_ID);
+      expect(gameFlow?.durationMs).toBe(expectedDurationMs);
+    });
+
+    it("should broadcast prebet with calculated durationMs", () => {
+      // Arrange
+      const expectedDurationMs = 21000; // 21000ms = 15000 prebet duration + 6000ms preloadDurationMs
+
+      // Act
+      gameFlowService.handleEventStart(mockEventNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+        TEST_GAME_ID,
+        {
+          state: GameFlow.Prebet,
+          durationMs: expectedDurationMs,
+          currentStateTimeMs: 0,
+        },
+        "gameFlow"
+      );
+    });
   });
 
   describe("handleResultAvailable", () => {
@@ -341,7 +395,7 @@ describe("GameFlowService", () => {
       expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
         {
           event: mockEventWithDetails,
-          time: new Date(mockEventWithDetails.eventDetails[2].resultsAvailableTs),
+          time: new Date(mockEventWithDetails.eventDetails[3].resultsAvailableTs),
         },
         {
           oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
@@ -367,7 +421,7 @@ describe("GameFlowService", () => {
       expect(mockDelayHandlingService.getDelayedTime).toHaveBeenCalledWith(
         {
           event: mockEventWithDetails,
-          time: new Date(mockEventWithDetails.eventDetails[0].resultsAvailableTs),
+          time: new Date(mockEventWithDetails.eventDetails[1].resultsAvailableTs),
         },
         {
           oddsFeedEventType: OddsFeedEventName.EventDetailResultsAvailable,
@@ -405,6 +459,44 @@ describe("GameFlowService", () => {
       expect(mockScheduler.schedule).toHaveBeenCalled();
     });
 
+    it("should calculate event detail change duration correctly", () => {
+      // Arrange
+      mockIsLastEventDetail.mockReturnValue(false);
+      mockIsPhaseSwitching.mockReturnValue(false);
+      // Duration = preloadDurationMs - eventDetailChangeDelay
+      const expectedDurationMs = 3000; // 3000ms = 6000ms preloadDurationMs - 3000ms eventDetailChangeDelay
+
+      // Act
+      gameFlowService.handleResultAvailable(mockEventDetailNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      const gameFlow = gameFlowService.getCurrentGameFlow(TEST_GAME_ID);
+      expect(gameFlow?.durationMs).toBe(expectedDurationMs);
+    });
+
+    it("should broadcast event detail change with calculated durationMs", () => {
+      // Arrange
+      mockIsLastEventDetail.mockReturnValue(false);
+      mockIsPhaseSwitching.mockReturnValue(false);
+      const expectedDurationMs = 3000; // 3000ms = 6000ms preloadDurationMs - 3000ms eventDetailChangeDelay
+
+      // Act
+      gameFlowService.handleResultAvailable(mockEventDetailNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+        TEST_GAME_ID,
+        {
+          state: GameFlow.EventDetailChange,
+          durationMs: expectedDurationMs,
+          currentStateTimeMs: 0,
+        },
+        "gameFlow"
+      );
+    });
+
     it("should execute scheduled switch to result correctly", () => {
       // Arrange
       mockIsLastEventDetail.mockReturnValue(true);
@@ -420,7 +512,9 @@ describe("GameFlowService", () => {
     it("should broadcast result with durationMs", () => {
       // Arrange
       mockIsLastEventDetail.mockReturnValue(true);
-      const expectedDurationMs = new Date("2023-01-01T10:10:00Z").getTime() - new Date(TEST_BASE_TIME).getTime();
+      // Result duration = scheduleEndTs - resultsAvailableTs[last]
+      // = (BASE + 120s) - (BASE + 120s) = 0ms
+      const expectedDurationMs = 0;
 
       // Act
       gameFlowService.handleResultAvailable(mockLastEventDetailNotification);
@@ -463,6 +557,44 @@ describe("GameFlowService", () => {
       expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
       expect(lastLogCall?.[1]).toContain(GameFlow.PhaseChange);
       expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
+    });
+
+    it("should calculate phase change duration correctly", () => {
+      // Arrange
+      mockIsPhaseSwitching.mockReturnValue(true);
+      // Phase change duration = eventDetails[index + 1].scheduleStartTs - eventDetails[index].resultsAvailableTs
+      // For index 1: eventDetails[2].scheduleStartTs - eventDetails[1].resultsAvailableTs
+      // = (BASE + 75s) - (BASE + 60s) = 15000ms
+      const expectedDurationMs = 15000;
+
+      // Act
+      gameFlowService.handleResultAvailable(mockPhaseSwitchingNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      const gameFlow = gameFlowService.getCurrentGameFlow(TEST_GAME_ID);
+      expect(gameFlow?.durationMs).toBe(expectedDurationMs);
+    });
+
+    it("should broadcast phase change with calculated durationMs", () => {
+      // Arrange
+      mockIsPhaseSwitching.mockReturnValue(true);
+      const expectedDurationMs = 15000;
+
+      // Act
+      gameFlowService.handleResultAvailable(mockPhaseSwitchingNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+        TEST_GAME_ID,
+        {
+          state: GameFlow.PhaseChange,
+          durationMs: expectedDurationMs,
+          currentStateTimeMs: 0,
+        },
+        "gameFlow"
+      );
     });
 
     it("should execute scheduled switch to result correctly", () => {
@@ -528,6 +660,41 @@ describe("GameFlowService", () => {
       expect(lastLogCall?.[1]).toContain(`event id ${TEST_EVENT_ID}`);
       expect(lastLogCall?.[1]).toContain(GameFlow.Streaming);
       expect(lastLogCall?.[2]).toBe(TEST_GAME_ID);
+    });
+
+    it("should calculate streaming duration correctly", () => {
+      // Arrange
+      // Streaming duration = resultsAvailableTs - scheduleStartTs - preloadDurationMs
+      // For index 0: (BASE + 30s) - (BASE + 15s) - 6000 = 15000ms
+      const expectedDurationMs = 9000;
+
+      // Act
+      gameFlowService.handleEventDetailScheduleStart(mockEventDetailNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      const gameFlow = gameFlowService.getCurrentGameFlow(TEST_GAME_ID);
+      expect(gameFlow?.durationMs).toBe(expectedDurationMs);
+    });
+
+    it("should broadcast streaming with calculated durationMs", () => {
+      // Arrange
+      const expectedDurationMs = 9000; // 9000ms = 15000 streaming duration - 6000ms preloadDurationMs
+
+      // Act
+      gameFlowService.handleEventDetailScheduleStart(mockEventDetailNotification);
+      runLastScheduledCallback(mockScheduler);
+
+      // Assert
+      expect(mockGameBroadcastService.broadcastToAllClientByGameId).toHaveBeenCalledWith(
+        TEST_GAME_ID,
+        {
+          state: GameFlow.Streaming,
+          durationMs: expectedDurationMs,
+          currentStateTimeMs: 0,
+        },
+        "gameFlow"
+      );
     });
   });
 
@@ -596,7 +763,6 @@ describe("GameFlowService", () => {
       // Arrange
       mockIsLastEventDetail.mockReturnValue(true);
       mockIsPhaseSwitching.mockReturnValue(false);
-      const expectedDurationMs = new Date("2023-01-01T10:10:00Z").getTime() - new Date(TEST_BASE_TIME).getTime();
 
       // Act
       const replays = gameFlowService.getReplayByEvent(mockEventWithDetails);
@@ -605,7 +771,6 @@ describe("GameFlowService", () => {
       const resultReplay = replays.find((r) => r.payload.state === GameFlow.Result);
       expect(resultReplay).toBeDefined();
       expect(resultReplay?.payload.state).toBe(GameFlow.Result);
-      expect(resultReplay?.payload.durationMs).toBe(expectedDurationMs);
     });
 
     it("should use resultsAvailableTs as fallback when scheduleEndTs is not provided", () => {

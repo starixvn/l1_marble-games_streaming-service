@@ -149,10 +149,21 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
 
   public handleEventStart({ event }: EventNotification) {
     const whenToSwitchToPrebet = this.delayHandlingService.getTimeToStartEvent(event);
-    this.scheduler.schedule(whenToSwitchToPrebet, this.switchToPrebet.bind(this, { eventId: event.eventID }), {
-      overrideNow: event.now,
-      keyOverride: `switchToPrebet-${event.eventID}`,
-    });
+    const preloadDurationMs = (event as any).eventConfig?.preloadDurationMs ?? 0;
+
+    const prebetDurationMs =
+      new Date(event.eventDetails[0].scheduleStartTs).getTime() -
+      new Date(event.scheduleStartTs).getTime() +
+      preloadDurationMs;
+
+    this.scheduler.schedule(
+      whenToSwitchToPrebet,
+      this.switchToPrebet.bind(this, { eventId: event.eventID, durationMs: prebetDurationMs }),
+      {
+        overrideNow: event.now,
+        keyOverride: `switchToPrebet-${event.eventID}`,
+      }
+    );
   }
 
   public handleResultAvailable({ event, index }: EventDetailNotification) {
@@ -174,18 +185,28 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
       return;
     }
     if (isPhaseSwitching({ event, index })) {
-      this.scheduler.schedule(whenToSwitch, this.switchToPhaseChange.bind(this, { eventId: event.eventID }), {
-        overrideNow: event.now,
-        keyOverride: `switchToPhaseChange-${event.eventID}-${event.eventDetails[index].phase}`,
-      });
+      const phaseChangeDurationMs =
+        new Date(event.eventDetails[index + 1].scheduleStartTs).getTime() -
+        new Date(event.eventDetails[index].resultsAvailableTs).getTime();
+
+      this.scheduler.schedule(
+        whenToSwitch,
+        this.switchToPhaseChange.bind(this, { eventId: event.eventID, durationMs: phaseChangeDurationMs }),
+        {
+          overrideNow: event.now,
+          keyOverride: `switchToPhaseChange-${event.eventID}-${event.eventDetails[index].phase}`,
+        }
+      );
       return;
     }
 
     const eventDetailChangeDelay = (event as any).config?.delay?.eventDetailChangeMs ?? 0;
+    const preloadDurationMs = (event as any).eventConfig?.preloadDurationMs ?? 0;
+    const eventDetailChangeDurationMs = preloadDurationMs - eventDetailChangeDelay;
 
     this.scheduler.schedule(
       new Date(whenToSwitch.getTime() + eventDetailChangeDelay),
-      this.switchToEventDetailChange.bind(this, { eventId: event.eventID }),
+      this.switchToEventDetailChange.bind(this, { eventId: event.eventID, durationMs: eventDetailChangeDurationMs }),
       {
         overrideNow: event.now,
         keyOverride: `switchToEventDetailChange-${event.eventID}-${index}`,
@@ -194,11 +215,22 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
   }
 
   public handleEventDetailScheduleStart({ event, index }: EventDetailNotification) {
+    const preloadDurationMs = (event as any).eventConfig?.preloadDurationMs ?? 0;
+
+    const streamingDurationMs =
+      new Date(event.eventDetails[index].resultsAvailableTs).getTime() -
+      new Date(event.eventDetails[index].scheduleStartTs).getTime() -
+      preloadDurationMs;
+
     const whenToSwitchToStreaming = this.delayHandlingService.getTimeToStream(event, index);
-    this.scheduler.schedule(whenToSwitchToStreaming, this.switchToStreaming.bind(this, { eventId: event.eventID }), {
-      overrideNow: event.now,
-      keyOverride: `switchToStreaming-${event.eventID}-${index}`,
-    });
+    this.scheduler.schedule(
+      whenToSwitchToStreaming,
+      this.switchToStreaming.bind(this, { eventId: event.eventID, durationMs: streamingDurationMs }),
+      {
+        overrideNow: event.now,
+        keyOverride: `switchToStreaming-${event.eventID}-${index}`,
+      }
+    );
   }
 
   public getCurrentByGameId(gameId: string) {
@@ -215,21 +247,21 @@ export class GameFlowService implements ReplayService<GameFlowPayload> {
     };
   }
 
-  private switchToPrebet({ eventId }: { eventId: number }) {
+  private switchToPrebet({ eventId, durationMs }: { eventId: number; durationMs?: number }) {
     this.gameFlowTimeTrackingService.setTrackPoint(idHelper.extractGameId(eventId), Date.now());
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.Prebet });
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.Prebet, durationMs });
   }
 
-  private switchToStreaming({ eventId }: { eventId: number }) {
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.Streaming });
+  private switchToStreaming({ eventId, durationMs }: { eventId: number; durationMs?: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.Streaming, durationMs });
   }
 
-  private switchToEventDetailChange({ eventId }: { eventId: number }) {
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.EventDetailChange });
+  private switchToEventDetailChange({ eventId, durationMs }: { eventId: number; durationMs?: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.EventDetailChange, durationMs });
   }
 
-  private switchToPhaseChange({ eventId }: { eventId: number }) {
-    this.switchGameFlow({ eventId, gameFlow: GameFlow.PhaseChange });
+  private switchToPhaseChange({ eventId, durationMs }: { eventId: number; durationMs?: number }) {
+    this.switchGameFlow({ eventId, gameFlow: GameFlow.PhaseChange, durationMs });
   }
 
   private switchToResult({ eventId, durationMs }: { eventId: number; durationMs?: number }) {

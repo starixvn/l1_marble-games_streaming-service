@@ -70,6 +70,7 @@ export const createMockEvent = (options: MockEventOptions = {}): Event & { now?:
 
   return {
     eventID,
+    eventConfig: (options as any)?.eventConfig ?? null,
     eventNameAKey: options.eventNameAKey ?? "Team A",
     eventNameBKey: options.eventNameBKey ?? "Team B",
     theme: options.theme,
@@ -78,6 +79,7 @@ export const createMockEvent = (options: MockEventOptions = {}): Event & { now?:
     productCode: options.productCode ?? "TEST",
     productTypeKey: options.productTypeKey ?? "MARBLE",
     eventDetails: options.eventDetails ?? defaultEventDetails,
+    config: (options as any)?.config ?? null,
     voiceConfig: options.voiceConfig,
     now: options.now ?? new Date(scheduleStartTs).toISOString(),
   } as any;
