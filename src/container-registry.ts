@@ -31,6 +31,12 @@ export class ContainerRegistry {
       value: appConfigs as any,
     });
 
+    this.diContainer.register({
+      registerType: "value",
+      key: "shouldValidateEventScheduleStart",
+      value: true,
+    })
+
     this.container.register({
       clientManager: asClass(ClientManager)
         .singleton()
