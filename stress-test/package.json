@@ -11,7 +11,7 @@
     "test:extreme": "node stress-test.js 50000 200 2000"
   },
   "dependencies": {
-    "eventsource": "^2.0.2"
+    "eventsource": "^4.0.0"
   },
   "keywords": ["stress-test", "streaming", "sse", "load-test"],
   "author": "",
