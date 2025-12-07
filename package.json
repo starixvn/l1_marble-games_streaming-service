@@ -44,7 +44,7 @@
     "odds-feed-client": "3.4.4",
     "sc-common": "3.0.0",
     "sc-core-rng": "1.1.0",
-    "tldts": "7.0.17"
+    "tldts": "7.0.19"
   },
   "devDependencies": {
     "@types/chance": "1.1.7",
